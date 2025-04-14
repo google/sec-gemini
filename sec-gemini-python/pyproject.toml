@@ -1,0 +1,27 @@
+[project]
+name = "sec-gemini"
+version = "1.19.0"
+description = "Sec-Gemini Python SDK"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "asyncio>=3.4.3",
+    "httpx>=0.28.1",
+    "openai>=1.59.7",
+    "orjson>=3.10.12",
+    "pydantic>=2.10.4",
+    "python-dotenv>=1.0.1",
+    "rich>=13.9.4",
+    "websockets>=14.1",
+    "dotenv" # what version?
+]
+
+[tool.uv]
+dev-dependencies = [
+    "ipykernel>=6.29.5",
+    "jupyter>=1.1.1",
+    "pytest>=8.3.4",
+]
+
+[tool.setuptools.packages.find]
+include = ["secgemini*"]

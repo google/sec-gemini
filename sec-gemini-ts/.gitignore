@@ -1,0 +1,7 @@
+archive
+node_modules
+dist
+coverage
+dev
+demo
+tmp

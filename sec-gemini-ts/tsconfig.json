@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "esnext", // Or a suitable target for your users
+    "module": "esnext",
+    "moduleResolution": "node",
+    "lib": ["es2018", "dom"], // If you need DOM types, otherwise remove "dom"
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "declaration": true,  // Generate .d.ts files
+    "sourceMap": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "tests"]
+}

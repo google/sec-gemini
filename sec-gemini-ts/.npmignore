@@ -1,0 +1,2 @@
+# This is important. It overrides the gitignore file (which is the default option).
+# Since the .gitignore file ignores (correctly) the /dist directory, we need to un-ignore it when building the package.
