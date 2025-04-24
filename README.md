@@ -1,6 +1,6 @@
 # Sec-Gemini SDKs
 
-This repository hosts SDKs for Sec-Gemini, experimental cybersecurity-focused AI from Google.
+This repository hosts SDKs for Sec-Gemini, an experimental cybersecurity-focused AI from Google.
 
 SDKs are available for:
 
