@@ -7,7 +7,7 @@ SDKs are available for:
 * Python in `sec-gemini-python/`
 * TypeScript `sec-gemini-ts/`
 
-For more information on Sec-Gemini, visit [https://sec-gemini.google](https://sec-gemini.google).
+For more information on Sec-Gemini, visit [https://secgemini.google](https://secgemini.google).
 
 This is not an officially supported Google product. This project is not
 eligible for the [Google Open Source Software Vulnerability Rewards
