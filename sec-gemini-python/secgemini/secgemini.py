@@ -13,19 +13,20 @@
 # limitations under the License.
 
 import os
-import datetime
 from rich.console import Console
 from rich.table import Table
 from rich import box
 from dotenv import load_dotenv
+from datetime import datetime, timezone
+import logging
+
 from .http import NetworkClient
 from .session import InteractiveSession
 from .enums import _EndPoints, _URLS
 from .constants import DEFAULT_TTL
-from .models.public import PublicUser, PublicSession, UserInfo
+from .models.public import PublicSession, UserInfo
 from .models.modelinfo import ModelInfo
-from datetime import datetime, timezone
-import logging
+
 load_dotenv()
 logging.basicConfig(level=logging.WARNING)
 
@@ -52,7 +53,7 @@ class SecGemini:
         self.console = Console(width=console_width)
 
         if api_key == "":
-            api_key = os.getenv("SG_API_KEY")
+            api_key = os.getenv("SEC_GEMINI_API_KEY")
         if not api_key:
             raise ValueError("API key required: explictly pass it or set env variable SG_API_KEY (e.g in .env).")
         self.api_key = api_key
