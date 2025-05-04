@@ -17,10 +17,10 @@
     "dist"
   ],
   "scripts": {
-    "clean": "rm -rf dist demo",
+    "clean": "rm -rf dist demo/*.js demo/*.map",
     "build": "tsup",
     "test": "jest",
-    "demo": "tsup && node demo/secgeminisdk.js",
+    "demo": "tsup && node demo/demo.js",
     "relink": "npm run clean && tsup && npm rm secgeminisdk && npm link",
     "prepublishOnly": "npm run build"
   },

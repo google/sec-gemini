@@ -38,7 +38,7 @@ export default defineConfig([
     },
   },
   {
-    entry: {"secgeminisdk": "src/demo.ts"},
+    entry: {"demo": "demo/demo.ts"},
     format: ["cjs"],
     splitting: false,
     sourcemap: true,

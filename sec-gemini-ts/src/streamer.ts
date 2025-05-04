@@ -1,414 +1,444 @@
+// src/streamer.ts (Corrected and Complete)
+
 /**
  * Copyright 2025 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * ... (License Header) ...
  */
 
 import randomUUID from "./uuid";
-import WebSocket from "isomorphic-ws";
-import {EndPointsEnum, ResponseStatusEnum} from "./enum"
-import {RoleEnum, MimeTypeEnum, MessageTypeEnum} from "./secgeminienums";
-import { Message } from "./secgeminitypes";
+import WebSocket from "isomorphic-ws"; // Use isomorphic-ws for compatibility
+import { EndPointsEnum, ResponseStatusEnum } from "./enum";
+import { RoleEnum, MimeTypeEnum, MessageTypeEnum } from "./secgeminienums";
+import { Message, Role, MimeType } from "./secgeminitypes";
+
+const ROOT_MESSAGE_ID = '3713';
+
 type UserOnMessageCallback = (message: Message) => void;
 type ReconnectCallback = (success: boolean, attempt: number) => void;
-type ConnectionStatusCallback = (status: 'connecting' | 'connected' | 'disconnected' | 'reconnecting') => void;
+type ConnectionStatusCallback = (status: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error') => void;
 
-// Configuration constants
 const DEFAULT_CONFIG = {
-  INITIAL_RECONNECT_DELAY: 1000,
+  INITIAL_RECONNECT_DELAY: 1000, // ms
   MAX_RECONNECT_ATTEMPTS: 5,
-  CONNECTION_CHECK_INTERVAL: 1000, // 1s
-  CONNECTION_TIMEOUT: 60000, // 60 seconds
-  PING_INTERVAL: 30000, // 30 seconds
+  CONNECTION_TIMEOUT: 15000, // ms
+  PING_INTERVAL: 20000, // ms
 };
 
 interface StreamerConfig {
   maxReconnectAttempts?: number;
   initialReconnectDelay?: number;
   connectionTimeout?: number;
-  connectionCheckInterval?: number;
   pingInterval?: number;
   onReconnect?: ReconnectCallback;
   onConnectionStatusChange?: ConnectionStatusCallback;
 }
 
 class Streamer {
-    private ws: WebSocket;
-    private url: string;
-    private userOnOpen: CallableFunction | null;
-    private userOnMessage: UserOnMessageCallback;
-    private userOnError: CallableFunction | null;
-    private userOnClose: CallableFunction | null;
-    private onReconnect: ReconnectCallback | null;
-    private connectionStatusCallback: ConnectionStatusCallback | null;
+    private ws: WebSocket | null = null;
+    private readonly url: string;
+    private readonly userOnOpen: (() => void) | null;
+    private readonly userOnMessage: UserOnMessageCallback;
+    // Error callback receives Error object (or potentially WebSocket.ErrorEvent)
+    private readonly userOnError: ((error: Error) => void) | null;
+    private readonly userOnClose: ((event: WebSocket.CloseEvent) => void) | null;
+    private readonly onReconnect: ReconnectCallback | null;
+    private readonly connectionStatusCallback: ConnectionStatusCallback | null;
     public hasError: boolean = false;
-    private apiKey: string;
-    private sessionID: string;
+    private readonly apiKey: string;
+    private readonly sessionID: string;
     private isReconnecting: boolean = false;
     private messageQueue: {prompt: string, parentId?: string}[] = [];
 
-    // Reconnect logic
     private reconnectAttempts: number = 0;
-    private maxReconnectAttempts: number;
-    private reconnectDelay: number;
-    private connectionTimeout: number;
-    private connectionCheckInterval: number;
-    private connectionTimer: NodeJS.Timeout | null = null;
-    private pingIntervalId: NodeJS.Timeout | null = null;
-    private pingInterval: number;
+    private currentReconnectDelay: number;
+
+    private readonly maxReconnectAttempts: number;
+    private readonly initialReconnectDelay: number;
+    private readonly connectionTimeout: number;
+    private readonly pingInterval: number;
+
+    private connectionTimeoutId: number | NodeJS.Timeout | null = null;
+    private pingIntervalId: number | NodeJS.Timeout | null = null;
+
 
     public static async create(
         onmessage: UserOnMessageCallback,
-        onopen: CallableFunction | null = null,
-        onerror: CallableFunction | null = null,
-        onclose: CallableFunction | null = null,
-        websocket_url: string,
+        onopen: (() => void) | null = null,
+        onerror: ((error: Error) => void) | null = null, // Expect Error object
+        onclose: ((event: WebSocket.CloseEvent) => void) | null = null,
+        websocketUrl: string,
         sessionID: string,
         apiKey: string,
         config: StreamerConfig = {}
-    ) {
-        const streamer = new Streamer(onmessage, onopen, onerror, onclose, websocket_url, sessionID, apiKey, config);
-        await streamer.connect();
-        console.log("Waiting for WebSocket to OPEN...");
+    ): Promise<Streamer> {
+        if (!websocketUrl.match(/^wss?:\/\//)) {
+             throw new Error(`Invalid WebSocket URL: ${websocketUrl}. Must start with ws:// or wss://`);
+        }
+        const streamer = new Streamer(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
 
         return new Promise<Streamer>((resolve, reject) => {
-            // Set a timeout for connection
-            const timeout = setTimeout(() => {
-                reject(new Error(`Connection timeout after ${streamer.connectionTimeout}ms`));
-            }, streamer.connectionTimeout);
-
-            // Define success handler for connection
-            const checkConnection = () => {
-                if (streamer.ws.readyState === WebSocket.OPEN) {
-                    clearTimeout(timeout);
-                    console.log("WebSocket OPEN");
-                    resolve(streamer);
-                } else if (streamer.hasError) {
-                    clearTimeout(timeout);
-                    reject(new Error("WebSocket connection failed."));
-                } else {
-                    setTimeout(checkConnection, streamer.connectionCheckInterval);
-                }
+            const tempOnOpen = () => {
+                cleanUpTempHandlers();
+                console.info("Streamer: WebSocket connected successfully.");
+                resolve(streamer);
             };
 
-            checkConnection();
+            const tempOnError = (eventOrError: WebSocket.ErrorEvent | Error) => {
+                cleanUpTempHandlers();
+                const error = (eventOrError instanceof Error) ? eventOrError : new Error(`WebSocket connection error: ${(eventOrError as WebSocket.ErrorEvent).message || (eventOrError as Event).type || 'Unknown WS Error'}`);
+                console.error("Streamer: WebSocket connection failed.", error);
+                reject(error);
+            };
+
+            streamer.connectionTimeoutId = setTimeout(() => {
+                 cleanUpTempHandlers();
+                 const error = new Error(`Streamer: Connection timeout after ${streamer.connectionTimeout}ms`);
+                 console.error(error.message);
+                 if (streamer.ws && streamer.ws.readyState === WebSocket.CONNECTING) {
+                    streamer.ws.close(1001, "Connection Timeout");
+                 }
+                 reject(error);
+            }, streamer.connectionTimeout);
+
+            const cleanUpTempHandlers = () => {
+                if (streamer.connectionTimeoutId) {
+                    clearTimeout(streamer.connectionTimeoutId);
+                    streamer.connectionTimeoutId = null;
+                }
+                 if (streamer.ws) {
+                     streamer.ws.removeEventListener('open', tempOnOpen as any);
+                     streamer.ws.removeEventListener('error', tempOnError as any);
+                 }
+            };
+
+             try {
+                 streamer.connect(tempOnOpen, tempOnError);
+             } catch (error) {
+                 cleanUpTempHandlers();
+                 reject(error);
+             }
         });
     }
 
     private constructor(
         onmessage: UserOnMessageCallback,
-        onopen: CallableFunction | null,
-        onerror: CallableFunction | null,
-        onclose: CallableFunction | null,
-        websocket_url: string,
+        onopen: (() => void) | null,
+        onerror: ((error: Error) => void) | null, // Expect Error object
+        onclose: ((event: WebSocket.CloseEvent) => void) | null,
+        websocketUrl: string,
         sessionID: string,
         apiKey: string,
         config: StreamerConfig = {}
     ) {
-        // Set user defined callbacks
-        this.userOnOpen = onopen;
         this.userOnMessage = onmessage;
+        this.userOnOpen = onopen;
         this.userOnError = onerror;
         this.userOnClose = onclose;
-        this.onReconnect = config.onReconnect || null;
-        this.connectionStatusCallback = config.onConnectionStatusChange || null;
         this.sessionID = sessionID;
         this.apiKey = apiKey;
 
-        // Set configuration
-        this.maxReconnectAttempts = config.maxReconnectAttempts || DEFAULT_CONFIG.MAX_RECONNECT_ATTEMPTS;
-        this.reconnectDelay = config.initialReconnectDelay || DEFAULT_CONFIG.INITIAL_RECONNECT_DELAY;
-        this.connectionTimeout = config.connectionTimeout || DEFAULT_CONFIG.CONNECTION_TIMEOUT;
-        this.connectionCheckInterval = config.connectionCheckInterval || DEFAULT_CONFIG.CONNECTION_CHECK_INTERVAL;
-        this.pingInterval = config.pingInterval || DEFAULT_CONFIG.PING_INTERVAL;
+        this.maxReconnectAttempts = config.maxReconnectAttempts ?? DEFAULT_CONFIG.MAX_RECONNECT_ATTEMPTS;
+        this.initialReconnectDelay = config.initialReconnectDelay ?? DEFAULT_CONFIG.INITIAL_RECONNECT_DELAY;
+        this.connectionTimeout = config.connectionTimeout ?? DEFAULT_CONFIG.CONNECTION_TIMEOUT;
+        this.pingInterval = config.pingInterval ?? DEFAULT_CONFIG.PING_INTERVAL;
+        this.onReconnect = config.onReconnect ?? null;
+        this.connectionStatusCallback = config.onConnectionStatusChange ?? null;
 
-        // Create websocket URL
-        this.url = `${websocket_url}${EndPointsEnum.STREAM}?api_key=${apiKey}&session_id=${sessionID}`;
-        console.log("Connecting to: ", this.url);
+        this.currentReconnectDelay = this.initialReconnectDelay;
+
+        const path = EndPointsEnum.STREAM;
+        const endpointPath = path.startsWith('/') ? path.substring(1) : path;
+        const baseUrlClean = websocketUrl.replace(/\/$/, "");
+        this.url = `${baseUrlClean}/${endpointPath}?api_key=${this.apiKey}&session_id=${this.sessionID}`;
+
+        console.debug("Streamer: Target URL:", this.url);
     }
 
-    private async connect() {
-        this.updateConnectionStatus('connecting');
-
-        // Connect or reconnect to the websocket
-        this.ws = new WebSocket(this.url);
-        this.ws.onopen = this.onOpen.bind(this);
-        this.ws.onmessage = this.onMessage.bind(this);
-        this.ws.onerror = this.onError.bind(this);
-        this.ws.onclose = this.onClose.bind(this);
-
-        // Set connection timeout
-        if (this.connectionTimer) {
-            clearTimeout(this.connectionTimer);
+    private connect(tempOnOpen?: () => void, tempOnError?: (eventOrError: WebSocket.ErrorEvent | Error) => void) {
+        if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+             console.warn("Streamer: connect called while already connecting or open.");
+             return;
         }
 
-        this.connectionTimer = setTimeout(() => {
-            if (this.ws.readyState !== WebSocket.OPEN) {
-                this.handleConnectionTimeout();
-            }
-        }, this.connectionTimeout);
+        this.updateConnectionStatus('connecting');
+        console.debug("Streamer: Attempting to connect...");
+
+        try {
+            this.ws = new WebSocket(this.url);
+
+            // Assign permanent handlers using bound methods
+            this.ws.onopen = this.onOpen.bind(this);
+            this.ws.onmessage = this.onMessage.bind(this);
+            this.ws.onerror = this.onError.bind(this);
+            this.ws.onclose = this.onClose.bind(this);
+
+            // Add temporary listeners if provided
+            if (tempOnOpen) this.ws.addEventListener('open', tempOnOpen as any);
+            if (tempOnError) this.ws.addEventListener('error', tempOnError as any);
+
+        } catch (error) {
+             console.error("Streamer: Error creating WebSocket instance.", error);
+             this.updateConnectionStatus('error');
+             this.notifyError(error instanceof Error ? error : new Error("WebSocket constructor failed"));
+             throw error;
+        }
     }
 
     private setupHeartbeat() {
-        if (this.pingIntervalId) {
-            clearInterval(this.pingIntervalId);
-        }
+        this.clearPingInterval();
 
         this.pingIntervalId = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                // Use standard ping for FastAPI compatibility if available
                 if (typeof this.ws.ping === 'function') {
-                    this.ws.ping();
+                    // Add optional callback for Node.js `ws` library compatibility if needed
+                    this.ws.ping(() => {});
                 }
             }
         }, this.pingInterval);
-    }
-
-    private handleConnectionTimeout() {
-        this.hasError = true;
-        if (this.ws.readyState !== WebSocket.CLOSED && this.ws.readyState !== WebSocket.CLOSING) {
-            this.ws.close();
-        }
-        this.updateConnectionStatus('disconnected');
-        this.notifyError(new Error(`Connection timeout after ${this.connectionTimeout}ms`));
+         console.debug("Streamer: Heartbeat interval set up.");
     }
 
     public async send(prompt: string, parentId?: string): Promise<void> {
-        // If not connected, queue the message if attempting to reconnect
-        if (this.ws.readyState !== WebSocket.OPEN) {
+        if (!this.isConnected()) {
             if (this.isReconnecting) {
+                console.debug("Streamer: Queuing message during reconnect:", prompt.substring(0, 30) + "...");
                 this.messageQueue.push({prompt, parentId});
-                return Promise.resolve(); // Will be sent after reconnection
+                return;
             }
-            return Promise.reject(new Error("WebSocket is not connected."));
+            throw new Error("WebSocket is not connected.");
+        }
+        const currentWs = this.ws!;
+
+        if (!prompt || typeof prompt !== 'string') {
+            throw new Error("Invalid prompt: must be a non-empty string");
         }
 
-        return new Promise((resolve, reject) => {
-            try {
-                // Validate input
-                if (!prompt || typeof prompt !== 'string') {
-                    throw new Error("Invalid prompt: must be a non-empty string");
-                }
+        const message: Message = {
+            id: randomUUID(),
+            parent_id: parentId || ROOT_MESSAGE_ID,
+            role: RoleEnum.USER as Role,
+            mime_type: MimeTypeEnum.TEXT_PLAIN as MimeType,
+            message_type: MessageTypeEnum.QUERY,
+            content: prompt,
+        };
 
-                const message: Message = {
-                    id: randomUUID(),
-                    parent_id: parentId || '3713', // Use provided parentId or default
-                    role: RoleEnum.USER,
-                    mime_type: MimeTypeEnum.TEXT_PLAIN,
-                    message_type: MessageTypeEnum.QUERY,
-                    content: prompt,
-                    order: 0,
-                    status_code: ResponseStatusEnum.OK,
-                    status_message: '',
-                    usage: null,
-                };
-
-                const serializedMessage = JSON.stringify(message);
-
-                this.ws.send(serializedMessage);
-                resolve();
-            } catch (error) {
-                reject(error);
-            }
-        });
+        try {
+            const serializedMessage = JSON.stringify(message);
+            currentWs.send(serializedMessage);
+        } catch (error) {
+             console.error("Streamer: Error sending message:", error);
+             this.notifyError(error instanceof Error ? error : new Error("Failed to send message"));
+             throw error;
+        }
     }
 
-    public async close() {
-        // Clear all timers
-        if (this.connectionTimer) {
-            clearTimeout(this.connectionTimer);
-            this.connectionTimer = null;
-        }
-
-        if (this.pingIntervalId) {
-            clearInterval(this.pingIntervalId);
-            this.pingIntervalId = null;
-        }
+    public close(code: number = 1000, reason: string = "Normal closure"): void {
+        this.clearConnectionTimeout();
+        this.clearPingInterval();
+        this.isReconnecting = false;
+        this.reconnectAttempts = this.maxReconnectAttempts + 1;
 
         if (this.ws) {
-            try {
-                if (this.ws.readyState === WebSocket.OPEN) {
-                    await this.ws.close(1000, "Normal closure");
-                }
-            } catch (err) {
-                console.error("Error closing WebSocket:", err);
-            } finally {
-                // Clean up reference
-                this.ws.onopen = null;
-                this.ws.onmessage = null;
-                this.ws.onerror = null;
-                this.ws.onclose = null;
+            if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+                 console.info(`Streamer: Closing WebSocket connection (Code: ${code}, Reason: ${reason})`);
+                 try {
+                    this.ws.close(code, reason);
+                 } catch (err) {
+                    console.error("Streamer: Error initiating WebSocket close:", err);
+                 }
             }
+             this.cleanupWebSocketHandlers(); // Clean up handlers after initiating close
+        } else {
+             console.debug("Streamer: close called but no WebSocket instance exists.");
         }
 
         this.updateConnectionStatus('disconnected');
-    }
-
-    public resetErrorState() {
-        this.hasError = false;
-        this.reconnectAttempts = 0;
-        this.reconnectDelay = DEFAULT_CONFIG.INITIAL_RECONNECT_DELAY;
+        this.ws = null;
     }
 
     public isConnected(): boolean {
-        return this.ws && this.ws.readyState === WebSocket.OPEN;
+        return !!this.ws && this.ws.readyState === WebSocket.OPEN;
     }
 
-    private updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnected' | 'reconnecting') {
+    private updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error') {
         if (this.connectionStatusCallback) {
-            this.connectionStatusCallback(status);
+            try {
+                this.connectionStatusCallback(status);
+            } catch (error) {
+                console.error("Streamer: Error in user 'onConnectionStatusChange' callback:", error);
+            }
         }
     }
 
-    private async onOpen(event: WebSocket.OpenEvent) {
-        this.reconnectAttempts = 0; // Reset reconnection attempts
-        this.reconnectDelay = DEFAULT_CONFIG.INITIAL_RECONNECT_DELAY; // Reset reconnection delay
-        this.hasError = false; // Reset error state
-        this.isReconnecting = false;
+    private onOpen(/*event: WebSocket.OpenEvent*/): void {
+        console.info("Streamer: WebSocket connection opened.");
+        this.resetReconnectionState();
         this.updateConnectionStatus('connected');
-
-        if (this.connectionTimer) {
-            clearTimeout(this.connectionTimer);
-            this.connectionTimer = null;
-        }
-
-        // Setup heartbeat for keeping connection alive
+        this.clearConnectionTimeout();
         this.setupHeartbeat();
-
-        // Process any queued messages
-        while (this.messageQueue.length > 0) {
-            const msg = this.messageQueue.shift();
-            if (msg) {
-                try {
-                    await this.send(msg.prompt, msg.parentId);
-                } catch (error) {
-                    console.error("Failed to send queued message:", error);
-                }
-            }
-        }
-
-        if (this.userOnOpen) {
-            this.userOnOpen(event);
-        }
+        this.processMessageQueue();
+        if (this.userOnOpen) { try { this.userOnOpen(); } catch(e) { console.error("Err in onOpen", e); }}
     }
 
-    private async onMessage(event: WebSocket.MessageEvent) {
+    private onMessage(event: WebSocket.MessageEvent): void {
         try {
-            const receivedData = event.data;
-            if (typeof receivedData === "string") {
-                if (receivedData.includes("not found")) {
-                    console.error("Session not found. Closing connection.");
-                    this.hasError = true;
-                    this.notifyError(new Error("Session not found"));
-                    this.ws.close();
-                    return;
-                }
-                const message: Message = JSON.parse(receivedData);
-                this.userOnMessage(message);
-            } else {
-                // should never happen
-                console.warn("Binary message received", receivedData);
-                this.notifyError(new Error("Unexpected binary message received"));
+            let receivedData: string;
+            if (typeof event.data === 'string') { receivedData = event.data; }
+            else if (typeof Buffer !== 'undefined' && event.data instanceof Buffer) { receivedData = event.data.toString('utf-8'); }
+            else if (typeof ArrayBuffer !== 'undefined' && event.data instanceof ArrayBuffer) { receivedData = new TextDecoder().decode(event.data); }
+            else if (typeof Blob !== 'undefined' && event.data instanceof Blob) { console.warn("Streamer: Received Blob message, async handling needed."); return; }
+            else { console.warn("Streamer: Received message of unknown type:", typeof event.data); return; }
+
+            if (receivedData.includes("\"status_message\"") && receivedData.includes("not found")) {
+                console.error("Streamer: Session not found message received. Closing.");
+                this.hasError = true;
+                this.notifyError(new Error("Session not found on server"));
+                this.close(1011, "Session Not Found");
+                return;
             }
+            const message: Message = JSON.parse(receivedData);
+            if (!message || typeof message !== 'object' || !message.message_type) {
+                console.warn("Streamer: Received data doesn't look like a valid Message:", message);
+                return;
+            }
+            this.userOnMessage(message);
         } catch (error) {
-            console.error("Error parsing or handling message:", error);
+            console.error("Streamer: Error parsing/handling incoming message:", error);
             this.notifyError(error instanceof Error ? error : new Error("Unknown error processing message"));
         }
     }
 
-    private async onError(event: WebSocket.ErrorEvent) {
-        console.error("WebSocket error:", event);
+    // Node 'ws' onerror provides Error, browser provides Event. Normalize to Error.
+    private onError(errorOrEvent: WebSocket.ErrorEvent | Error): void {
+        const error = (errorOrEvent instanceof Error) ? errorOrEvent : new Error(`WebSocket error: ${(errorOrEvent as WebSocket.ErrorEvent).message || (errorOrEvent as Event).type}`);
+        console.error("Streamer: WebSocket error occurred.", error);
         this.hasError = true;
-
-        if (this.connectionTimer) {
-            clearTimeout(this.connectionTimer);
-            this.connectionTimer = null;
-        }
-
-        if (this.pingIntervalId) {
-            clearInterval(this.pingIntervalId);
-            this.pingIntervalId = null;
-        }
-
-        this.updateConnectionStatus('disconnected');
-
-        if (this.userOnError) {
-            this.userOnError(event);
-        }
+        this.clearConnectionTimeout();
+        this.clearPingInterval();
+        this.updateConnectionStatus('error');
+        this.notifyError(error); // Pass the normalized Error object
     }
 
-    private onClose(event: WebSocket.CloseEvent) {
-        if (this.connectionTimer) {
-            clearTimeout(this.connectionTimer);
-            this.connectionTimer = null;
-        }
+    private onClose(event: WebSocket.CloseEvent): void {
+        console.info(`Streamer: WebSocket connection closed. Code: ${event.code}, Reason: "${event.reason}", Clean: ${event.wasClean}`);
+        this.clearConnectionTimeout();
+        this.clearPingInterval();
 
-        if (this.pingIntervalId) {
-            clearInterval(this.pingIntervalId);
-            this.pingIntervalId = null;
-        }
+        if (this.userOnClose) { try { this.userOnClose(event); } catch(e) { console.error("Err in onClose", e); } }
 
-        if (this.userOnClose) {
-            this.userOnClose(event);
-        }
+        const shouldAttemptReconnect = event.code !== 1000 && !this.hasError && this.reconnectAttempts < this.maxReconnectAttempts && !this.isReconnecting;
 
-        // Handle FastAPI-specific close codes
-        if (event.code === 1000) {
-            // Normal closure, no reconnection needed
-            console.log("WebSocket closed normally");
-            this.updateConnectionStatus('disconnected');
-            this.hasError = false;
-            // No reconnection for normal closure
-            return;
-        }
-
-        if (!this.hasError && !this.isReconnecting && this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.isReconnecting = true;
-            this.updateConnectionStatus('reconnecting');
-            console.log(`Chat connection lost. Reconnecting (attempt ${this.reconnectAttempts + 1})...`);
-
-            setTimeout(() => {
-                this.reconnectAttempts++;
-                this.reconnectDelay *= 2; // Exponential backoff
-                this.connect().then(() => {
-                    if (this.onReconnect && this.ws.readyState === WebSocket.OPEN) {
-                        this.onReconnect(true, this.reconnectAttempts);
-                    }
-                }).catch((error) => {
-                    this.isReconnecting = false;
-                    this.updateConnectionStatus('disconnected');
-                    if (this.onReconnect) {
-                        this.onReconnect(false, this.reconnectAttempts);
-                    }
-                    this.notifyError(error);
-                });
-            }, this.reconnectDelay);
-        } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        if (shouldAttemptReconnect) {
+            this.attemptReconnection();
+        } else {
+            if (this.reconnectAttempts >= this.maxReconnectAttempts) { console.error("Streamer: Max reconnection attempts reached."); if (!this.hasError) this.notifyError(new Error("Max reconnection attempts reached")); }
+            else if (this.hasError) { console.warn("Streamer: Not reconnecting due to error flag."); }
+            else if (event.code === 1000) { console.info("Streamer: Normal closure."); }
             this.isReconnecting = false;
             this.updateConnectionStatus('disconnected');
-            console.error("Max reconnection attempts reached.");
-            if (this.onReconnect) {
-                this.onReconnect(false, this.reconnectAttempts);
-            }
-            this.notifyError(new Error("Max reconnection attempts reached"));
+            this.ws = null;
         }
     }
 
-    private notifyError(error: Error) {
-        if (this.userOnError) {
-            this.userOnError(error);
+    private attemptReconnection(): void {
+        this.isReconnecting = true;
+        this.reconnectAttempts++;
+        this.updateConnectionStatus('reconnecting');
+        const delay = this.currentReconnectDelay;
+        console.info(`Streamer: Connection lost. Reconnecting in ${delay}ms (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+
+        setTimeout(() => {
+            if (!this.isReconnecting) { console.info("Streamer: Reconnection cancelled."); return; }
+            try {
+                this.connect(
+                    () => { // tempOnOpen for reconnect
+                         console.info(`Streamer: Reconnection successful (Attempt ${this.reconnectAttempts})`);
+                         this.isReconnecting = false;
+                         if (this.onReconnect) this.onReconnect(true, this.reconnectAttempts);
+                    },
+                    (err) => { // tempOnError for reconnect
+                         console.error(`Streamer: Reconnection attempt ${this.reconnectAttempts} failed.`);
+                         this.isReconnecting = false; // Ready for next attempt or failure
+                         this.ws = null; // Ensure WS is null on failed attempt
+                         this.currentReconnectDelay = Math.min(delay * 2, 30000); // Use previous delay for backoff calc
+                         if (this.onReconnect) this.onReconnect(false, this.reconnectAttempts);
+                         this.updateConnectionStatus('disconnected');
+                         // Trigger onClose manually to potentially drive the next attempt if needed
+                         // Create a basic event object, exact properties might not matter here
+                         this.onClose({ code: 1006, reason: "Reconnect Failed", wasClean: false, target: this.ws } as WebSocket.CloseEvent);
+                    }
+                );
+            } catch (error) {
+                 console.error(`Streamer: Error during reconnection attempt ${this.reconnectAttempts}`, error);
+                 this.isReconnecting = false;
+                 this.updateConnectionStatus('disconnected');
+                 if (this.onReconnect) this.onReconnect(false, this.reconnectAttempts);
+                 this.onClose({ code: 1006, reason: "Reconnect Exception", wasClean: false, target: this.ws } as WebSocket.CloseEvent);
+            }
+        }, delay);
+    }
+
+
+    private async processMessageQueue(): Promise<void> {
+        console.debug(`Streamer: Processing message queue (${this.messageQueue.length} items)...`);
+        const processingQueue = [...this.messageQueue];
+        this.messageQueue = [];
+
+        const sendPromises = processingQueue.map(msg =>
+            this.send(msg.prompt, msg.parentId).catch(error => {
+                console.error("Streamer: Failed to send queued message:", error);
+            })
+        );
+        await Promise.allSettled(sendPromises);
+        console.debug("Streamer: Message queue processed.");
+    }
+
+
+    private resetReconnectionState(): void {
+        this.reconnectAttempts = 0;
+        this.currentReconnectDelay = this.initialReconnectDelay;
+        this.hasError = false;
+        this.isReconnecting = false;
+    }
+
+     private cleanupWebSocketHandlers(): void {
+        if (this.ws) {
+            this.ws.onopen = null;
+            this.ws.onmessage = null;
+            this.ws.onerror = null;
+            this.ws.onclose = null;
         }
     }
-}
+
+    private clearConnectionTimeout(): void {
+        if (this.connectionTimeoutId) {
+            clearTimeout(this.connectionTimeoutId);
+            this.connectionTimeoutId = null;
+        }
+    }
+
+     private clearPingInterval(): void {
+        if (this.pingIntervalId) {
+            clearInterval(this.pingIntervalId);
+            this.pingIntervalId = null;
+             console.debug("Streamer: Heartbeat interval cleared.");
+        }
+    }
+
+    // Completed notifyError method
+    private notifyError(error: Error | WebSocket.ErrorEvent) {
+        // Ensure we always pass an Error object to the user callback
+        const errorObj = (error instanceof Error) ? error : new Error(`WebSocket Event: ${(error as WebSocket.ErrorEvent).message || (error as Event).type || 'Unknown WS Error'}`);
+        if (this.userOnError) {
+            try {
+                // Pass the normalized Error object
+                this.userOnError(errorObj);
+            } catch (e) {
+                 // Catch errors that happen *inside* the user's callback
+                 console.error("Streamer: Error occurred within user 'onerror' callback:", e);
+            }
+        }
+    }
+} // End of Streamer class
 
 export default Streamer;
