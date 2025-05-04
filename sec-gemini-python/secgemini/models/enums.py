@@ -1,3 +1,4 @@
+
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"Models enums"
+
 from enum import Enum
 
 class FeedbackType(str, Enum):
@@ -20,6 +21,11 @@ class FeedbackType(str, Enum):
 
     USER_FEEDBACK = "user_feedback"
     BUG_REPORT = "bug_report"
+
+class VectorDistance(str, Enum):
+    COSINE = "COSINE"
+    DOT_PRODUCT = "DOT_PRODUCT"
+    EUCLIDEAN = "EUCLIDEAN"
 
 class UserType(str, Enum):
     "User type"
@@ -95,8 +101,7 @@ class ResponseStatus(int, Enum):
 class Role(str, Enum):
     "Describe the role associated with the completion"
     USER = "user"
-    ASSISTANT = "assistant"
-    FUNCTION = "function"
+    AGENT = "agent"
     SYSTEM = "system"   # those are not returned to the user
 
 class MimeType(str, Enum):
@@ -174,44 +179,44 @@ class MimeType(str, Enum):
     ODT = "application/vnd.oasis.opendocument.text"
 
 
-class ModelName(str, Enum):
-    "Available models"
-    STABLE = "secgemini-stable-stable"
-    LATEST = "secgemini-latest-latest"
-    OLD = 'p9-stable-stable'
-
 class State(str, Enum):
     START  = "start"  # session just started
+
     QUERY = "query"  # user query
 
+    RUNNING_AGENT = "running_agent"  # executing agent
+    AGENT_DONE = "agent_done"  # agent done
 
-    # Intermediate step
+    CODING = "coding"  # executing code
+    CODE_RESULT = "code_result"  # code result
+
+    CALLING_TOOL = "calling_tool"  # executing function
+    TOOL_RESULT = "tool_result"  # function result
+
+    # semantic sugar states
     GENERATING = "generating"  # generating response
     ANSWERING = "answering"  # generating answer
     THINKING = "thinking"  # thinking
     PLANNING = "planning"  # planning execution
     REVIEWING = "reviewing"  # reviewing current result
-    EXECUTING = "executing"  # calling tools
-    UNDERSTANDING = "understanding"  # understanding
+    UNDERSTANDING = "understanding"  # intent detection
     RETRIVING = "retriving"  # retrieving info
-    DYNAMIC_RETRIEVAL = "dynamic_retrieval"  # dynamic retrieval
-    MSGUPDATE = "msg_update"  # updating a specific message content
     GROUNDING = "grounding"  # grounding
 
 
 class MessageType(str, Enum):
     "Type of message"
 
-    SESSION_START = "session_start"  # session start
-    SESSION_END = "session_end"  # session end
-
-    GROUP_START = "group_start"  # group of messages start
-    GROUP_END = "group_end"  # group of messages end
-
-    UPDATE = "update"  # update message
+    # info messages
     RESULT = "result"  # result message
     DEBUG = "debug"  # debug message
     INFO = "info"   # transient info message only used in streaming
     ERROR = "error"  # error message
+    THINKING = "thinking"  # thinking message that persist in the thinking panel
 
-    QUERY = "query"  # user query messages
+    # mutation messages
+    UPDATE = "update"  # update message that modify the output. e.g grounding or new fact
+    DELETE = "delete"  # Ask to delete a previous message by id
+
+    # User messages
+    QUERY = "query"

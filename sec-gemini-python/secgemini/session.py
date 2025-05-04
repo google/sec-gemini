@@ -18,7 +18,6 @@ import asyncio
 import logging
 import random
 from typing import AsyncIterator
-from uuid import uuid4
 from pathlib import Path
 from base64 import b64encode
 
@@ -29,38 +28,65 @@ from .constants import DEFAULT_TTL
 from .enums import _EndPoints
 
 from .http import NetworkClient
-from .models import Message, MessageType, MimeType, OpResult, ResponseStatus
-from .models import State, Role, Session, SessionRequest, SessionResponse, User
-from .models import Attachment, Feedback, FeedbackType, SessionFile, Usage
 
+from .models.attachment import Attachment
+from .models.enums import MimeType, FeedbackType, MessageType, State, Role
+from .models.feedback import Feedback
+from .models.message import Message, MessageType
+from .models.modelinfo import ModelInfo
+from .models.opresult import OpResult, ResponseStatus
+from .models.public import PublicSession, PublicSessionFile, PublicUser
+from .models.session_request import SessionRequest
+from .models.session_response import SessionResponse
+from .models.usage import Usage
 
 class InteractiveSession():
     "Interactive session with Sec-Gemini"
 
     def __init__(self,
-                 model_name: str,
-                 user: User,
+                 user: PublicUser,
                  base_url: str,
                  base_websockets_url: str,
                  api_key: str,
                  enable_logging: bool = True):
 
-        self.model_name = model_name
         self.user = user
         self.base_url = base_url
         self.websocket_url = base_websockets_url
         self.api_key = api_key
         self.enable_logging = enable_logging
         self.http = NetworkClient(self.base_url, self.api_key)
-        self._session = None   # session object
-        self.state = State.QUERY
-
+        self._session: PublicSession = None   # session object
 
     @property
     def id(self) -> str:
         """Session ID"""
         self._refresh_data()
         return self._session.id
+
+    @property
+    def model(self) -> ModelInfo:
+        """Session model"""
+        self._refresh_data()
+        return self._session.model
+
+    @property
+    def ttl(self) -> int:
+        """Session TTL"""
+        self._refresh_data()
+        return self._session.ttl
+
+    @property
+    def language(self) -> str:
+        """Session language"""
+        self._refresh_data()
+        return self._session.language
+
+    @property
+    def turns(self) -> int:
+        """Session turns"""
+        self._refresh_data()
+        return self._session.turns
 
     @property
     def name(self) -> str:
@@ -75,10 +101,16 @@ class InteractiveSession():
         return self._session.description
 
     @property
-    def ttl(self) -> int:
-        """Session TTL"""
+    def create_time(self) -> int:
+        """Session creation time"""
         self._refresh_data()
-        return self._session.ttl
+        return self._session.create_time
+
+    @property
+    def update_time(self) -> int:
+        """Session update time"""
+        self._refresh_data()
+        return self._session.update_time
 
     @property
     def messages(self) -> list[Message]:
@@ -87,18 +119,31 @@ class InteractiveSession():
         return self._session.messages
 
     @property
-    def files(self) -> list[SessionFile]:
-        """Session attachments"""
-        self._refresh_data()
-        return self._session.files
-
-    @property
     def usage(self) -> Usage:
         """Session usage"""
         self._refresh_data()
         return self._session.usage
 
-    def _refresh_data(self) -> Session:
+    @property
+    def can_log(self) -> bool:
+        """Session can log"""
+        self._refresh_data()
+        return self._session.can_log
+
+    @property
+    def state(self) -> State:
+        """Session state"""
+        self._refresh_data()
+        return self._session.state
+
+    @property
+    def files(self) -> list[PublicSessionFile]:
+        """Session attachments"""
+        self._refresh_data()
+        return self._session.files
+
+
+    def _refresh_data(self) -> PublicSession:
         """Refresh the session"""
         if self._session is None:
             raise ValueError("Session not initialized")
@@ -234,9 +279,9 @@ class InteractiveSession():
             self._session.description = description
 
         if ttl:
-            assert ttl > 300, "TTL must be greater than 300 seconds"
+            if ttl < 300:
+                raise ValueError("TTL must be greater than 300 seconds")
             self._session.ttl = ttl
-
 
         resp = self.http.post(_EndPoints.UPDATE_SESSION.value, self._session)
         if not resp.ok:
@@ -292,34 +337,37 @@ class InteractiveSession():
             else:
                 # FIXME more info here
                 text = f"[{msg.role}][{msg.message_type}][magenta][File]{msg.mime_type}File[/magenta]"
-                
+
             tree_data[msg.id] = tree_data[msg.parent_id].add(text)
 
         console.print(tree_data['3713'])
 
-    def register(self, ttl: int = DEFAULT_TTL, name: str = "",
-                 description: str = "") -> bool:
+    def register(self, model: ModelInfo, ttl: int = DEFAULT_TTL, name: str = "",
+                 description: str = "", language: str = "en") -> bool:
         """Initializes the session
 
         notes:
          - usually called via `SecGemini.create_session()`
         """
+        # FIXME: add model customization
 
         # basic checks
-        assert ttl > 300, "TTL must be greater than 300 seconds"
+        if ttl < 300:
+            raise ValueError("TTL must be greater than 300 seconds")
 
         # generate a friendly name if not provided
         if not name:
             name = self._generate_session_name()
 
         # register the session
-        session = Session(name=name,
-                          description=description,
-                          user_id=self.user.id,
-                          org_id=self.user.org_id,
-                          model_name=self.model_name,
-                          ttl=ttl,
-                          can_log=self.enable_logging)
+        session = PublicSession(model=model,
+                                user_id=self.user.id,
+                                org_id=self.user.org_id,
+                                ttl=ttl,
+                                language=language,
+                                name=name,
+                                description=description,
+                                can_log=self.enable_logging)
 
         resp = self.http.post(_EndPoints.REGISTER_SESSION.value, session)
         if not resp.ok:
@@ -337,16 +385,14 @@ class InteractiveSession():
 
         return True
 
-
-
-    def generate(self, prompt: str) -> SessionResponse:
+    def query(self, prompt: str) -> SessionResponse:
         """Classic AI Generation/Completion Request"""
         if not prompt:
             raise ValueError("Prompt is required")
 
         # build a synchronous request and return the response
         message = self._build_prompt_message(prompt)
-        req = SessionRequest(id=self.id, messages=[message], model=self.model_name)
+        req = SessionRequest(id=self.id, messages=[message])
         resp = self.http.post(_EndPoints.GENERATE.value, req)
 
         if not resp.ok:
@@ -359,12 +405,12 @@ class InteractiveSession():
             return None
         return resp
 
-    async def stream(self, prompt: str) -> AsyncIterator[Message]:
+    async def stream(self, query: str) -> AsyncIterator[Message]:
         """Streaming Generation/Completion Request"""
-        if not prompt:
-            raise ValueError("Prompt is required")
+        if not query:
+            raise ValueError("query is required")
 
-        message = self._build_prompt_message(prompt)
+        message = self._build_prompt_message(query)
         # FIXME: maybe move to http client as it is super specific
         url = f"{self.websocket_url}{_EndPoints.STREAM.value}"
         url += f"?api_key={self.api_key}&session_id={self.id}"
@@ -398,7 +444,7 @@ class InteractiveSession():
                 await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
 
 
-    def fetch_session(self, id:str) -> Session:
+    def fetch_session(self, id:str) -> PublicSession:
         """Get the full session from the server"""
         # for security reason, the api requires the user_id and org_id
         query_params = {"session_id": id}
@@ -409,7 +455,7 @@ class InteractiveSession():
             return None
 
         try:
-            session = Session(**resp.data)
+            session = PublicSession(**resp.data)
         except Exception as e:
             logging.error("[Session][Resume][Session]: %s - %s", repr(e),
                           resp.data)

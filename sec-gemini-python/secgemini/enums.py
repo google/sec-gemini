@@ -22,7 +22,7 @@ class SDKInfo(Enum):
 class _URLS(Enum):
     """API URLs"""
     HTTPS = "https://api.secgemini.google"
-    WEBSOCKET = "wss://ws.secgemini.google"
+    WEBSOCKET = "wss://api.secgemini.google"
 
 class _EndPoints(Enum):
     """API Endpoints"""

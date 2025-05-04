@@ -1,3 +1,4 @@
+
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,30 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"Chat completion models and schemas."
+
 from pydantic import BaseModel, Field
 
 from .message import Message
 from .usage import Usage
-from .enums import ModelName, MessageType, MimeType
+from .enums import MessageType, MimeType
 
 
 class SessionResponse(BaseModel):
-    """
-    Represents a generation response returned by the model, based on the provided input.
-    """
 
-    id: str = Field(
-        ...,
-        title="Thread ID",
-        description="The Session ID (UUID4) passed in the request."
-    )
+    id: str = Field(..., title="Session ID")
 
-    messages: list[Message] = Field(
-        ...,
-        title="Generated Messages",
-        description="A list of generated message. Can be more than one if `n` is greater than 1."
-    )
+    messages: list[Message] = Field(..., title="Response Messages",)
 
     status_code: int = Field(..., title="Status Code",
                              description="The status code of the message. 2xx is Okay, 4xx is a client error, 5xx is a server error.")
@@ -46,13 +36,9 @@ class SessionResponse(BaseModel):
     usage: Usage = Field(..., title="Usage Statistics",
                          description="Usage statistics for the message.")
 
-
     def text(self) -> str:
         content = []
         for idx, msg in enumerate(self.messages):
             if msg.mime_type == MimeType.TEXT and msg.message_type == MessageType.RESULT:
                 content.append(msg.content)
-            if msg.message_type == MessageType.GROUP_END:
-                if idx < len(self.messages) - 1:
-                    content.append("\n")
-        return " ".join(content)
+        return " ".join(content) + "\n" if len(content) > 0 else ""

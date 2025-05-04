@@ -13,9 +13,12 @@
 # limitations under the License.
 
 from .secgemini import SecGemini
-from .models import SessionRequest, SessionResponse, Message, State
+from .models.session_request import SessionRequest
+from .models.session_response import SessionResponse
+from .models.message import Message
+from .models.enums import State
 from .file import File
-from .session import Session
+from .session import InteractiveSession
 from .models.enums import MimeType, MessageType
 
 __all__ = [
@@ -24,7 +27,7 @@ __all__ = [
     "SessionResponse",
     "Message",
     "File",
-    "Session",
+    "InteractiveSession",
     "MimeType",
     "MessageType",
     "State",

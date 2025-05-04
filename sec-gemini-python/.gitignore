@@ -2,6 +2,9 @@
 .venv
 .credentials.json
 *.sh
+*egg
+*.egg-info
+*.egg-info/
 .vscode
 .pytest_cache
 config.toml
