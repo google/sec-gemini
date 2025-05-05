@@ -2,3 +2,6 @@ tmp/
 .DS_Store
 .env
 .venv
+
+// JS
+node_modules/

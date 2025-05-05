@@ -66,7 +66,7 @@ const DEFAULT_TTL = 86400; // Default session TTL in seconds
  * Handles authentication, fetching user info, managing models,
  * and creating/resuming interactive sessions.
  */
-class SecGemini {
+export class SecGemini {
   private apiKey: string;
   private baseURL: string;
   private websocketsURL: string;

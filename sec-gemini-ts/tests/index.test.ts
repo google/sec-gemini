@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import {P9SDK} from '../src/index';
+import {SecGemini} from '../src/index';
 
 
-describe("P9SDK", () => {
-  test("should init the service", () => {
-    expect(() => new P9SDK({} as any)).toThrow("baseURL is required");
-  });
+describe("SecGeminiSDK", () => {
+  test("should init the service", async () => {
+    await expect(SecGemini.create()).rejects.toThrowError("API Key is required. Provide it directly or set SEC_GEMINI_API_KEY environment variable.");
+  })
 });
