@@ -1,6 +1,6 @@
 [project]
 name = "sec-gemini"
-version = "1.0.0"
+version = "0.0.1"
 description = "Sec-Gemini Python SDK"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,4 +24,4 @@ dev-dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["secgemini*"]
+include = ["sec_gemini*"]
