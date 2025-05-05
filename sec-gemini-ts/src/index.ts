@@ -57,7 +57,11 @@ import {
 
 // Define Constants for URLs
 // Use environment variables or configuration management in a real app
-const DEFAULT_BASE_URL = process?.env?.SEC_GEMINI_BASE_URL || "https://api.secgemini.google";
+if (typeof process === "undefined") {
+  // Fallback for environments where process is not defined (like browsers).
+  const process = {}
+}
+const DEFAULT_BASE_URL = (process?.env?.SEC_GEMINI_BASE_URL) || "https://api.secgemini.google";
 const DEFAULT_WS_URL = process?.env?.SEC_GEMINI_WS_URL || "wss://api.secgemini.google";
 const DEFAULT_TTL = 86400; // Default session TTL in seconds
 

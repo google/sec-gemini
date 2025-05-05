@@ -1,6 +1,6 @@
 {
   "name": "sec-gemini",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Sec-Gemini SDK",
   "license": "Apache-2.0",
   "main": "./dist/index.cjs",
