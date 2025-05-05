@@ -22,6 +22,6 @@ jobs:
           npm run test
       - name: Publish
         working-directory: sec-gemini-ts
-        run: npm publish --provenance --access public
+        run: npm publish  # --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
