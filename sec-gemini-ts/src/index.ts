@@ -57,8 +57,8 @@ import {
 
 // Define Constants for URLs
 // Use environment variables or configuration management in a real app
-const DEFAULT_BASE_URL = process.env.SEC_GEMINI_BASE_URL || "https://api.secgemini.google";
-const DEFAULT_WS_URL = process.env.SEC_GEMINI_WS_URL || "wss://api.secgemini.google";
+const DEFAULT_BASE_URL = process?.env?.SEC_GEMINI_BASE_URL || "https://api.secgemini.google";
+const DEFAULT_WS_URL = process?.env?.SEC_GEMINI_WS_URL || "wss://api.secgemini.google";
 const DEFAULT_TTL = 86400; // Default session TTL in seconds
 
 /**
@@ -84,7 +84,7 @@ class SecGemini {
   private constructor(apiKey: string, baseURL: string, websocketsURL: string) {
     if (!apiKey) {
       // Consider checking environment variables here too as a fallback
-      apiKey = process.env.SEC_GEMINI_API_KEY || "";
+      apiKey = process?.env.SEC_GEMINI_API_KEY || "";
     }
     if (!apiKey) {
       throw new Error("API Key is required. Provide it directly or set SEC_GEMINI_API_KEY environment variable.");
