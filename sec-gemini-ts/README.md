@@ -47,7 +47,7 @@ npm link
 in your project/app
 
 ```bash
-npm link p9sdk
+npm link sec-gemini
 ```
 
 ### Build for release
