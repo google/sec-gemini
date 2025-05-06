@@ -46,7 +46,7 @@ import {
   FeedbackType,
   Role,
   State,
-  ModelInfo, // Now used explicitly
+  ModelInfoInput,
   PublicSessionFile,
 } from './secgeminitypes';
 
@@ -147,7 +147,7 @@ class InteractiveSession {
     return this._session.id;
   }
 
-  public get model(): ModelInfo {
+  public get model(): ModelInfoInput {
       if (!this._session?.model) {
         throw new Error("Session is not initialized or model info is missing.");
       }
@@ -228,12 +228,12 @@ class InteractiveSession {
   /**
    * @internal - Registers the session with the backend. Called by `SecGemini.createSession()`.
    *
-   * @param options - Registration parameters including the specific ModelInfo.
+   * @param options - Registration parameters including the specific ModelInfoInput.
    * @throws Error on validation failure, API error, or registration failure.
    */
   public async register(options: {
     ttl: number;
-    model: ModelInfo; // Now requires ModelInfo
+    model: ModelInfoInput; // Now requires ModelInfoInput
     name?: string;
     description?: string;
     language?: string;
@@ -251,7 +251,7 @@ class InteractiveSession {
       throw new Error(`TTL must be greater than ${MIN_TTL_SECONDS} seconds.`);
     }
     if (!model || !model.model_string) {
-        throw new Error("Valid ModelInfo object is required for registration.");
+        throw new Error("Valid ModelInfoInput object is required for registration.");
     }
 
     // Determine final logging status based on user preference and permissions
@@ -274,7 +274,7 @@ class InteractiveSession {
       id: sessionId,
       user_id: this.user.id,
       org_id: this.user.org_id,
-      model: model, // Use the provided ModelInfo object
+      model: model, // Use the provided ModelInfoInput object
       ttl: ttl,
       name: sessionName,
       description: description,
