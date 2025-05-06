@@ -21,7 +21,7 @@ jobs:
         run: uv build
         working-directory: sec-gemini-python
       - name: Test
-        run: uv run pytest
+        run: uv run -m pytest
         working-directory: sec-gemini-python
       - name: Publish
         run: uv publish -t ${{ secrets.PYPI_TOKEN }}

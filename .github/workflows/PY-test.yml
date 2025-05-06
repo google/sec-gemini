@@ -25,5 +25,5 @@ jobs:
         run: uv sync --locked --all-extras --dev
         working-directory: sec-gemini-python
       - name: Test
-        run: uv run pytest
+        run: uv run -m pytest
         working-directory: sec-gemini-python
