@@ -209,6 +209,7 @@ class MessageType(str, Enum):
 
     # info messages
     RESULT = "result"  # result message
+    SOURCE = "source"  # cite a source used during the generation
     DEBUG = "debug"  # debug message
     INFO = "info"   # transient info message only used in streaming
     ERROR = "error"  # error message
@@ -217,6 +218,10 @@ class MessageType(str, Enum):
     # mutation messages
     UPDATE = "update"  # update message that modify the output. e.g grounding or new fact
     DELETE = "delete"  # Ask to delete a previous message by id
+
+    # User actions
+    CONFIRMATION_REQUEST = "confirmation_request"  # Ask for confirmation
+    CONFIRMATION_RESPONSE = "confirmation_response"  # Confirmation response
 
     # User messages
     QUERY = "query"

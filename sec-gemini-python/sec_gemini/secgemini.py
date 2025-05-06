@@ -41,7 +41,7 @@ class SecGemini:
 
         Args:
             api_key: Api key used to authenticate with SecGemini. Key can also be passed
-            via the environment variable SG_API_KEY.
+            via the environment variable SEC_GEMINI_API_KEY.
 
             base_url: Server base_url. Defaults to online server.
 
@@ -55,7 +55,7 @@ class SecGemini:
         if api_key == "":
             api_key = os.getenv("SEC_GEMINI_API_KEY")
         if not api_key:
-            raise ValueError("API key required: explictly pass it or set env variable SG_API_KEY (e.g in .env).")
+            raise ValueError("API key required: explictly pass it or set env variable SEC_GEMINI_API_KEY (e.g in .env).")
         self.api_key = api_key
 
         # http(s) endpoint
@@ -245,18 +245,18 @@ class SecGemini:
 
     def _display_models(self, models: list[ModelInfo]) -> None:
         for model in models:
+
             model_table = Table(title=f"{model.model_string}", box=box.ROUNDED)
-            model_table.add_column("Agent")
+            model_table.add_column("Toolset")
             model_table.add_column("Vendor")
             model_table.add_column("Version")
             model_table.add_column("Enabled?")
-            model_table.add_column("Optional?")
             model_table.add_column("Experimental?")
             model_table.add_column("Description", overflow="fold")
-            for sa in model.subagents:
-                model_table.add_row(sa.name, sa.vendor, str(sa.version),
-                                    str(sa.is_enabled), str(sa.is_optional),
-                                    str(sa.is_experimental), sa.description)
+            for sa in model.toolsets:
+                model_table.add_row(sa.name, sa.vendor.name, str(sa.version),
+                                    str(sa.is_enabled), str(sa.is_experimental), sa.description)
+            self.console.print(f"\n[{model.model_string}]")
             self.console.print(model_table)
 
     def _display_sessions(self, sessions: list[PublicSession]) -> None:

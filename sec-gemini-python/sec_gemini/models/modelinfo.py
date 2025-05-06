@@ -17,19 +17,34 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 
-class ModelSubAgentInfo(BaseModel):
-    """Describes the components of a Sec-Gemini model."""
-    name: str = Field(..., title="Component Name", description="The name of the component.")
-    version: int = Field(..., title="Component Version", description="The version of the component.")
-    description: Optional[str] = Field(None, title="Component Description", description="A brief description of the component.")
-    vendor: str = Field(..., title="Component Vendor", description="The vendor of the component.")
-    is_enabled: bool = Field(True, title="Is Enabled", description="Whether the component is enabled or not.")
-    is_optional: bool = Field(False, title="Is Optional", description="Whether the component is optional or not.")
-    is_experimental: bool = Field(False, title="Is Experimental", description="Whether the component is experimental or not.")
+class ToolSetVendor(BaseModel):
+    """Vendor Toolsets info."""
+
+    name: str = Field(..., title="Vendor Name",
+                      description="The name of the vendor providing the tool or agent.")
+
+    description: str = Field(..., title="Vendor Description",
+                             description="A brief description of the vendor.")
+
+    url: str = Field(..., title="Vendor URL",
+                     description="The URL of vendor.")
+
+    svg: str = Field(..., title="Vendor SVG Icon",
+                     description="The SVG icon of the vendor.")
+
+class OptionalToolSet(BaseModel):
+    """Describes the toolsets of a Sec-Gemini model."""
+    name: str = Field(..., title="toolset Name", description="The name of the toolset.")
+    version: int = Field(..., title="toolset Version", description="The version of the toolset.")
+    description: Optional[str] = Field(None, title="toolset Description", description="A brief description of the toolset.")
+    vendor: ToolSetVendor = Field(..., title="toolset Vendor", description="The vendor of the toolset.")
+
+    is_enabled: bool = Field(True, title="Is Enabled", description="Whether the toolset is enabled or not.")
+    is_experimental: bool = Field(False, title="Is Experimental", description="Whether the toolset is experimental or not.")
 
 class ModelInfo(BaseModel):
     """Describes a Sec-Gemini model."""
     model_string: str = Field(..., title="Model String", description="The string used to identify the model.")
     version: str = Field(..., title="Model Version", description="The version of the model.")
     is_experimental: bool = Field(False, title="Is Experimental", description="Whether the model is experimental or not.")
-    subagents: list[ModelSubAgentInfo] = Field([], title="Subagents", description="The list of subagents that make up the model.")
+    toolsets: list[OptionalToolSet] = Field([], title="Tools", description="Toggable tools used by the model.")

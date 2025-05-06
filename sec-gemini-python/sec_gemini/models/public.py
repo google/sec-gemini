@@ -23,6 +23,7 @@ from .message import Message
 from .enums import State
 from .modelinfo import ModelInfo
 
+
 class PublicUser(BaseModel):
     """Only add the fields necessary to show to users."""
 
