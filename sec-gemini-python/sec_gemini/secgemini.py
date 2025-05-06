@@ -111,6 +111,8 @@ class SecGemini:
         else:
             key_expire_time = "Never"
 
+        vendors = ", ".join([v.name for v in ui.user.vendors])
+
         user_table = Table(title="User Information", box=box.ROUNDED)
         user_table.add_column("Attribute", style="dim", width=20)
         user_table.add_column("Value")
@@ -123,6 +125,7 @@ class SecGemini:
         user_table.add_row("Cam use experimental features?", str(ui.user.allow_experimental))
         user_table.add_row("TPM Quota", f"{ui.user.tpm}")
         user_table.add_row("RPM Quota", f"{ui.user.rpm}")
+        user_table.add_row("Vendors", vendors)
         self.console.print(user_table)
 
         # Model Table

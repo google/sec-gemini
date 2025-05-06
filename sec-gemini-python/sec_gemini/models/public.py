@@ -23,6 +23,12 @@ from .message import Message
 from .enums import State
 from .modelinfo import ModelInfo
 
+class PublicUserVendor(BaseModel):
+    name: str = Field(..., title="Vendor Name")
+    description: str = Field(..., title="Vendor Description")
+    url: str = Field(..., title="Vendor URL")
+    svg: str = Field(..., title="Vendor SVG Icon")
+
 
 class PublicUser(BaseModel):
     """Only add the fields necessary to show to users."""
@@ -49,7 +55,7 @@ class PublicUser(BaseModel):
     rpm: int = Field(0, title="RPM", description="Requests per minute quota.")
 
     allow_experimental: bool = Field(False, title="Allow Experimental", description="Whether the user is allowed to use experimental features.")
-    vendors: list[str] = Field([], title="Vendors", description="The list of vendors the user has access to.")
+    vendors: list[PublicUserVendor] = Field([], title="Vendors", description="The list of vendors the user has access to.")
 
 class PublicSessionFile(BaseModel):
     """Only add the fields necessary to show to users."""
