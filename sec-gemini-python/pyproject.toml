@@ -13,7 +13,6 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "rich>=13.9.4",
     "websockets>=14.1",
-    "dotenv" # what version?
 ]
 
 [tool.uv]
@@ -21,6 +20,7 @@ dev-dependencies = [
     "ipykernel>=6.29.5",
     "jupyter>=1.1.1",
     "pytest>=8.3.4",
+    "pytest-httpx>=0.35.0",
 ]
 
 [tool.setuptools.packages.find]
