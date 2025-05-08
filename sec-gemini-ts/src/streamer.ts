@@ -95,7 +95,7 @@ class Streamer {
                  const error = new Error(`Streamer: Connection timeout after ${streamer.connectionTimeout}ms`);
                  console.error(error.message);
                  if (streamer.ws && streamer.ws.readyState === WebSocket.CONNECTING) {
-                    streamer.ws.close(1001, "Connection Timeout");
+                    streamer.ws.close(4000, "Connection Timeout");
                  }
                  reject(error);
             }, streamer.connectionTimeout);
@@ -113,6 +113,7 @@ class Streamer {
 
              try {
                  streamer.connect(tempOnOpen, tempOnError);
+                 resolve(streamer);
              } catch (error) {
                  cleanUpTempHandlers();
                  reject(error);
@@ -154,6 +155,7 @@ class Streamer {
         console.debug("Streamer: Target URL:", this.url);
     }
 
+    // Callers need to handle removing temporary open/error listeners themselves.
     private connect(tempOnOpen?: () => void, tempOnError?: (eventOrError: WebSocket.ErrorEvent | Error) => void) {
         if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
              console.warn("Streamer: connect called while already connecting or open.");
@@ -199,13 +201,13 @@ class Streamer {
     }
 
     public async send(prompt: string, parentId?: string): Promise<void> {
-        if (!this.isConnected()) {
-            if (this.isReconnecting) {
-                console.debug("Streamer: Queuing message during reconnect:", prompt.substring(0, 30) + "...");
-                this.messageQueue.push({prompt, parentId});
-                return;
-            }
-            throw new Error("WebSocket is not connected.");
+        const state = this.ws ? this.ws.readyState : '';
+        if (this.isReconnecting || state === WebSocket.CONNECTING) {
+          console.debug("Streamer: Queuing message during reconnect:", prompt.substring(0, 30) + "...");
+          this.messageQueue.push({prompt, parentId});
+          return;
+        } else if (state !== WebSocket.OPEN) {
+          throw new Error("WebSocket is not connected.");
         }
         const currentWs = this.ws!;
 
@@ -228,7 +230,6 @@ class Streamer {
         } catch (error) {
              console.error("Streamer: Error sending message:", error);
              this.notifyError(error instanceof Error ? error : new Error("Failed to send message"));
-             throw error;
         }
     }
 
@@ -236,7 +237,6 @@ class Streamer {
         this.clearConnectionTimeout();
         this.clearPingInterval();
         this.isReconnecting = false;
-        this.reconnectAttempts = this.maxReconnectAttempts + 1;
 
         if (this.ws) {
             if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
@@ -251,9 +251,6 @@ class Streamer {
         } else {
              console.debug("Streamer: close called but no WebSocket instance exists.");
         }
-
-        this.updateConnectionStatus('disconnected');
-        this.ws = null;
     }
 
     public isConnected(): boolean {
@@ -286,19 +283,18 @@ class Streamer {
             if (typeof event.data === 'string') { receivedData = event.data; }
             else if (typeof Buffer !== 'undefined' && event.data instanceof Buffer) { receivedData = event.data.toString('utf-8'); }
             else if (typeof ArrayBuffer !== 'undefined' && event.data instanceof ArrayBuffer) { receivedData = new TextDecoder().decode(event.data); }
-            else if (typeof Blob !== 'undefined' && event.data instanceof Blob) { console.warn("Streamer: Received Blob message, async handling needed."); return; }
-            else { console.warn("Streamer: Received message of unknown type:", typeof event.data); return; }
+            else if (typeof Blob !== 'undefined' && event.data instanceof Blob) { throw new Error("Streamer: Received Blob message, async handling needed."); }
+            else { throw new Error(`Streamer: Received message of unknown type: ${typeof event.data}`); }
 
-            if (receivedData.includes("\"status_message\"") && receivedData.includes("not found")) {
+            const message: Message = JSON.parse(receivedData);
+            if (!message || typeof message !== 'object' || !message.message_type) {
+                throw new Error(`Streamer: Received data doesn't look like a valid Message: ${message}`);
+            }
+            if ('status_message' in message && message['status_message']!.includes("not found")) {
                 console.error("Streamer: Session not found message received. Closing.");
                 this.hasError = true;
                 this.notifyError(new Error("Session not found on server"));
-                this.close(1011, "Session Not Found");
-                return;
-            }
-            const message: Message = JSON.parse(receivedData);
-            if (!message || typeof message !== 'object' || !message.message_type) {
-                console.warn("Streamer: Received data doesn't look like a valid Message:", message);
+                this.close(4001, "Session Not Found");
                 return;
             }
             this.userOnMessage(message);
@@ -326,14 +322,25 @@ class Streamer {
 
         if (this.userOnClose) { try { this.userOnClose(event); } catch(e) { console.error("Err in onClose", e); } }
 
-        const shouldAttemptReconnect = event.code !== 1000 && !this.hasError && this.reconnectAttempts < this.maxReconnectAttempts && !this.isReconnecting;
+        // TODO: I think we should reconnect even if there is an error?
+        const shouldAttemptReconnect = (
+          event.code !== 1000 && event.code !== 4001 &&
+          this.reconnectAttempts < this.maxReconnectAttempts && !this.isReconnecting
+        );
 
         if (shouldAttemptReconnect) {
             this.attemptReconnection();
         } else {
-            if (this.reconnectAttempts >= this.maxReconnectAttempts) { console.error("Streamer: Max reconnection attempts reached."); if (!this.hasError) this.notifyError(new Error("Max reconnection attempts reached")); }
-            else if (this.hasError) { console.warn("Streamer: Not reconnecting due to error flag."); }
-            else if (event.code === 1000) { console.info("Streamer: Normal closure."); }
+            if (event.code === 1000) {
+              console.info("Streamer: Normal closure.");
+            } else if (event.code === 4001) {
+              console.info(`Streamer: web socket closed with ${event.code}: ${event.reason}`);
+            } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+              console.log(`Max reconnect attempts: ${this.maxReconnectAttempts}, reconnect attempts: ${this.reconnectAttempts}`);
+              if (!this.hasError) {
+                this.notifyError(new Error("Max reconnection attempts reached"));
+              }
+            }
             this.isReconnecting = false;
             this.updateConnectionStatus('disconnected');
             this.ws = null;
@@ -346,29 +353,41 @@ class Streamer {
         this.updateConnectionStatus('reconnecting');
         const delay = this.currentReconnectDelay;
         console.info(`Streamer: Connection lost. Reconnecting in ${delay}ms (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+        // Create temp variable because this.reconnectAttempts is reset in the main onOpen handler.
+        const reconnectAttempts = this.reconnectAttempts;
 
         setTimeout(() => {
             if (!this.isReconnecting) { console.info("Streamer: Reconnection cancelled."); return; }
+            const tempOnOpen = () => {
+                cleanUpTempHandlers();
+                console.info(`Streamer: Reconnection successful (Attempt ${reconnectAttempts})`);
+                this.isReconnecting = false;
+                if (this.onReconnect) this.onReconnect(true, reconnectAttempts);
+            };
+
+            const tempOnError = (eventOrError: WebSocket.ErrorEvent | Error) => {
+                cleanUpTempHandlers();
+                console.error(`Streamer: Reconnection attempt ${reconnectAttempts} failed.`);
+                this.isReconnecting = false; // Ready for next attempt or failure
+                this.ws = null; // Ensure WS is null on failed attempt
+                this.currentReconnectDelay = Math.min(delay * 2, 30000); // Use previous delay for backoff calc
+                if (this.onReconnect) this.onReconnect(false, reconnectAttempts);
+                this.updateConnectionStatus('disconnected');
+                // Trigger onClose manually to potentially drive the next attempt if needed
+                // Create a basic event object, exact properties might not matter here
+                this.onClose({ code: 1006, reason: "Reconnect Failed", wasClean: false, target: this.ws } as WebSocket.CloseEvent);
+            };
+
+            const cleanUpTempHandlers = () => {
+                if (this.ws) {
+                    this.ws.removeEventListener('open', tempOnOpen as any);
+                    this.ws.removeEventListener('error', tempOnError as any);
+                }
+            };
             try {
-                this.connect(
-                    () => { // tempOnOpen for reconnect
-                         console.info(`Streamer: Reconnection successful (Attempt ${this.reconnectAttempts})`);
-                         this.isReconnecting = false;
-                         if (this.onReconnect) this.onReconnect(true, this.reconnectAttempts);
-                    },
-                    (err) => { // tempOnError for reconnect
-                         console.error(`Streamer: Reconnection attempt ${this.reconnectAttempts} failed.`);
-                         this.isReconnecting = false; // Ready for next attempt or failure
-                         this.ws = null; // Ensure WS is null on failed attempt
-                         this.currentReconnectDelay = Math.min(delay * 2, 30000); // Use previous delay for backoff calc
-                         if (this.onReconnect) this.onReconnect(false, this.reconnectAttempts);
-                         this.updateConnectionStatus('disconnected');
-                         // Trigger onClose manually to potentially drive the next attempt if needed
-                         // Create a basic event object, exact properties might not matter here
-                         this.onClose({ code: 1006, reason: "Reconnect Failed", wasClean: false, target: this.ws } as WebSocket.CloseEvent);
-                    }
-                );
+                this.connect(tempOnOpen, tempOnError);
             } catch (error) {
+                 cleanUpTempHandlers();
                  console.error(`Streamer: Error during reconnection attempt ${this.reconnectAttempts}`, error);
                  this.isReconnecting = false;
                  this.updateConnectionStatus('disconnected');
@@ -421,7 +440,7 @@ class Streamer {
         if (this.pingIntervalId) {
             clearInterval(this.pingIntervalId);
             this.pingIntervalId = null;
-             console.debug("Streamer: Heartbeat interval cleared.");
+            console.debug("Streamer: Heartbeat interval cleared.");
         }
     }
 
