@@ -4,7 +4,18 @@ version = "0.1.0-git"
 edition = "2024"
 authors = ["Julien Cretin <cretin@google.com>"]
 license = "Apache-2.0"
+description = "Experimental cybersecurity-focused AI from Google"
 publish = false
+
+[package.metadata.bundle]
+identifier = "google.secgemini"
+copyright = "Copyright 2025 Google LLC"
+# TODO: icon (list of icns, ico, png)
+# TODO: category, see https://github.com/burtonageo/cargo-bundle/blob/6c7286d3b3bb232309be4ddb14cf1bd5d343c403/src/bundle/category.rs#L12-L51
+# TODO: short_description (defaults to package.description) and long_description?
+linux_exec_args = "web-ui"
+linux_use_terminal = true
+dep_depends = ["libssl-dev"]
 
 [dependencies]
 clap = { version = "4.5.32", features = ["derive", "env"] }

@@ -2,6 +2,8 @@
 
 ## 0.1.0-git
 
+### Minor
+
 - Add `sec-gemini web-ui` command to open the web UI
 - Add `sec-gemini session` command for interactive text session
 - Add `sec-gemini query` command for single queries

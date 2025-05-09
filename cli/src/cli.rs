@@ -22,6 +22,9 @@ mod query;
 mod session;
 
 /// Sec-Gemini swiss-army knife.
+///
+/// Sec-Gemini is an experimental cybersecurity-focused AI from Google. This CLI provides multiple
+/// ways to interact with Sec-Gemini from the command-line.
 #[derive(Parser)]
 #[command(version)]
 pub struct Cli {

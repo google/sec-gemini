@@ -8,7 +8,3 @@ reorder_keys = true
 [[rule]]
 formatting = { reorder_keys = false }
 keys = ["build-dependencies.*", "dependencies.*", "dev-dependencies.*", "package"]
-
-[[rule]]
-formatting = { reorder_keys = true }
-keys = ["package.*"]
