@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-import {SecGemini} from '../src/index';
+import { SecGemini } from '../src/index';
 
-import { MessageTypeEnum} from '../src/secgeminienums';
-import { getMockSocket} from './mock_socket';
-import {UserInfo} from '../src/secgeminitypes';
+import { MessageTypeEnum } from '../src/secgeminienums';
+import { getMockSocket } from './mock_socket';
+import { UserInfo } from '../src/secgeminitypes';
 
 // Mock WebSocket.
 // Method to create a response message that should be returned on the web socket. This can be spied on.
-let getSocketResponseMessage = jest.fn((req: string): string|object => {
-  return {data: JSON.stringify({data: `Message received: ${req}`, message_type: MessageTypeEnum.RESULT})};
+let getSocketResponseMessage = jest.fn((req: string): string | object => {
+  return { data: JSON.stringify({ data: `Message received: ${req}`, message_type: MessageTypeEnum.RESULT }) };
 });
 // Helpers that allow tests to directly interact with the web socket object created by Streamer.
 let openSocket = () => {};
@@ -45,11 +45,10 @@ jest.mock('isomorphic-ws', () => {
         closeSocket = socketMocks.closeSocket;
         errorSocket = socketMocks.errorSocket;
         return socketMocks.mockSocket;
-      }),
-      { 
-        ...originalWebSocket
-       }
-    );
+      }
+    ),
+    { ...originalWebSocket }
+  );
 });
 
 // Mock the crypto functions used for generating IDs.
@@ -68,42 +67,44 @@ function _checkHeaders(init: RequestInit) {
     throw new Error(`Incorrect header API key: ${headers.get('x-api-key')}`);
   }
 }
-global.fetch = jest.fn(async (input: string|URL|Request, init?: RequestInit): Promise<Response> => {
+global.fetch = jest.fn(async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
   _checkHeaders(init!);
   if (input === 'http://google.com/v1/user/info' && init!.method === 'GET') {
     const userInfo: UserInfo = {
-      user: {id: '12345', org_id: 'security'},
+      user: { id: '12345', org_id: 'security' },
       sessions: [],
-      available_models: [{model_string: 'stable', version: 'v1'}],
+      available_models: [{ model_string: 'stable', version: 'v1' }],
     };
     return new Response(JSON.stringify(userInfo));
   }
   if (input === 'http://google.com/v1/session/register' && init!.method === 'POST') {
     registerSession(JSON.parse(init!.body! as string));
-    return new Response(JSON.stringify({ok: true, 'status_code': 200}));
+    return new Response(JSON.stringify({ ok: true, status_code: 200 }));
   }
-  return new Response(JSON.stringify({'hello': 'secgemini'}));
+  return new Response(JSON.stringify({ hello: 'secgemini' }));
 });
 
 jest.useFakeTimers();
 
-describe("SecGeminiSDK", () => {
+describe('SecGeminiSDK', () => {
   afterEach(() => {
     openSocket = () => {};
-    closeSocket = (code: number, reason: string) => {}
+    closeSocket = (code: number, reason: string) => {};
     jest.clearAllMocks();
     jest.restoreAllMocks();
     jest.clearAllTimers();
   });
   afterAll(() => {
     openSocket = () => {};
-    closeSocket = (code: number, reason: string) => {}
+    closeSocket = (code: number, reason: string) => {};
     jest.resetAllMocks();
     jest.clearAllTimers();
   });
   test('should fail to initialize SecGemini without API key', async () => {
-    expect(SecGemini.create()).rejects.toThrowError("API Key is required. Provide it directly or set SEC_GEMINI_API_KEY environment variable.");
-  })
+    expect(SecGemini.create()).rejects.toThrowError(
+      'API Key is required. Provide it directly or set SEC_GEMINI_API_KEY environment variable.'
+    );
+  });
   test('should create session', async () => {
     // Create SecGemini instance.
     const sdkPromise = SecGemini.create('fakeAPIKey1', 'http://google.com', 'ws://12345');
@@ -111,7 +112,8 @@ describe("SecGeminiSDK", () => {
     const sdk = await sdkPromise;
 
     // Create session.
-    const sessionPromise = sdk.createSession({ttl: 301,
+    const sessionPromise = sdk.createSession({
+      ttl: 301,
       name: 'sessionName',
       description: 'sessionDescription',
       logSession: true,
@@ -119,6 +121,25 @@ describe("SecGeminiSDK", () => {
       language: 'en',
     });
     expect(sessionPromise).resolves.not.toThrow();
-    expect(await sessionPromise).toEqual({"_session": {"can_log": true, "description": "sessionDescription", "files": [], "id": "a-b-c-d-e", "language": "en", "messages": [], "model": {"model_string": "stable", "version": "v1"}, "name": "sessionName", "org_id": "security", "ttl": 301, "user_id": "12345"}, "apiKey": "fakeAPIKey1", "http": {"apiKey": "fakeAPIKey1", "baseUrl": "http://google.com"}, "initialLogPreference": true, "user": {"id": "12345", "org_id": "security"}, "websocketURL": "ws://12345"});
+    expect(await sessionPromise).toEqual({
+      _session: {
+        can_log: true,
+        description: 'sessionDescription',
+        files: [],
+        id: 'a-b-c-d-e',
+        language: 'en',
+        messages: [],
+        model: { model_string: 'stable', version: 'v1' },
+        name: 'sessionName',
+        org_id: 'security',
+        ttl: 301,
+        user_id: '12345',
+      },
+      apiKey: 'fakeAPIKey1',
+      http: { apiKey: 'fakeAPIKey1', baseUrl: 'http://google.com' },
+      initialLogPreference: true,
+      user: { id: '12345', org_id: 'security' },
+      websocketURL: 'ws://12345',
+    });
   });
 });

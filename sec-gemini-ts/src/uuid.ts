@@ -15,9 +15,9 @@
  */
 
 const randomUUID = () => {
-    if (typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
-    }
-}
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+};
 
 export default randomUUID;

@@ -16,37 +16,34 @@
 
 enum EndPointsEnum {
   // users
-  USER_INFO = "/v1/user/info",
+  USER_INFO = '/v1/user/info',
 
   // messages
-  GENERATE = "/v1/session/generate",
-  STREAM = "/v1/stream",
+  GENERATE = '/v1/session/generate',
+  STREAM = '/v1/stream',
 
   // sessions
-  REGISTER_SESSION = "/v1/session/register",
-  DELETE_SESSION = "/v1/session/delete",
-  LIST_SESSION = "/v1/session/list",
-  GET_SESSION = "/v1/session/get",
-  UPDATE_SESSION = "/v1/session/update",
-  SEND_FEEDBACK = "/v1/session/feedback",
+  REGISTER_SESSION = '/v1/session/register',
+  DELETE_SESSION = '/v1/session/delete',
+  LIST_SESSION = '/v1/session/list',
+  GET_SESSION = '/v1/session/get',
+  UPDATE_SESSION = '/v1/session/update',
+  SEND_FEEDBACK = '/v1/session/feedback',
 
   // files
-  ATTACH_FILE = "/v1/session/attach_file",
-  DELETE_FILE = "/v1/session/delete_file"
+  ATTACH_FILE = '/v1/session/attach_file',
+  DELETE_FILE = '/v1/session/delete_file',
 }
 
 enum ResponseStatusEnum {
-    OK = 200,
-    BAD_REQUEST = 400,
-    NOT_FOUND = 404,
-    AUTHENTICATION_ERROR = 401,
-    ALREADY_EXISTS = 409,
-    QUOTA_EXCEEDED = 429,
-    SERVER_ERROR = 500,
-    INTERNAL_ERROR = 500,
+  OK = 200,
+  BAD_REQUEST = 400,
+  NOT_FOUND = 404,
+  AUTHENTICATION_ERROR = 401,
+  ALREADY_EXISTS = 409,
+  QUOTA_EXCEEDED = 429,
+  SERVER_ERROR = 500,
+  INTERNAL_ERROR = 500,
 }
 
-export {
-    EndPointsEnum,
-    ResponseStatusEnum
-};
+export { EndPointsEnum, ResponseStatusEnum };

@@ -18,21 +18,26 @@ import WebSocket from 'isomorphic-ws';
 
 class CloseEvent extends Event {
   code = 0;
-  reason = "";
-  constructor(type: string, options: {code: number, reason: string}) {
+  reason = '';
+  constructor(type: string, options: { code: number; reason: string }) {
     super(type, {});
     this.code = options.code;
     this.reason = options.reason;
   }
 }
 
-function getMockSocket(url: string, originalWebSocket: WebSocket, getSocketResponseMessage: Function, pingFn: Function) {
-  if (url.startsWith("ws://badurl")) {
-    throw new DOMException("Bad URL.");
+function getMockSocket(
+  url: string,
+  originalWebSocket: WebSocket,
+  getSocketResponseMessage: Function,
+  pingFn: Function
+) {
+  if (url.startsWith('ws://badurl')) {
+    throw new DOMException('Bad URL.');
   }
   const mockSocket = {
     _additionalErrorListeners: <Array<Function>>[],
-    _additionalOpenListeners:  <Array<Function>>[],
+    _additionalOpenListeners: <Array<Function>>[],
     readyState: originalWebSocket.CONNECTING,
     removeEventListener: (type: string, listener: Function) => {
       let listeners;
@@ -61,11 +66,11 @@ function getMockSocket(url: string, originalWebSocket: WebSocket, getSocketRespo
       if (code !== undefined && code !== 1000 && !(code >= 3000 && code <= 4999)) {
         throw new DOMException(`Invalid code: ${code}`);
       }
-      if (reason && Buffer.from(reason).toString("utf8").length > 123) {
+      if (reason && Buffer.from(reason).toString('utf8').length > 123) {
         throw new DOMException(`Reason must be less than 123 bytes. Reason: ${reason}`);
       }
       mockSocket.readyState = originalWebSocket.CLOSED;
-      mockSocket.onclose(new CloseEvent("close", {code, reason}));
+      mockSocket.onclose(new CloseEvent('close', { code, reason }));
     },
     send: (msg: string) => {
       const response = getSocketResponseMessage(msg);
@@ -74,7 +79,7 @@ function getMockSocket(url: string, originalWebSocket: WebSocket, getSocketRespo
     ping: pingFn,
     onopen: () => {},
     onclose: (closeEvent: WebSocket.CloseEvent) => {},
-    onerror: (errorEvent: {message: string}) => {},
+    onerror: (errorEvent: { message: string }) => {},
     onmessage: (event: WebSocket.MessageEvent) => {},
   };
   // Set global variable to send socket's send function so that it can be spied on.
@@ -87,24 +92,16 @@ function getMockSocket(url: string, originalWebSocket: WebSocket, getSocketRespo
   };
   const closeSocket = (code: number, reason: string) => {
     mockSocket.readyState = originalWebSocket.CLOSED;
-    mockSocket.onclose(new CloseEvent("close", {code, reason}));
-  }
+    mockSocket.onclose(new CloseEvent('close', { code, reason }));
+  };
   const errorSocket = (message: string) => {
     mockSocket.readyState = originalWebSocket.CLOSED;
-    mockSocket.onerror({message: message});
+    mockSocket.onerror({ message: message });
     for (const handler of mockSocket._additionalErrorListeners) {
-      handler({message: message});
+      handler({ message: message });
     }
-  }
-  return {
-    mockSocket,
-    openSocket,
-    closeSocket,
-    errorSocket
-  }
+  };
+  return { mockSocket, openSocket, closeSocket, errorSocket };
 }
 
-export {
-  getMockSocket,
-  CloseEvent
-}
+export { getMockSocket, CloseEvent };

@@ -15,6 +15,7 @@
  */
 
 // List of cybersecurity-related terms
+// prettier-ignore
 const terms = [
   "firewall", "xss", "sql-injection", "csrf", "dos", "botnet", "rsa",
   "aes", "sha", "hmac", "xtea", "twofish", "serpent", "dh", "ecc",
@@ -29,6 +30,7 @@ const terms = [
 ];
 
 // List of adjectives
+// prettier-ignore
 const adjs = [
   "beautiful", "creative", "dangerous", "elegant", "fancy",
   "gorgeous", "handsome", "intelligent", "jolly", "kind", "lovely",
@@ -48,7 +50,7 @@ const adjs = [
  * @returns A randomly generated session name (e.g., "brave-firewall").
  */
 export function generateSessionName(): string {
-    const adj = adjs[Math.floor(Math.random() * adjs.length)];
-    const term = terms[Math.floor(Math.random() * terms.length)];
-    return `${adj}-${term}`;
+  const adj = adjs[Math.floor(Math.random() * adjs.length)];
+  const term = terms[Math.floor(Math.random() * terms.length)];
+  return `${adj}-${term}`;
 }

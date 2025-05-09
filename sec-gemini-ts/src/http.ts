@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-type RequestConfig = {
-  params?: Record<string, any>;
-  headers?: Record<string, string>;
-};
+type RequestConfig = { params?: Record<string, any>; headers?: Record<string, string> };
 
 class HttpClient {
   private baseUrl: string;
@@ -46,33 +43,19 @@ class HttpClient {
   }
 
   private getHeaders(additionalHeaders?: Record<string, string>): Headers {
-    return new Headers({
-      "x-api-key": this.apiKey,
-      "Content-Type": "application/json",
-      ...additionalHeaders,
-    });
+    return new Headers({ 'x-api-key': this.apiKey, 'Content-Type': 'application/json', ...additionalHeaders });
   }
 
-  public async get<T>(
-    entrypoint: string,
-    params?: Record<string, any>
-  ): Promise<T> {
+  public async get<T>(entrypoint: string, params?: Record<string, any>): Promise<T> {
     const url = this.createUrl(entrypoint, params);
-    const response = await fetch(url, {
-      method: "GET",
-      headers: this.getHeaders(),
-    });
+    const response = await fetch(url, { method: 'GET', headers: this.getHeaders() });
     return this.handleResponse<T>(response);
   }
 
-  public async post<T>(
-    entrypoint: string,
-    data?: any,
-    config?: RequestConfig
-  ): Promise<T> {
+  public async post<T>(entrypoint: string, data?: any, config?: RequestConfig): Promise<T> {
     const url = this.createUrl(entrypoint, config?.params);
     const response = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers: this.getHeaders(config?.headers),
       body: data ? JSON.stringify(data) : undefined,
     });

@@ -22,12 +22,15 @@
     "test": "jest",
     "demo": "tsup && node demo/demo.js",
     "relink": "npm run clean && tsup && npm rm secgeminisdk && npm link",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "format-verify": "prettier ./src/* ./tests/* --check",
+    "format": "prettier ./src/* ./tests/* --write"
   },
   "dependencies": {
     "@hey-api/client-fetch": "^0.7.0",
     "debug": "^4.4.0",
     "isomorphic-ws": "^5.0.0",
+    "prettier": "^3.5.3",
     "stable": "^0.1.8"
   },
   "devDependencies": {
