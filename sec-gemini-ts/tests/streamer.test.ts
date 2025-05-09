@@ -17,16 +17,7 @@
 import WebSocket from 'isomorphic-ws';
 import Streamer from '../src/streamer';
 import { MessageTypeEnum} from '../src/secgeminienums';
-
-class CloseEvent extends Event {
-  code = 0;
-  reason = "";
-  constructor(type: string, options: {code: number, reason: string}) {
-    super(type, {});
-    this.code = options.code;
-    this.reason = options.reason;
-  }
-}
+import { getMockSocket, CloseEvent as SocketCloseEvent } from './mock_socket';
 
 // Method to create a response message that should be returned on the web socket. This can be spied on.
 let getSocketResponseMessage = jest.fn((req: string): string|object => {
@@ -39,7 +30,6 @@ let closeSocket = (code: number, reason: string) => {};
 let errorSocket = (message: string) => {};
 const pingFn = jest.fn((f: Function) => {});
 // Mock needs to be in module scope.
-// TODO: Move to separate file.
 jest.mock('isomorphic-ws', () => {
   console.log('Creating mock WebSocket');
   // Original unmocked WebSocket.
@@ -49,78 +39,11 @@ jest.mock('isomorphic-ws', () => {
     jest.fn(
       // constructor
       (url: string) => {
-        // Bad URL so that we can detect web socket failure.
-        if (url.startsWith("ws://badurl")) {
-          throw new DOMException("Bad URL.");
-        }
-        // Mock WebSocket instance.
-        const mockSocket = {
-          _additionalErrorListeners: <Array<Function>>[],
-          _additionalOpenListeners:  <Array<Function>>[],
-          readyState: originalWebSocket.CONNECTING,
-          removeEventListener: (type: string, listener: Function) => {
-            let listeners;
-            if (type === 'open') {
-              listeners = mockSocket._additionalOpenListeners;
-            } else if (type === 'error') {
-              listeners = mockSocket._additionalErrorListeners;
-            } else {
-              throw new Error(`Listener type ${type} not implemented in mock object!`);
-            }
-            const idx = listeners.indexOf(listener);
-            if (idx !== -1) {
-              listeners.splice(idx, 1);
-            }
-          },
-          addEventListener: (type: string, listener: Function) => {
-            if (type === 'open') {
-              mockSocket._additionalOpenListeners.push(listener);
-            } else if (type === 'error') {
-              mockSocket._additionalErrorListeners.push(listener);
-            } else {
-              throw new Error(`Listener type ${type} not implemented in mock object!`);
-            }
-          },
-          close: (code: number, reason: string) => {
-            if (code !== undefined && code !== 1000 && !(code >= 3000 && code <= 4999)) {
-              throw new DOMException(`Invalid code: ${code}`);
-            }
-            if (reason && Buffer.from(reason).toString("utf8").length > 123) {
-              throw new DOMException(`Reason must be less than 123 bytes. Reason: ${reason}`);
-            }
-            mockSocket.readyState = originalWebSocket.CLOSED;
-            mockSocket.onclose(new CloseEvent("close", {code, reason}));
-          },
-          send: (msg: string) => {
-            const response = getSocketResponseMessage(msg);
-            mockSocket.onmessage(response);
-          },
-          ping: pingFn,
-          onopen: () => {},
-          onclose: (closeEvent: WebSocket.CloseEvent) => {},
-          onerror: (errorEvent: {message: string}) => {},
-          onmessage: (event: WebSocket.MessageEvent) => {},
-        };
-        // Set global variable to send socket's send function so that it can be spied on.
-        openSocket = () => {
-          mockSocket.readyState = originalWebSocket.OPEN;
-          mockSocket.onopen();
-          for (const handler of mockSocket._additionalOpenListeners) {
-            handler();
-          }
-        };
-        closeSocket = (code: number, reason: string) => {
-          mockSocket.readyState = originalWebSocket.CLOSED;
-          mockSocket.onclose(new CloseEvent("close", {code, reason}));
-        }
-        errorSocket = (message: string) => {
-          mockSocket.readyState = originalWebSocket.CLOSED;
-          mockSocket.onerror({message: message});
-          for (const handler of mockSocket._additionalErrorListeners) {
-            handler({message: message});
-          }
-        }
-        return mockSocket;
+        const socketMocks = getMockSocket(url, originalWebSocket, getSocketResponseMessage, pingFn);
+        openSocket = socketMocks.openSocket;
+        closeSocket = socketMocks.closeSocket;
+        errorSocket = socketMocks.errorSocket;
+        return socketMocks.mockSocket;
       }),
       { 
         ...originalWebSocket
@@ -439,7 +362,7 @@ describe("Streamer", () => {
     getSocketResponseMessage.mockReturnValue({data: JSON.stringify({status_message: 'not found', message_type: MessageTypeEnum.ERROR})});
     streamer.send('Hello SecGemini!');
     expect(onerror).toHaveBeenCalledWith(new Error('Session not found on server'));
-    expect(onclose).toHaveBeenCalledWith(new CloseEvent("close", {code: 4001, reason: 'Session Not Found'}));
+    expect(onclose).toHaveBeenCalledWith(new SocketCloseEvent("close", {code: 4001, reason: 'Session Not Found'}));
 
     // Check connection callbacks.
     expect(config.onConnectionStatusChange.mock.calls).toEqual([
