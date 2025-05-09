@@ -9,22 +9,26 @@ The CLI documentation can be accessed from the CLI using `sec-gemini help`. For 
 
 ```shell
 % sec-gemini help
-Sec-Gemini swiss-army knife.
+Sec-Gemini swiss-army knife
 
-Usage: sec-gemini <COMMAND>
+Usage: sec-gemini [OPTIONS] <COMMAND>
 
 Commands:
-  query  Sends a single query to Sec-Gemini
-  help   Print this message or the help of the given subcommand(s)
+  query    Sends a single query to Sec-Gemini and prints the result
+  session  Opens an interactive session with Sec-Gemini in the terminal
+  web-ui   Opens the Sec-Gemini web UI in a browser
+  help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+      --api-key <API_KEY>  Sec-Gemini API key [env: SEC_GEMINI_API_KEY=p9811F-O1EB-XEB3-JOI6-P1UD]
+      --execution-flow     Prints the execution flow [env: SEC_GEMINI_EXECUTION_FLOW=]
+  -h, --help               Print help
+  -V, --version            Print version
 ```
 
 ```shell
 % sec-gemini help query
-Sends a single query to Sec-Gemini
+Sends a single query to Sec-Gemini and prints the result
 
 Usage: sec-gemini query [PROMPT]...
 
@@ -42,7 +46,6 @@ Arguments:
 Options:
   -h, --help
           Print help (see a summary with '-h')
-
 ```
 
 ## For developers
