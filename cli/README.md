@@ -61,6 +61,14 @@ cargo build --release
 
 The binary is written to `./target/release/sec-gemini`.
 
+### Install
+
+You can install the CLI with:
+
+```shell
+cargo install --path=.
+```
+
 ### Unit tests
 
 You can run the unit tests with:
