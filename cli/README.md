@@ -27,7 +27,7 @@ for an existing one to upvote or create a new one otherwise.
 
 The CLI documentation can be accessed from the CLI using `sec-gemini --help`. For example:
 
-```shell
+```text
 % sec-gemini --help
 Sec-Gemini swiss-army knife.
 
@@ -77,7 +77,7 @@ Options:
 Suffixing `--help` to a command line will print the documentation relevant for that command line.
 For example, the documentation of the `--ui` command can be accessed like that:
 
-```shell
+```text
 % sec-gemini --open-ui --help
 Opens the Sec-Gemini web UI in a browser
 
@@ -111,7 +111,7 @@ You can install the CLI with:
 cargo install --path=.
 ```
 
-### Unit tests
+### Test
 
 You need `rustup` with both the `stable` and the `nightly` toolchains installed. The `nightly`
 toolchain must be the default.
@@ -121,8 +121,6 @@ You can run the unit tests with:
 ```shell
 ./test.sh
 ```
-
-### Continuous integration
 
 Besides the `rustup` requirements for the unit tests, you need `taplo` to run the continuous
 integration. You can install it with:
