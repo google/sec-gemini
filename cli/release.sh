@@ -25,6 +25,9 @@ info "Removing all -git suffixes"
 sed -i 's/-git//' Cargo.* CHANGELOG.md
 VERSION="${VERSION%-git}"
 
+info "Reset CHANGELOG.md counter"
+sed -i 's/\(^<!-- .* test\): [0-9]* -->$/\1: 0 -->/' CHANGELOG.md
+
 info "Updating README.md"
 sed -i 's#\(releases/tag/cli/v\).*$#\1'"$VERSION"'#' README.md
 

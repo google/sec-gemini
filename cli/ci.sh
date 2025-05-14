@@ -16,12 +16,14 @@
 set -e
 . ./color.sh
 
-info "Checking CHANGELOG.md version"
+info "Checking if CHANGELOG.md is up-to-date"
 x="$(sed -n '3s/^## //p' CHANGELOG.md)"
 y="$(sed -n '3s/^version = "\(.*\)"/\1/p' Cargo.toml)"
 [ -n "$x" ] || error "Missing version in CHANGELOG.md"
 [ -n "$y" ] || error "Missing version in Cargo.toml"
-[ "$x" = "$y" ] || error "Version mismatch between Cargo.toml and CHANGELOG.md"
+[ "$x" = "$y" ] || error "CHANGELOG.md version differs from Cargo.toml"
+ref=$(git log -n1 --pretty=format:%H origin/main.. -- CHANGELOG.md)
+git diff --quiet ${ref:-origin/main} -- Cargo.* src || error "CHANGELOG.md is not up-to-date"
 
 info "Running unit tests"
 ./test.sh

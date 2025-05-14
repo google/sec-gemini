@@ -15,3 +15,5 @@
 ## 0.0.0
 
 No content.
+
+<!-- Increment to skip CHANGELOG.md test: 0 -->
