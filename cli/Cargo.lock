@@ -1740,7 +1740,7 @@ dependencies = [
 
 [[package]]
 name = "sec-gemini"
-version = "0.0.1-git"
+version = "0.0.1"
 dependencies = [
  "clap",
  "colored",
