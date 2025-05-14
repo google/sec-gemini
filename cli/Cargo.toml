@@ -1,0 +1,47 @@
+[package]
+name = "sec-gemini"
+version = "0.0.1-git"
+edition = "2024"
+authors = ["Julien Cretin <cretin@google.com>"]
+license = "Apache-2.0"
+description = "Experimental cybersecurity-focused AI from Google"
+publish = false
+
+[package.metadata.bundle]
+identifier = "google.secgemini"
+copyright = "Copyright 2025 Google LLC"
+# TODO: icon (list of icns, ico, png)
+category = "Productivity"
+linux_exec_args = "--open-ui"
+linux_use_terminal = true
+dep_depends = ["libssl-dev"]
+
+[dependencies]
+clap = { version = "4.5.32", features = ["derive", "env", "unstable-markdown", "wrap_help"] }
+colored = "3.0.0"
+console = "0.15.11"
+dialoguer = "0.11.0"
+directories = "6.0.0"
+env_logger = "0.11.7"
+futures-util = "0.3.31"
+indicatif = "0.17.11"
+linefeed = "0.6.0"
+log = "0.4.27"
+opener = "0.7.2"
+reqwest = { version = "0.12.15", features = ["json"] }
+semver = "1.0.26"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+serde_with = "3.12.0"
+tokio = { version = "1.44.1", features = ["macros", "rt-multi-thread"] }
+tokio-tungstenite = { version = "0.26.2", features = ["native-tls"] }
+tungstenite = { version = "0.26.2", features = ["url"] }
+url = "2.5.4"
+uuid = { version = "1.16.0", features = ["v4"] }
+
+[lints]
+clippy.mod-module-files = "warn"
+clippy.unit-arg = "allow"
+rust.elided-lifetimes-in-paths = "warn"
+rust.unused-crate-dependencies = "warn"
+rust.unused-results = "warn"
