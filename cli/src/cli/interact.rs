@@ -18,18 +18,16 @@ use std::time::Duration;
 
 use colored::Colorize;
 use indicatif::ProgressBar;
-use linefeed::{Interface, ReadResult};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
+use tokio::task::spawn_blocking;
 use url::Url;
 
 use crate::cli::markdown::try_render_markdown;
 use crate::config::Config;
 use crate::or_fail;
-use crate::sdk::types::{Message, MessageType, PublicSession};
+use crate::sdk::types::{MessageType, PublicSession};
 use crate::sdk::{Sdk, Session};
-use crate::util::choose;
 
-mod name;
+mod cmds;
 
 #[derive(clap::Args)]
 pub struct Options {
@@ -48,34 +46,44 @@ pub struct Options {
 
 impl Options {
     pub async fn query(self, query: &str) {
-        let (sdk, sessions) = Sdk::new(self.sdk_options(false)).await;
-        let (send, mut recv) = unbounded_channel::<Message>();
-        let session = get_session(Arc::new(sdk), sessions, send).await;
-        self.execute(query, &mut recv, &session).await
+        let sdk = Arc::new(Sdk::new(self.sdk_options(false)).await);
+        let mut session = get_session(sdk.clone(), &sdk.cached_sessions().await).await;
+        self.execute(query, &mut session).await
     }
 
     pub async fn session(self) {
-        let (sdk, _) = Sdk::new(self.sdk_options(true)).await;
-        let (send, mut recv) = unbounded_channel::<Message>();
-        let name = format!("{}-{}", choose(name::ADJS), choose(name::TERMS));
-        println!("Session: {}", name.cyan());
-        let session = Session::new(Arc::new(sdk), name, send).await;
-        let interface = Arc::new(or_fail(Interface::new("sec-gemini")));
+        let sdk = Sdk::new(self.sdk_options(true)).await;
+        let sdk = Arc::new(sdk);
+        let mut session = Session::new(sdk.clone(), String::new()).await;
+        let mut interface = Arc::new(or_fail(linefeed::Interface::new("sec-gemini")));
         let style = "\0".bold().blue().to_string();
         let (start, clear) = style.split_once('\0').unwrap();
         or_fail(interface.set_prompt(&format!("{clear}> {start}")));
+        let _ = interface.set_completer(Arc::new(cmds::Completer::new(sdk.clone())));
         loop {
-            let line = or_fail(interface.read_line());
+            let (iface, line) = try_to!(
+                "read line",
+                spawn_blocking(move || {
+                    let line = or_fail(interface.read_line());
+                    (interface, line)
+                })
+                .await
+            );
+            interface = iface;
             or_fail(write!(interface, "{clear}"));
             let query = match line {
-                ReadResult::Eof => break,
-                ReadResult::Input(x) => x,
-                ReadResult::Signal(x) => unreachable!("{x:?}"),
+                linefeed::ReadResult::Eof => break,
+                linefeed::ReadResult::Input(x) => x,
+                linefeed::ReadResult::Signal(x) => unreachable!("{x:?}"),
             };
             if query.trim().is_empty() {
                 continue;
             }
-            self.execute(&query, &mut recv, &session).await;
+            if let Some(query) = query.strip_prefix("/") {
+                cmds::execute_command(query, &sdk, &mut session).await;
+            } else {
+                self.execute(&query, &mut session).await;
+            }
             interface.add_history(query);
         }
     }
@@ -89,13 +97,13 @@ impl Options {
         crate::sdk::Options { api_key, base_url, interactive }
     }
 
-    async fn execute(&self, query: &str, recv: &mut UnboundedReceiver<Message>, session: &Session) {
+    async fn execute(&self, query: &str, session: &mut Session) {
         let progress = ProgressBar::new_spinner();
         set_message(&progress, "Sending request");
         progress.enable_steady_tick(Duration::from_millis(200));
         session.send(query);
         set_message(&progress, "Waiting response");
-        while let Some(message) = recv.recv().await {
+        while let Some(message) = session.recv().await {
             let content = message.content.unwrap_or_default();
             match message.message_type {
                 MessageType::Result => {
@@ -123,9 +131,7 @@ impl Options {
     }
 }
 
-async fn get_session(
-    sdk: Arc<Sdk>, sessions: Vec<PublicSession>, send: UnboundedSender<Message>,
-) -> Session {
+async fn get_session(sdk: Arc<Sdk>, sessions: &[PublicSession]) -> Session {
     const SESSION_NAME: &str = "sec-gemini query";
     let mut best = None;
     for session in sessions {
@@ -134,15 +140,15 @@ async fn get_session(
         }
         match best {
             Some((best_time, _)) if session.create_time < best_time => (),
-            _ => best = Some((session.create_time, session.id)),
+            _ => best = Some((session.create_time, &session.id)),
         }
     }
     if let Some((_, id)) = best {
         log::info!("Resuming existing CLI session.");
-        Session::resume(&sdk, id, send).await
+        Session::resume(&sdk, id.clone()).await
     } else {
         log::info!("Creating new CLI session.");
-        Session::new(sdk, SESSION_NAME.to_string(), send).await
+        Session::new(sdk, SESSION_NAME.to_string()).await
     }
 }
 
