@@ -16,27 +16,38 @@
 import pytest
 from sec_gemini import SecGemini
 from sec_gemini.models.public import UserInfo, PublicUser, PublicSession
-from sec_gemini.models.modelinfo import ModelInfo, ModelSubAgentInfo
+from sec_gemini.models.public import PublicUserVendor
+from sec_gemini.models.modelinfo import ModelInfo, OptionalToolSet, ToolSetVendor
+
 from sec_gemini.models.enums import State
 from sec_gemini.models.usage import Usage
 from sec_gemini.models.message import Message
+from sec_gemini.models.enums import UserType
 import time
 
 @pytest.fixture
 def mock_user():
     """Provides a mock user object for testing."""
+
+    vendor = PublicUserVendor(
+        name="TestVendor",
+        description="A test vendor",
+        url="http://testvendor.com",
+        svg="<svg>...</svg>"
+    )
+
     return  UserInfo(
         user=PublicUser(
             id="test-user-id",
             org_id="test-org-id",
-            type="user",
+            type=UserType.USER,
             never_log=False,
             can_disable_logging=True,
             key_expire_time=1699999999,
             tpm=1000,
             rpm=1000,
             allow_experimental=True,
-            vendors=["vendor1", "vendor2"],
+            vendors=[vendor],
         ),
         sessions=[],
         available_models=[],
@@ -45,41 +56,53 @@ def mock_user():
 @pytest.fixture
 def mock_stable_model_info():
     """Provides a mock stable ModelInfo object."""
+    vendor = ToolSetVendor(
+        name="TestVendor",
+        description="A test vendor",
+        url="http://testvendor.com",
+        svg="<svg>...</svg>"
+    )
     return ModelInfo(
-        model_string="stable-model-v1",
+        model_string="sec-gemini-v1.1-stable",
         is_experimental=False,
-                version='1',
-        subagents=[
-            ModelSubAgentInfo(
-                name="StableAgent",
-                vendor="TestVendor",
-                version="1.0",
+        version='1',
+        toolsets=[
+            OptionalToolSet(
+                name="TestToolset",
+                version=1,
+                description="A test toolset",
+                vendor=vendor,
                 is_enabled=True,
-                is_optional=False,
                 is_experimental=False,
-                description="A stable test agent",
             )
         ],
+
     )
 
 @pytest.fixture
 def mock_experimental_model_info():
     """Provides a mock experimental ModelInfo object."""
+    vendor = ToolSetVendor(
+        name="TestVendor",
+        description="A test vendor",
+        url="http://testvendor.com",
+        svg="<svg>...</svg>"
+    )
     return ModelInfo(
-        model_string="experimental-model-v2",
-        is_experimental=True,
+        model_string="sec-gemini-v1.1-experimental",
+        is_experimental=False,
         version='1',
-        subagents=[
-            ModelSubAgentInfo(
-                name="ExperimentalAgent",
-                vendor="TestVendor",
-                version="2.0",
+        toolsets=[
+            OptionalToolSet(
+                name="TestToolset",
+                version=1,
+                description="A test toolset",
+                vendor=vendor,
                 is_enabled=True,
-                is_optional=False,
                 is_experimental=True,
-                description="An experimental test agent",
             )
         ],
+
     )
 
 @pytest.fixture
@@ -92,6 +115,17 @@ def mock_user_info_with_models(mock_user, mock_stable_model_info, mock_experimen
 @pytest.fixture
 def mock_public_session(mock_stable_model_info: ModelInfo):
     """Provides a mock PublicSession object."""
+
+    usage = Usage(
+        total_tokens=100,
+        prompt_tokens=50,
+        generated_tokens=50,
+        cached_token_count=0,
+        thoughts_token_count=0,
+        tool_use_prompt_token_count=0,
+    )
+
+
     return PublicSession(
         id="test-session-id",
         user_id="test-user-id",
@@ -106,7 +140,7 @@ def mock_public_session(mock_stable_model_info: ModelInfo):
         update_time=int(time.time()),
         num_messages=0,
         messages=[],
-        usage=Usage(),
+        usage=usage,
         can_log=True,
         state=State.START,
         files=[],
@@ -120,7 +154,7 @@ def secgemini_client(httpx_mock, mock_user):
         method="GET",
         json=mock_user.model_dump()
     )
-    BASE_URL = 'http://localhost:8000' 
+    BASE_URL = 'http://localhost:8000'
     WSS_URL = 'ws://localhost:8000'
     API_KEY = 'test-key-fixture'
     return SecGemini(api_key=API_KEY,

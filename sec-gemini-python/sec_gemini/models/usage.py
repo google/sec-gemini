@@ -27,6 +27,16 @@ class Usage(BaseModel):
     total_tokens: int = Field(0, title="Total Tokens",
                               description="Total number of tokens used in the request (prompt + generation)")
 
+    cached_token_count: int = Field(0, title="Cached Token Count",
+                              description="Number of tokens used in the cached response")
+
+    thoughts_token_count: int = Field(0, title="Thoughts Token Count",
+                                      description="Number of tokens used in the thoughts")
+
+    tool_use_prompt_token_count: int = Field(0, title="Tool Use Prompt Token Count",
+                                             description="Number of tokens used in the tool use prompt")
+
+
     def tally(self, subusage: "Usage") -> None:
         """
         Update the usage with the given values.
@@ -35,6 +45,10 @@ class Usage(BaseModel):
             self.prompt_tokens += subusage.prompt_tokens
             self.generated_tokens += subusage.generated_tokens
             self.total_tokens += subusage.total_tokens
+            self.cached_token_count += subusage.cached_token_count
+            self.thoughts_token_count += subusage.thoughts_token_count
+            self.tool_use_prompt_token_count += subusage.tool_use_prompt_token_count
+            self.total_tokens += subusage.cached_token_count
 
     def __repr__(self):
         return super().__repr__() + f" prompt_tokens={self.prompt_tokens}, generated_tokens={self.generated_tokens}, total_tokens={self.total_tokens})"

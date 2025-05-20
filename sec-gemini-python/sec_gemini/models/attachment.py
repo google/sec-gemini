@@ -14,24 +14,36 @@
 # limitations under the License.
 
 
+
 from pydantic import BaseModel, Field
 from .enums import MimeType
+
 
 class Attachment(BaseModel):
     """Represents a file upload to the session."""
 
-    session_id: str = Field(...,
-                            title="Session ID",
-                            description="The session ID this file should be attached to.")
+    session_id: str = Field(
+        ...,
+        title="Session ID",
+        description="The session ID this file should be attached to.",
+    )
 
-    filename: str = Field(...,
-                          title="Filename",
-                          description="The name of the file.")
+    filename: str = Field(
+        ...,
+        title="Filename",
+        description="The name of the file.",
+    )
 
-    mime_type: MimeType = Field(...,
-                                title="Mime Type",
-                                description="The mime type of the file.")
+    # TODO: remove this field after the SDK stops using it.
+    mime_type: MimeType = Field(
+        ...,
+        title="Mime Type",
+        description="The mime type of the file.",
+        deprecated=True,
+    )
 
-    content: str = Field(...,
-                           title="File Content",
-                           description="The content of the file as string. Always base64 encoded.")
+    content: str = Field(
+        ...,
+        title="File Content",
+        description="The content of the file as string. Always base64 encoded.",
+    )
