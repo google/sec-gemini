@@ -15,7 +15,7 @@ The SDK handles all communication with the Sec-Gemini backend service, allowing 
 
 ### Core Concepts
 
-- **Initialization:** The SDK is initialized using the `P9SDK.create()` method, which requires an API key and optionally a base URL and websockets URL.
+- **Initialization:** The SDK is initialized using the `SecGemini.create()` method, which requires an API key and optionally a base URL and websockets URL.
 - **Sessions:** The SDK uses the concept of "sessions" (`InteractiveSession`) to manage user interactions. You can create new sessions or resume existing ones.
 - **Messages:** Communication within a session is structured using `Message` objects, which include information like the message type, role, and content.
 - **Streaming:** The SDK supports bidirectional streaming of messages through the `Streamer` class, enabling real-time communication with the user.
@@ -26,17 +26,17 @@ The SDK handles all communication with the Sec-Gemini backend service, allowing 
 ### Using npm/yarn
 
 ```bash
-npm install @google/sec-gemini-sdk TODO
+npm install sec-gemini
 # or
-yarn add @google/sec-gemini-sdk TODO
+yarn add sec-gemini
 ```
 
 ### Importing into your project
 
-```javascript
+```typescript
 // ES Modules
-import P9SDK from "@google/sec-gemini-sdk";
-import { MessageTypeEnum, Message } from "sec-gemini-sdk"; // Import specific types
+import SecGemini from "sec-gemini";
+import { MessageTypeEnum, Message } from "sec-gemini";
 ```
 
 ## 3. Set Up
@@ -45,9 +45,9 @@ import { MessageTypeEnum, Message } from "sec-gemini-sdk"; // Import specific ty
 
 The SDK is initialized with your API key and optional configuration:
 
-```javascript
+```typescript
 const apiKey = "your_api_key_here";
-const sdk = await P9SDK.create(apiKey);
+const sdk = await SecGemini.create(apiKey: string);
 ```
 
 ## 4. Sessions
@@ -57,19 +57,23 @@ const sdk = await P9SDK.create(apiKey);
 - Purpose: Creates a new interactive session.
 
 - Parameters:
-  - `ttl` (number, optional): Time to live for the session in seconds (default: 86400).
-  - `name` (string, optional): Human-readable name for the session.
-  - `description` (string, optional): Description of the session.
-  - `logSession` (boolean, optional): Whether the session can be logged (default: true).
+  - `options` (object): Configuration options for the new session
+    - `ttl` (number, optional): Time to live for the session in seconds (default: 86400).
+    - `name` (string, optional): Human-readable name for the session.
+    - `description` (string, optional): Description of the session.
+    - `logSession` (boolean, optional): Whether the session can be logged (default: true).
+    - `model` (string|ModelInfoInput, optional): Model to use ('stable', 'experimental', or specific ModelInfoInput).
+    - `language` (string, optional): ISO language code (default: 'en').
 - Return Value: `Promise<InteractiveSession>` - A promise that resolves to a new `InteractiveSession` object.
 
-```javascript
-const session = await sdk.newSession(
-  3600,
-  "A Name",
-  "A Description on the session"
-  false
-);
+```typescript
+const session = await sdk.createSession({
+  ttl: 3600,
+  name: "My Session",
+  description: "Testing Sec-Gemini SDK",
+  model: "stable",
+  language: "en",
+});
 ```
 
 ### Resume a session
@@ -80,8 +84,8 @@ const session = await sdk.newSession(
   - `session_id` (string): The id of the session you would like to resume.
 - Return Value: `Promise<InteractiveSession>` - A promise that resolves to a new `InteractiveSession` object.
 
-```javascript
-const session = await sdk.resumeSession("1473-3434-3434-3433");
+```typescript
+const session = await SecGemini.resumeSession("1473-3434-3434-3433");
 ```
 
 ## 5. Communication with the backend
@@ -96,7 +100,7 @@ const session = await sdk.resumeSession("1473-3434-3434-3433");
   - `onresult` (function): Callback function to handle the final result (`Message`) from the stream.
   - Return Value: `Promise<Streamer>` - A promise that resolves to a `Streamer` object.
 
-    ````javascript
+    ````typescript
          const streamer = await session.streamer(
              (message) => { console.log('Message:', message.content); },
              (result) => { console.log('Result:', result.content); }
@@ -112,7 +116,7 @@ const session = await sdk.resumeSession("1473-3434-3434-3433");
 - Return Value: `Promise<void>`
 - Example:
 
-  ```javascript
+  ```typescript
   await streamer.send("Tell me about csrf");
   ```
 
@@ -125,9 +129,25 @@ const session = await sdk.resumeSession("1473-3434-3434-3433");
   - `fileContent` (string): The content of the file, potentially base64 encoded.
 - Return Value: `Promise<void>` - A promise that resolves when the file is successfully attached to the session.
 
-  ```javascript
+  ```typescript
   await session.attachFile("myFile.txt", "image/jpeg", base64fileContent);
   ```
+
+### Accessing User Information
+
+```typescript
+const userInfo = sdk.getUserInfo();
+const user = sdk.getUser();
+console.log(`Logged in as: ${user?.email}`);
+```
+
+### Configuration Defaults
+
+```typescript
+const DEFAULT_BASE_URL = "https://api.secgemini.google";
+const DEFAULT_WS_URL = "wss://api.secgemini.google";
+const DEFAULT_TTL = 86400; // 24 hours in seconds
+```
 
 **Note:**
 
