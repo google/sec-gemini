@@ -19,8 +19,10 @@ dependencies = [
 dev-dependencies = [
     "ipykernel>=6.29.5",
     "jupyter>=1.1.1",
+    "mypy>=1.15.0",
     "pytest>=8.3.4",
     "pytest-httpx>=0.35.0",
+    "ruff>=0.11.11",
 ]
 
 [tool.setuptools.packages.find]
