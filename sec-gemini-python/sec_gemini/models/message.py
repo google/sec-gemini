@@ -1,4 +1,3 @@
-
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,74 +25,100 @@ from .usage import Usage
 
 ROOT_ID = "3713"
 
+
 class Message(BaseModel):
     """
     Represents the content of the session both in request and response.
     """
 
-    id: str = Field(default_factory=lambda: uuid4().hex[:12],
-                    title="Message ID",
-                    description="A unique identifier for the message - uuid4 int.")
+    id: str = Field(
+        default_factory=lambda: uuid4().hex[:12],
+        title="Message ID",
+        description="A unique identifier for the message - uuid4 int.",
+    )
 
-    parent_id: str = Field(ROOT_ID,
-                           title="Parent Message ID",
-                           description="The ID of the parent message.")
+    parent_id: str = Field(
+        ROOT_ID, title="Parent Message ID", description="The ID of the parent message."
+    )
 
-    turn: str = Field(default_factory=lambda: uuid4().hex[:12],
-                      title="Conversation Turn",
-                      description="The turn identifier is used to group/message are part of the same conversation turn.")
+    turn: str = Field(
+        default_factory=lambda: uuid4().hex[:12],
+        title="Conversation Turn",
+        description="The turn identifier is used to group/message are part of the same conversation turn.",
+    )
 
+    group: str = Field(
+        default_factory=lambda: uuid4().hex,
+        title="Message Group",
+        description="The Group ID (UUID4) identify messages part of the same generation or action.",
+    )
 
-    group: str = Field(default_factory=lambda: uuid4().hex,
-                       title="Message Group",
-                       description="The Group ID (UUID4) identify messages part of the same generation or action.")
+    actor: str = Field(
+        "user", title="Actor", description="The actor of the message - user or agent."
+    )
 
-    actor: str = Field("user", title="Actor",
-                       description="The actor of the message - user or agent.")
+    role: Role = Field(
+        Role.USER, title="Role", description="The role of the messages author."
+    )
 
-    role: Role = Field(Role.USER,
-                       title="Role",
-                       description="The role of the messages author.")
+    timestamp: int = Field(
+        default_factory=lambda: int(time()),
+        title="Timestamp",
+        description="The Unix timestamp (in seconds) of when the message was created.",
+    )
 
-    timestamp: int = Field(default_factory=lambda: int(time()),
-                           title="Timestamp",
-                           description="The Unix timestamp (in seconds) of when the message was created.")
+    message_type: MessageType = Field(
+        ...,
+        title="Message Type",
+        description="The type of message - Generation, Tool Call, or Info.",
+    )
 
-    message_type: MessageType = Field(...,
-                                      title="Message Type",
-                                      description="The type of message - Generation, Tool Call, or Info.")
+    message_sub_type: Optional[str] = Field(
+        None,
+        title="Message Sub Type",
+        description="The sub type of the message - e.g. function name.",
+    )
 
-    message_sub_type: Optional[str] = Field(None,
-                                            title="Message Sub Type",
-                                            description="The sub type of the message - e.g. function name.")
+    state: State = Field(
+        State.START, title="State", description="The state the message belongs to."
+    )
 
-    state: State = Field(State.START,
-                         title="State",
-                         description="The state the message belongs to.")
+    content: Optional[str] = Field(
+        None,
+        title="Message Content",
+        description="The content of the message encoded as utf-8 bytes.",
+    )
 
-    content: Optional[str] = Field(None,
-                                   title="Message Content",
-                                   description="The content of the message encoded as utf-8 bytes.")
+    mime_type: Optional[MimeType] = Field(
+        default=MimeType.TEXT,
+        title="Content Type",
+        description="The content type of the content field.",
+    )
 
-    mime_type: Optional[MimeType] = Field(default=MimeType.TEXT,
-                                          title="Content Type",
-                                          description="The content type of the content field.")
+    status_code: int = Field(
+        ResponseStatus.OK.value,
+        title="Status Code",
+        description="The status code of the message. 2xx is Okay, 4xx is a client error, 5xx is a server error.",
+    )
 
-    status_code: int = Field(ResponseStatus.OK.value, title="Status Code",
-                             description="The status code of the message. 2xx is Okay, 4xx is a client error, 5xx is a server error.")
+    status_message: str = Field(
+        ResponseStatus.OK.name,
+        title="Status Message",
+        description="Explain status code reason.",
+    )
 
-    status_message: str = Field(ResponseStatus.OK.name, title="Status Message",
-                                description="Explain status code reason.")
-
-    usage: Optional[Usage] = Field(Usage(), title="Model Usage Statistics",
-                                   description="Token counts when message was generated by model.")
+    usage: Optional[Usage] = Field(
+        Usage(),
+        title="Model Usage Statistics",
+        description="Token counts when message was generated by model.",
+    )
 
     def to_json(self):
         "Returns the message as a dictionary."
         return orjson.dumps(self.model_dump())
 
     @staticmethod
-    def from_json(data: dict|str) -> "Message":
+    def from_json(data: dict | str) -> "Message":
         "Creates a message from a json dictionary."
         if isinstance(data, str):
             data = orjson.loads(data)
@@ -115,8 +140,9 @@ class Message(BaseModel):
         self.status_message = status.name
         return self
 
-    def set_content(self, content: bytes | str,
-                    mime_type: MimeType = MimeType.TEXT) -> "Message":
+    def set_content(
+        self, content: bytes | str, mime_type: MimeType = MimeType.TEXT
+    ) -> "Message":
         """
         Set the content of the message while encoding bytes as base64.
         """
@@ -128,7 +154,7 @@ class Message(BaseModel):
             self.content = b64encode(content).decode("ascii")
         return self
 
-    def get_content(self) -> bytes|str:
+    def get_content(self) -> bytes | str:
         """
         Decodes the content of the message either to bytes or utf-8 string
         depending of the mime type.
@@ -137,7 +163,7 @@ class Message(BaseModel):
             return ""
 
         # return text content as is
-        if self.mime_type.value.startswith('text/'):
+        if self.mime_type.value.startswith("text/"):
             return self.content
         else:
             # Decode the content if it is base64 encoded

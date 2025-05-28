@@ -14,18 +14,24 @@
 
 from enum import Enum
 
+
 class SDKInfo(Enum):
     """SDK Info"""
+
     NAME = "secgemini-python"
     VERSION = "0.2.0"  # reported in the header of the API
 
+
 class _URLS(Enum):
     """API URLs"""
+
     HTTPS = "https://api.secgemini.google"
     WEBSOCKET = "wss://api.secgemini.google"
 
+
 class _EndPoints(Enum):
     """API Endpoints"""
+
     # users
     USER_INFO = "/v1/user/info"
 

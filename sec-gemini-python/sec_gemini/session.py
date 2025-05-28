@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Interactive session class that interact with the user."""
+
 import mimetypes
 import asyncio
 import logging
@@ -40,23 +41,25 @@ from .models.session_request import SessionRequest
 from .models.session_response import SessionResponse
 from .models.usage import Usage
 
-class InteractiveSession():
+
+class InteractiveSession:
     "Interactive session with Sec-Gemini"
 
-    def __init__(self,
-                 user: PublicUser,
-                 base_url: str,
-                 base_websockets_url: str,
-                 api_key: str,
-                 enable_logging: bool = True):
-
+    def __init__(
+        self,
+        user: PublicUser,
+        base_url: str,
+        base_websockets_url: str,
+        api_key: str,
+        enable_logging: bool = True,
+    ):
         self.user = user
         self.base_url = base_url
         self.websocket_url = base_websockets_url
         self.api_key = api_key
         self.enable_logging = enable_logging
         self.http = NetworkClient(self.base_url, self.api_key)
-        self._session: PublicSession = None   # session object
+        self._session: PublicSession = None  # session object
 
     @property
     def id(self) -> str:
@@ -142,7 +145,6 @@ class InteractiveSession():
         self._refresh_data()
         return self._session.files
 
-
     def _refresh_data(self) -> PublicSession:
         """Refresh the session"""
         if self._session is None:
@@ -154,8 +156,9 @@ class InteractiveSession():
         session = self.fetch_session(session_id)
         if session is not None:
             self._session = session
-            logging.info( "[Session][Resume]: Session {%s} (%s) resumed",
-                         session.id, session.name)
+            logging.info(
+                "[Session][Resume]: Session {%s} (%s) resumed", session.id, session.name
+            )
             return True
         logging.error("[Session][Resume]: Session %s not found", session_id)
         return False
@@ -168,11 +171,10 @@ class InteractiveSession():
         if not fpath.is_file():
             raise ValueError(f"Path {file_path} is not a file")
 
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             content = f.read()
 
         return self.attach_file(fpath.name, content)
-
 
     def delete_file(self, filename: str) -> bool:
         """Delete a file from the session"""
@@ -184,11 +186,15 @@ class InteractiveSession():
             raise ValueError(f"File {filename} not found in session")
 
         # delete the file
-        resp = self.http.post(_EndPoints.DELETE_FILE.value,
-                               Attachment(session_id=self._session.id,
-                                          filename=filename,
-                                          mime_type=MimeType.TEXT,
-                                          content=''))
+        resp = self.http.post(
+            _EndPoints.DELETE_FILE.value,
+            Attachment(
+                session_id=self._session.id,
+                filename=filename,
+                mime_type=MimeType.TEXT,
+                content="",
+            ),
+        )
         if not resp.ok:
             logging.error("[Session][Delete][HTTP]: %s", resp.error_message)
             return False
@@ -197,7 +203,6 @@ class InteractiveSession():
             logging.error("[Session][Delete][Session]: %s", resp.status_message)
             return False
         return True
-
 
     def attach_file(self, filename: str, content: bytes) -> bool:
         """Attach a file to the session"""
@@ -215,10 +220,12 @@ class InteractiveSession():
         content = b64encode(content).decode("ascii")
 
         # generate a unique id for the attachment
-        attachment = Attachment(session_id=self._session.id,
-                                filename=filename,
-                                mime_type=mime_type_enum,
-                                content=content)
+        attachment = Attachment(
+            session_id=self._session.id,
+            filename=filename,
+            mime_type=mime_type_enum,
+            content=content,
+        )
 
         resp = self.http.post(_EndPoints.ATTACH_FILE.value, attachment)
         if not resp.ok:
@@ -230,31 +237,33 @@ class InteractiveSession():
             return False
         return True
 
-
-    def send_bug_report(self, bug: str, group_id: str = '') -> bool:
+    def send_bug_report(self, bug: str, group_id: str = "") -> bool:
         """Send a bug report"""
-        feedback = Feedback(session_id=self._session.id,
-                            type=FeedbackType.BUG_REPORT,
-                            score=0,
-                            comment=bug)
+        feedback = Feedback(
+            session_id=self._session.id,
+            type=FeedbackType.BUG_REPORT,
+            score=0,
+            comment=bug,
+        )
         if group_id:
             feedback.group_id = group_id
 
         return self._upload_feedback(feedback)
 
-
-    def send_feedback(self, score: int, comment: str, group_id: str = '') -> bool:
+    def send_feedback(self, score: int, comment: str, group_id: str = "") -> bool:
         """Send session/span feedback"""
-        feedback = Feedback(session_id=self._session.id,
-                            type=FeedbackType.USER_FEEDBACK,
-                            score=score,
-                            comment=comment)
+        feedback = Feedback(
+            session_id=self._session.id,
+            type=FeedbackType.USER_FEEDBACK,
+            score=score,
+            comment=comment,
+        )
         if group_id:
             feedback.group_id = group_id
 
         return self._upload_feedback(feedback)
 
-    def _upload_feedback(self, feedback:Feedback) -> bool:
+    def _upload_feedback(self, feedback: Feedback) -> bool:
         """Send feedback to the server"""
 
         resp = self.http.post(_EndPoints.SEND_FEEDBACK.value, feedback)
@@ -267,8 +276,7 @@ class InteractiveSession():
             return False
         return True
 
-    def update(self, name: str = '', description: str = '',
-               ttl: int = 0) -> bool:
+    def update(self, name: str = "", description: str = "", ttl: int = 0) -> bool:
         """Update session information"""
 
         # update the session object
@@ -292,7 +300,6 @@ class InteractiveSession():
             logging.error("[Session][Update][Session]: %s", resp.status_message)
             return False
         return True
-
 
     def delete(self) -> bool:
         """Delete the session"""
@@ -322,7 +329,7 @@ class InteractiveSession():
         console = Console()
         tree_data = {}
 
-        tree_data['3713'] = Tree(
+        tree_data["3713"] = Tree(
             f"[bold]{session.name}[/bold] - tokens: {session.usage.total_tokens}"
         )
         for msg in session.messages:
@@ -340,10 +347,16 @@ class InteractiveSession():
 
             tree_data[msg.id] = tree_data[msg.parent_id].add(text)
 
-        console.print(tree_data['3713'])
+        console.print(tree_data["3713"])
 
-    def register(self, model: ModelInfo, ttl: int = DEFAULT_TTL, name: str = "",
-                 description: str = "", language: str = "en") -> bool:
+    def register(
+        self,
+        model: ModelInfo,
+        ttl: int = DEFAULT_TTL,
+        name: str = "",
+        description: str = "",
+        language: str = "en",
+    ) -> bool:
         """Initializes the session
 
         notes:
@@ -360,14 +373,16 @@ class InteractiveSession():
             name = self._generate_session_name()
 
         # register the session
-        session = PublicSession(model=model,
-                                user_id=self.user.id,
-                                org_id=self.user.org_id,
-                                ttl=ttl,
-                                language=language,
-                                name=name,
-                                description=description,
-                                can_log=self.enable_logging)
+        session = PublicSession(
+            model=model,
+            user_id=self.user.id,
+            org_id=self.user.org_id,
+            ttl=ttl,
+            language=language,
+            name=name,
+            description=description,
+            can_log=self.enable_logging,
+        )
 
         resp = self.http.post(_EndPoints.REGISTER_SESSION.value, session)
         if not resp.ok:
@@ -380,8 +395,11 @@ class InteractiveSession():
             return False
 
         self._session = session
-        logging.info("[Session][Register][Session]: Session %s (%s) registered",
-                     session.id, session.name)
+        logging.info(
+            "[Session][Register][Session]: Session %s (%s) registered",
+            session.id,
+            session.name,
+        )
 
         return True
 
@@ -401,7 +419,11 @@ class InteractiveSession():
 
         resp = SessionResponse(**resp.data)
         if resp.status_code != ResponseStatus.OK:
-            logging.error("[Session][Generate][Response] %d:%s", resp.status_code, resp.status_message)
+            logging.error(
+                "[Session][Generate][Response] %d:%s",
+                resp.status_code,
+                resp.status_message,
+            )
             return None
         return resp
 
@@ -417,10 +439,12 @@ class InteractiveSession():
         max_retries = 5
         for attempt in range(max_retries):
             try:
-                async with websockets.connect(url,
-                                            ping_interval=20,  # seconds
-                                            ping_timeout=20,   # seconds
-                                            close_timeout=60) as ws:
+                async with websockets.connect(
+                    url,
+                    ping_interval=20,  # seconds
+                    ping_timeout=20,  # seconds
+                    close_timeout=60,
+                ) as ws:
                     # send request
                     await ws.send(message.model_dump_json())
 
@@ -430,8 +454,11 @@ class InteractiveSession():
                             data = await ws.recv()
                             msg = Message.from_json(data)
                             if msg.status_code != ResponseStatus.OK:
-                                logging.error("[Session][Stream][Response] %d:%s",
-                                            msg.status_code, msg.status_message)
+                                logging.error(
+                                    "[Session][Stream][Response] %d:%s",
+                                    msg.status_code,
+                                    msg.status_message,
+                                )
                                 break
                             yield msg
                         except Exception as e:
@@ -443,13 +470,13 @@ class InteractiveSession():
                     raise e
                 await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
 
-
-    def fetch_session(self, id:str) -> PublicSession:
+    def fetch_session(self, id: str) -> PublicSession:
         """Get the full session from the server"""
         # for security reason, the api requires the user_id and org_id
         query_params = {"session_id": id}
-        resp = self.http.get(f"{_EndPoints.GET_SESSION.value}",
-                             query_params=query_params)
+        resp = self.http.get(
+            f"{_EndPoints.GET_SESSION.value}", query_params=query_params
+        )
         if not resp.ok:
             logging.error("[Session][Resume][HTTP]: %s", resp.error_message)
             return None
@@ -457,49 +484,163 @@ class InteractiveSession():
         try:
             session = PublicSession(**resp.data)
         except Exception as e:
-            logging.error("[Session][Resume][Session]: %s - %s", repr(e),
-                          resp.data)
+            logging.error("[Session][Resume][Session]: %s - %s", repr(e), resp.data)
             return None
         return session
 
     def _build_prompt_message(self, prompt: str) -> Message:
-
-        message = Message(role=Role.USER,
-                          state=State.QUERY,
-                          message_type=MessageType.QUERY,
-                          mime_type=MimeType.TEXT)
+        message = Message(
+            role=Role.USER,
+            state=State.QUERY,
+            message_type=MessageType.QUERY,
+            mime_type=MimeType.TEXT,
+        )
         return message.set_content(prompt)
-
 
     def _generate_session_name(self) -> str:
         """Generates a unique  cybersecurity session themed name."""
 
         terms = [
-            "firewall", "xss", "sql-injection", "csrf", "dos", "botnet", "rsa",
-            "aes", "sha", "hmac", "xtea", "twofish", "serpent", "dh", "ecc",
-            "dsa", "pgp", "vpn", "tor", "dns", "tls", "ssl", "https", "ssh",
-            "sftp", "snmp", "ldap", "kerberos", "oauth", "bcrypt", "scrypt",
-            "argon2", "pbkdf2", "ransomware", "trojan", "rootkit", "keylogger",
-            "adware", "spyware", "worm", "virus", "antivirus", "sandbox",
-            "ids", "ips", "honeybot", "honeypot", "siem", "nids", "hids",
-            "waf", "dast", "sast", "vulnerability", "exploit", "0day",
-            "logjam", "heartbleed", "shellshock", "poodle", "spectre",
-            "meltdown", "rowhammer", "sca", "padding", "oracle"
+            "firewall",
+            "xss",
+            "sql-injection",
+            "csrf",
+            "dos",
+            "botnet",
+            "rsa",
+            "aes",
+            "sha",
+            "hmac",
+            "xtea",
+            "twofish",
+            "serpent",
+            "dh",
+            "ecc",
+            "dsa",
+            "pgp",
+            "vpn",
+            "tor",
+            "dns",
+            "tls",
+            "ssl",
+            "https",
+            "ssh",
+            "sftp",
+            "snmp",
+            "ldap",
+            "kerberos",
+            "oauth",
+            "bcrypt",
+            "scrypt",
+            "argon2",
+            "pbkdf2",
+            "ransomware",
+            "trojan",
+            "rootkit",
+            "keylogger",
+            "adware",
+            "spyware",
+            "worm",
+            "virus",
+            "antivirus",
+            "sandbox",
+            "ids",
+            "ips",
+            "honeybot",
+            "honeypot",
+            "siem",
+            "nids",
+            "hids",
+            "waf",
+            "dast",
+            "sast",
+            "vulnerability",
+            "exploit",
+            "0day",
+            "logjam",
+            "heartbleed",
+            "shellshock",
+            "poodle",
+            "spectre",
+            "meltdown",
+            "rowhammer",
+            "sca",
+            "padding",
+            "oracle",
         ]
 
         adjs = [
-            "beautiful", "creative", "dangerous", "elegant", "fancy",
-            "gorgeous", "handsome", "intelligent", "jolly", "kind", "lovely",
-            "magnificent", "nice", "outstanding", "perfect", "quick",
-            "reliable", "smart", "talented", "unique", "vibrant", "wonderful",
-            "young", "zany", "amazing", "brave", "calm", "delightful", "eager",
-            "faithful", "gentle", "happy", "incredible", "jovial", "keen",
-            "lucky", "merry", "nice", "optimistic", "proud", "quiet",
-            "reliable", "scary", "thoughtful", "upbeat", "victorious", "witty",
-            "zealous", "adorable", "brilliant", "charming", "daring", "eager",
-            "fearless", "graceful", "honest", "intelligent", "jolly", "kind",
-            "lively", "modest", "nice", "optimistic", "proud", "quiet",
-            "reliable", "silly", "thoughtful", "upbeat", "victorious", "witty"
+            "beautiful",
+            "creative",
+            "dangerous",
+            "elegant",
+            "fancy",
+            "gorgeous",
+            "handsome",
+            "intelligent",
+            "jolly",
+            "kind",
+            "lovely",
+            "magnificent",
+            "nice",
+            "outstanding",
+            "perfect",
+            "quick",
+            "reliable",
+            "smart",
+            "talented",
+            "unique",
+            "vibrant",
+            "wonderful",
+            "young",
+            "zany",
+            "amazing",
+            "brave",
+            "calm",
+            "delightful",
+            "eager",
+            "faithful",
+            "gentle",
+            "happy",
+            "incredible",
+            "jovial",
+            "keen",
+            "lucky",
+            "merry",
+            "nice",
+            "optimistic",
+            "proud",
+            "quiet",
+            "reliable",
+            "scary",
+            "thoughtful",
+            "upbeat",
+            "victorious",
+            "witty",
+            "zealous",
+            "adorable",
+            "brilliant",
+            "charming",
+            "daring",
+            "eager",
+            "fearless",
+            "graceful",
+            "honest",
+            "intelligent",
+            "jolly",
+            "kind",
+            "lively",
+            "modest",
+            "nice",
+            "optimistic",
+            "proud",
+            "quiet",
+            "reliable",
+            "silly",
+            "thoughtful",
+            "upbeat",
+            "victorious",
+            "witty",
         ]
 
         return f"{random.choice(adjs)}-{random.choice(terms)}"

@@ -1,4 +1,3 @@
-
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,13 +18,18 @@ from typing import List, Optional, Dict, Union, Any
 from pydantic import BaseModel, Field
 from .message import Message
 
+
 class SessionRequest(BaseModel):
     """
     Schema for the request body for triggering a model generation.
     """
-    id: str = Field(default_factory=lambda: uuid4().hex, title="Session ID",
-                    description="The Session ID (UUID4) this request belongs to.")
 
-    messages: List[Message] = Field(..., title="Messages",
-                                    description="new query messages")
+    id: str = Field(
+        default_factory=lambda: uuid4().hex,
+        title="Session ID",
+        description="The Session ID (UUID4) this request belongs to.",
+    )
 
+    messages: List[Message] = Field(
+        ..., title="Messages", description="new query messages"
+    )

@@ -13,17 +13,21 @@
 # limitations under the License.
 
 
+import time
+
 import pytest
 from sec_gemini import SecGemini
-from sec_gemini.models.public import UserInfo, PublicUser, PublicSession
-from sec_gemini.models.public import PublicUserVendor
-from sec_gemini.models.modelinfo import ModelInfo, OptionalToolSet, ToolSetVendor
-
-from sec_gemini.models.enums import State
-from sec_gemini.models.usage import Usage
+from sec_gemini.models.enums import State, UserType
 from sec_gemini.models.message import Message
-from sec_gemini.models.enums import UserType
-import time
+from sec_gemini.models.modelinfo import ModelInfo, OptionalToolSet, ToolSetVendor
+from sec_gemini.models.public import (
+    PublicSession,
+    PublicUser,
+    PublicUserVendor,
+    UserInfo,
+)
+from sec_gemini.models.usage import Usage
+
 
 @pytest.fixture
 def mock_user():
@@ -33,10 +37,10 @@ def mock_user():
         name="TestVendor",
         description="A test vendor",
         url="http://testvendor.com",
-        svg="<svg>...</svg>"
+        svg="<svg>...</svg>",
     )
 
-    return  UserInfo(
+    return UserInfo(
         user=PublicUser(
             id="test-user-id",
             org_id="test-org-id",
@@ -53,6 +57,7 @@ def mock_user():
         available_models=[],
     )
 
+
 @pytest.fixture
 def mock_stable_model_info():
     """Provides a mock stable ModelInfo object."""
@@ -60,12 +65,12 @@ def mock_stable_model_info():
         name="TestVendor",
         description="A test vendor",
         url="http://testvendor.com",
-        svg="<svg>...</svg>"
+        svg="<svg>...</svg>",
     )
     return ModelInfo(
         model_string="sec-gemini-v1.1-stable",
         is_experimental=False,
-        version='1',
+        version="1",
         toolsets=[
             OptionalToolSet(
                 name="TestToolset",
@@ -76,8 +81,8 @@ def mock_stable_model_info():
                 is_experimental=False,
             )
         ],
-
     )
+
 
 @pytest.fixture
 def mock_experimental_model_info():
@@ -86,12 +91,12 @@ def mock_experimental_model_info():
         name="TestVendor",
         description="A test vendor",
         url="http://testvendor.com",
-        svg="<svg>...</svg>"
+        svg="<svg>...</svg>",
     )
     return ModelInfo(
         model_string="sec-gemini-v1.1-experimental",
         is_experimental=False,
-        version='1',
+        version="1",
         toolsets=[
             OptionalToolSet(
                 name="TestToolset",
@@ -102,15 +107,18 @@ def mock_experimental_model_info():
                 is_experimental=True,
             )
         ],
-
     )
 
+
 @pytest.fixture
-def mock_user_info_with_models(mock_user, mock_stable_model_info, mock_experimental_model_info):
+def mock_user_info_with_models(
+    mock_user, mock_stable_model_info, mock_experimental_model_info
+):
     """Provides a mock UserInfo object that includes available models."""
     user_info = mock_user
     user_info.available_models = [mock_stable_model_info, mock_experimental_model_info]
     return user_info
+
 
 @pytest.fixture
 def mock_public_session(mock_stable_model_info: ModelInfo):
@@ -124,7 +132,6 @@ def mock_public_session(mock_stable_model_info: ModelInfo):
         thoughts_token_count=0,
         tool_use_prompt_token_count=0,
     )
-
 
     return PublicSession(
         id="test-session-id",
@@ -146,35 +153,33 @@ def mock_public_session(mock_stable_model_info: ModelInfo):
         files=[],
     )
 
+
 @pytest.fixture
 def secgemini_client(httpx_mock, mock_user):
     """Provides a mock SecGemini client for testing."""
     httpx_mock.add_response(
-        url="http://localhost:8000/v1/user/info", # Ensure this matches the actual endpoint used by get_info in __init__
+        url="http://localhost:8000/v1/user/info",  # Ensure this matches the actual endpoint used by get_info in __init__
         method="GET",
-        json=mock_user.model_dump()
+        json=mock_user.model_dump(),
     )
-    BASE_URL = 'http://localhost:8000'
-    WSS_URL = 'ws://localhost:8000'
-    API_KEY = 'test-key-fixture'
-    return SecGemini(api_key=API_KEY,
-                    base_url=BASE_URL,
-                   base_websockets_url=WSS_URL)
+    BASE_URL = "http://localhost:8000"
+    WSS_URL = "ws://localhost:8000"
+    API_KEY = "test-key-fixture"
+    return SecGemini(api_key=API_KEY, base_url=BASE_URL, base_websockets_url=WSS_URL)
+
 
 @pytest.fixture
 def secgemini_client_with_models(httpx_mock, mock_user_info_with_models):
     """Provides a mock SecGemini client, ensuring get_info returns models."""
     httpx_mock.add_response(
-        url="http://localhost:8000/v1/user/info", # Ensure this matches the actual endpoint used by get_info
+        url="http://localhost:8000/v1/user/info",  # Ensure this matches the actual endpoint used by get_info
         method="GET",
-        json=mock_user_info_with_models.model_dump()
+        json=mock_user_info_with_models.model_dump(),
     )
-    BASE_URL = 'http://localhost:8000'
-    WSS_URL = 'ws://localhost:8000'
-    API_KEY = 'test-key-fixture'
-    client = SecGemini(api_key=API_KEY,
-                       base_url=BASE_URL,
-                       base_websockets_url=WSS_URL)
+    BASE_URL = "http://localhost:8000"
+    WSS_URL = "ws://localhost:8000"
+    API_KEY = "test-key-fixture"
+    client = SecGemini(api_key=API_KEY, base_url=BASE_URL, base_websockets_url=WSS_URL)
     # Ensure the client's models are set up based on the mocked get_info response
     client.stable_model = mock_user_info_with_models.available_models[0]
     client.experimental_model = mock_user_info_with_models.available_models[1]
