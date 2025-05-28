@@ -24,4 +24,3 @@ env/
 .env
 dist/*
 *_Store
-.python-version
