@@ -13,12 +13,16 @@
 # limitations under the License.
 
 import pytest
+from pytest_httpx import HTTPXMock
 from sec_gemini import SecGemini
 from sec_gemini.models.modelinfo import ModelInfo
+from sec_gemini.models.public import PublicSession, UserInfo
 from sec_gemini.session import InteractiveSession
 
 
-def test_user_info_is_received_correctly(secgemini_client, mock_user, httpx_mock):
+def test_user_info_is_received_correctly(
+    secgemini_client: SecGemini, mock_user: UserInfo, httpx_mock: HTTPXMock
+):
     httpx_mock.add_response(
         url=secgemini_client.base_url + "/v1/user/info", json=mock_user.model_dump()
     )
@@ -35,7 +39,9 @@ def test_user_info_is_received_correctly(secgemini_client, mock_user, httpx_mock
     assert info.user.can_disable_logging == mock_user.user.can_disable_logging
 
 
-def test_get_stable_model(secgemini_client_with_models, mock_stable_model_info):
+def test_get_stable_model(
+    secgemini_client_with_models: SecGemini, mock_stable_model_info: ModelInfo
+):
     stable_model = secgemini_client_with_models.get_stable_model()
     assert stable_model is not None
     assert isinstance(stable_model, ModelInfo)
@@ -44,7 +50,7 @@ def test_get_stable_model(secgemini_client_with_models, mock_stable_model_info):
 
 
 def test_get_experimental_model(
-    secgemini_client_with_models, mock_experimental_model_info
+    secgemini_client_with_models: SecGemini, mock_experimental_model_info: ModelInfo
 ):
     experimental_model = secgemini_client_with_models.get_experimental_model()
     assert experimental_model is not None
@@ -54,7 +60,11 @@ def test_get_experimental_model(
 
 
 @pytest.mark.httpx_mock(can_send_already_matched_responses=True)
-def test_resume_session(secgemini_client_with_models, httpx_mock, mock_public_session):
+def test_resume_session(
+    secgemini_client_with_models: SecGemini,
+    httpx_mock: HTTPXMock,
+    mock_public_session: PublicSession,
+):
     httpx_mock.add_response(
         url=f"http://localhost:8000/v1/session/get?session_id={mock_public_session.id}",
         method="GET",
@@ -69,7 +79,7 @@ def test_resume_session(secgemini_client_with_models, httpx_mock, mock_public_se
 
 
 @pytest.mark.httpx_mock
-def test_create_session_invalid_model_name(secgemini_client_with_models):
+def test_create_session_invalid_model_name(secgemini_client_with_models: SecGemini):
     with pytest.raises(
         ValueError,
         match="Invalid model name invalid_model - must be 'stable' or 'experimental'.",
@@ -78,7 +88,7 @@ def test_create_session_invalid_model_name(secgemini_client_with_models):
 
 
 @pytest.mark.httpx_mock
-def test_create_session_invalid_model_type(secgemini_client_with_models):
+def test_create_session_invalid_model_type(secgemini_client_with_models: SecGemini):
     with pytest.raises(
         ValueError, match="Invalid model 123 - must be a ModelInfo object."
     ):
@@ -94,7 +104,7 @@ def test_init_no_api_key():
         )
 
 
-def test_init_invalid_base_url(mock_user_info_with_models):
+def test_init_invalid_base_url():
     with pytest.raises(ValueError, match="Invalid base_url"):
         SecGemini(
             api_key="test_key",
@@ -103,7 +113,7 @@ def test_init_invalid_base_url(mock_user_info_with_models):
         )
 
 
-def test_init_invalid_websockets_url(mock_user_info_with_models):
+def test_init_invalid_websockets_url():
     with pytest.raises(ValueError, match="Invalid base_websockets_url"):
         SecGemini(
             api_key="test_key",
@@ -113,7 +123,7 @@ def test_init_invalid_websockets_url(mock_user_info_with_models):
 
 
 @pytest.mark.httpx_mock
-def test_init_get_info_fails(httpx_mock):
+def test_init_get_info_fails(httpx_mock: HTTPXMock):
     httpx_mock.add_response(
         url="http://localhost:8000/v1/user/info", method="GET", status_code=500
     )
@@ -127,7 +137,9 @@ def test_init_get_info_fails(httpx_mock):
 
 
 @pytest.mark.httpx_mock
-def test_get_info_request_error(secgemini_client_with_models, httpx_mock):
+def test_get_info_request_error(
+    secgemini_client_with_models: SecGemini, httpx_mock: HTTPXMock
+):
     # secgemini_client_with_models fixture mocks a successful get_info for __init__.
     # We need a new mock for a subsequent call to get_info that fails.
     httpx_mock.add_response(

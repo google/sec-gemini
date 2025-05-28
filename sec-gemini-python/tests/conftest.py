@@ -16,6 +16,7 @@
 import time
 
 import pytest
+from pytest_httpx import HTTPXMock
 from sec_gemini import SecGemini
 from sec_gemini.models.enums import State, UserType
 from sec_gemini.models.message import Message
@@ -30,7 +31,7 @@ from sec_gemini.models.usage import Usage
 
 
 @pytest.fixture
-def mock_user():
+def mock_user() -> UserInfo:
     """Provides a mock user object for testing."""
 
     vendor = PublicUserVendor(
@@ -59,7 +60,7 @@ def mock_user():
 
 
 @pytest.fixture
-def mock_stable_model_info():
+def mock_stable_model_info() -> ModelInfo:
     """Provides a mock stable ModelInfo object."""
     vendor = ToolSetVendor(
         name="TestVendor",
@@ -85,7 +86,7 @@ def mock_stable_model_info():
 
 
 @pytest.fixture
-def mock_experimental_model_info():
+def mock_experimental_model_info() -> ModelInfo:
     """Provides a mock experimental ModelInfo object."""
     vendor = ToolSetVendor(
         name="TestVendor",
@@ -113,7 +114,7 @@ def mock_experimental_model_info():
 @pytest.fixture
 def mock_user_info_with_models(
     mock_user, mock_stable_model_info, mock_experimental_model_info
-):
+) -> UserInfo:
     """Provides a mock UserInfo object that includes available models."""
     user_info = mock_user
     user_info.available_models = [mock_stable_model_info, mock_experimental_model_info]
@@ -121,7 +122,7 @@ def mock_user_info_with_models(
 
 
 @pytest.fixture
-def mock_public_session(mock_stable_model_info: ModelInfo):
+def mock_public_session(mock_stable_model_info: ModelInfo) -> PublicSession:
     """Provides a mock PublicSession object."""
 
     usage = Usage(
@@ -155,7 +156,7 @@ def mock_public_session(mock_stable_model_info: ModelInfo):
 
 
 @pytest.fixture
-def secgemini_client(httpx_mock, mock_user):
+def secgemini_client(httpx_mock: HTTPXMock, mock_user: UserInfo) -> SecGemini:
     """Provides a mock SecGemini client for testing."""
     httpx_mock.add_response(
         url="http://localhost:8000/v1/user/info",  # Ensure this matches the actual endpoint used by get_info in __init__
@@ -169,7 +170,9 @@ def secgemini_client(httpx_mock, mock_user):
 
 
 @pytest.fixture
-def secgemini_client_with_models(httpx_mock, mock_user_info_with_models):
+def secgemini_client_with_models(
+    httpx_mock: HTTPXMock, mock_user_info_with_models: SecGemini
+) -> SecGemini:
     """Provides a mock SecGemini client, ensuring get_info returns models."""
     httpx_mock.add_response(
         url="http://localhost:8000/v1/user/info",  # Ensure this matches the actual endpoint used by get_info
