@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import sys
 from time import time
-from pydantic import BaseModel, Field
-import httpx
-import logging
-import websockets
-from .enums import SDKInfo
 from typing import TypeVar
+
+import httpx
+from pydantic import BaseModel, Field
+
+from .enums import SDKInfo
 
 # Define a TypeVar for subclasses of HTTPResponse
 T = TypeVar("T", bound="BaseModel")

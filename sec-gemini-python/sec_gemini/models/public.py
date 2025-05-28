@@ -13,14 +13,15 @@
 # limitations under the License.
 
 
-from uuid import uuid4
 from time import time
+from uuid import uuid4
+
 from pydantic import BaseModel, Field
-from .enums import UserType
-from .usage import Usage
+
+from .enums import State, UserType
 from .message import Message
-from .enums import State
 from .modelinfo import ModelInfo
+from .usage import Usage
 
 
 class PublicUserVendor(BaseModel):

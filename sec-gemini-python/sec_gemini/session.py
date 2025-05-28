@@ -14,26 +14,25 @@
 
 """Interactive session class that interact with the user."""
 
-import mimetypes
 import asyncio
 import logging
+import mimetypes
 import random
-from typing import AsyncIterator
-from pathlib import Path
 from base64 import b64encode
+from pathlib import Path
+from typing import AsyncIterator
 
 import websockets
 from rich.console import Console
 from rich.tree import Tree
+
 from .constants import DEFAULT_TTL
 from .enums import _EndPoints
-
 from .http import NetworkClient
-
 from .models.attachment import Attachment
-from .models.enums import MimeType, FeedbackType, MessageType, State, Role
+from .models.enums import FeedbackType, MessageType, MimeType, Role, State
 from .models.feedback import Feedback
-from .models.message import Message, MessageType
+from .models.message import Message
 from .models.modelinfo import ModelInfo
 from .models.opresult import OpResult, ResponseStatus
 from .models.public import PublicSession, PublicSessionFile, PublicUser

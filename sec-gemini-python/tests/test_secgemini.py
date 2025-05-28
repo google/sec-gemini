@@ -14,6 +14,7 @@
 
 import pytest
 from pytest_httpx import HTTPXMock
+
 from sec_gemini import SecGemini
 from sec_gemini.models.modelinfo import ModelInfo
 from sec_gemini.models.public import PublicSession, UserInfo

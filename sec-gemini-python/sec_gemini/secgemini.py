@@ -12,20 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
+from datetime import datetime, timezone
+
+from dotenv import load_dotenv
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
-from dotenv import load_dotenv
-from datetime import datetime, timezone
-import logging
 
-from .http import NetworkClient
-from .session import InteractiveSession
-from .enums import _EndPoints, _URLS
 from .constants import DEFAULT_TTL
-from .models.public import PublicSession, UserInfo
+from .enums import _URLS, _EndPoints
+from .http import NetworkClient
 from .models.modelinfo import ModelInfo
+from .models.public import PublicSession, UserInfo
+from .session import InteractiveSession
 
 load_dotenv()
 logging.basicConfig(level=logging.WARNING)

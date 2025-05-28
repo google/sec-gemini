@@ -15,9 +15,9 @@
 
 from pydantic import BaseModel, Field
 
+from .enums import MessageType, MimeType
 from .message import Message
 from .usage import Usage
-from .enums import MessageType, MimeType
 
 
 class SessionResponse(BaseModel):

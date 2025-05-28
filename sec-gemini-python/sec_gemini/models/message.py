@@ -13,14 +13,15 @@
 # limitations under the License.
 
 
-import orjson
+from base64 import b64decode, b64encode
 from time import time
+from typing import Optional
 from uuid import uuid4
-from base64 import b64encode, b64decode
+
+import orjson
 from pydantic import BaseModel, Field
-from typing import Optional, Any
-from .enums import MimeType, Role, MessageType, ResponseStatus
-from .enums import State
+
+from .enums import MessageType, MimeType, ResponseStatus, Role, State
 from .usage import Usage
 
 ROOT_ID = "3713"

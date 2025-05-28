@@ -13,9 +13,11 @@
 # limitations under the License.
 
 
+from typing import List
 from uuid import uuid4
-from typing import List, Optional, Dict, Union, Any
+
 from pydantic import BaseModel, Field
+
 from .message import Message
 
 
