@@ -75,6 +75,10 @@ class ModelInfo(BaseModel):
     version: str = Field(
         ..., title="Model Version", description="The version of the model."
     )
+    # Temporary fix while we fix the backend
+    model_name: str = Field(
+        ..., title="Model name", description="The string used to identify the model."
+    )
     is_experimental: bool = Field(
         False,
         title="Is Experimental",
