@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
 
 from base64 import b64decode, b64encode
 from time import time
@@ -119,10 +120,11 @@ class Message(BaseModel):
         return orjson.dumps(self.model_dump())
 
     @staticmethod
-    def from_json(data: dict | str) -> "Message":
+    def from_json(data: dict | str) -> Message:
         "Creates a message from a json dictionary."
         if isinstance(data, str):
             data = orjson.loads(data)
+            assert isinstance(data, dict)
         return Message(**data)
 
     def set_message_type(self, message_type: MessageType) -> "Message":
