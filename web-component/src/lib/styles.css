@@ -1,0 +1,396 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+:host {
+    --tw-border-style: solid;
+    --tw-font-weight: initial;
+    --tw-tracking: initial;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-color: initial;
+    --tw-inset-shadow: 0 0 #0000;
+    --tw-inset-shadow-color: initial;
+    --tw-ring-color: initial;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-inset-ring-color: initial;
+    --tw-inset-ring-shadow: 0 0 #0000;
+    --tw-ring-inset: initial;
+    --tw-ring-offset-width: 0px;
+    --tw-ring-offset-color: #fff;
+    --tw-ring-offset-shadow: 0 0 #0000;
+
+    /* width */
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    /* Track */
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    /* Handle */
+    ::-webkit-scrollbar-thumb {
+        background: var(--color-accent);
+        border-radius: 5px;
+    }
+
+    /* Handle on hover */
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-accent-light);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        cursor: pointer;
+    }
+}
+
+@theme {
+    --tw-border-style: 1px;
+    --breakpoint-md: 990px;
+    --font-base: Google Sans, Helvetica Neue, sans-serif;
+    --font-mono: Google Sans Mono, monospace;
+    --font-code: Google Sans Code, monospace;
+    /* Light Mode Colors (using a prefix to avoid naming conflicts) */
+    --color-base: #f9fafb;
+    --color-accent: #f0f4f9;
+    --color-accent-light: #575b5f14;
+    --color-accent-dark: #d1d5db;
+    --color-accent-blue: #dbeafe;
+    --color-text-muted: #6b7280;
+    --color-text: #1b1c1d;
+    --color-text-blue: #0842a0;
+    --color-highlight: #d3e3fd;
+    --color-yellow: #7b3306;
+    --color-blue: #217BFE;
+    --color-purple: #8028C3;
+    --animate-spin-pause-spin: pause-spin 3.5s infinite;
+    --animate-button-pop: button-pop 0.4s ease-out;
+    --animate-progress: indeterminateAnimation 1s infinite linear;
+    --animate-border: border 4s linear infinite;
+    --animate-loading: expanding 0.4s 0.2s forwards linear, moving 1s 1s infinite forwards linear;
+    --animate-background: background-move ease infinite;
+    --animate-slidein: slidein 1s ease 300ms forwards;
+    --animate-typing: typing 2s alternate;
+    --animate-gradient: animatedgradient 6s ease infinite alternate;
+    --animate-draw-shield: draw-shield 4s ease-in-out infinite;
+    --animate-sparkle-sequence: sparkle-sequence 4s ease-in-out infinite;
+
+    @keyframes draw-shield {
+        0% {
+            stroke-dashoffset: 800;
+            fill-opacity: 0;
+            opacity: 0;
+        }
+
+        10% {
+            stroke-dashoffset: 0;
+            fill-opacity: 0;
+            opacity: 1;
+        }
+
+        20% {
+            stroke-dashoffset: 0;
+            fill-opacity: 1;
+        }
+
+        80% {
+            stroke-dashoffset: 0;
+            fill-opacity: 1;
+            opacity: 1;
+        }
+
+        90% {
+            stroke-dashoffset: 0;
+            fill-opacity: 0;
+            opacity: 0;
+        }
+
+        100% {
+            stroke-dashoffset: 800;
+            fill-opacity: 0;
+            opacity: 0;
+        }
+    }
+
+    @keyframes sparkle-sequence {
+
+        0%,
+        20% {
+            opacity: 0;
+            transform: scale(0.5);
+        }
+
+        30% {
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
+        }
+
+        70% {
+            transform: scale(1) rotate(360deg);
+        }
+
+        80% {
+            opacity: 1;
+            transform: scale(1) rotate(360deg);
+        }
+
+        90% {
+            opacity: 0;
+            transform: scale(0.5) rotate(360deg);
+        }
+
+        100% {
+            opacity: 0;
+            transform: scale(0.5) rotate(360deg);
+        }
+    }
+
+    @keyframes animatedgradient {
+        0% {
+            background-position: 0% 50%;
+        }
+
+        50% {
+            background-position: 100% 50%;
+        }
+
+        100% {
+            background-position: 0% 50%;
+        }
+    }
+
+    @keyframes background-move {
+
+        0%,
+        100% {
+            background-position: 0% 50%;
+        }
+
+        50% {
+            background-position: 100% 50%;
+        }
+    }
+
+    @keyframes border {
+        to: {
+            '--border-angle': '360deg'
+        }
+    }
+
+    @keyframes indeterminateAnimation {
+        0% {
+            transform: translateX(0) scaleX(0);
+        }
+
+        40% {
+            transform: translateX(0) scaleX(0.4);
+        }
+
+        100% {
+            transform: translateX(100%) scaleX(0.5);
+        }
+    }
+
+    @keyframes pause-spin {
+
+        0%,
+        60% {
+            /* First 3 seconds (approx 85.71% of 3.5s) is the pause */
+            transform: rotate(0deg);
+        }
+
+        60%,
+        100% {
+            /* Next 0.5 seconds (remaining approx 14.29%) is the spin */
+            transform: rotate(360deg);
+        }
+    }
+
+    @keyframes button-pop {
+        0% {
+            transform: scale(.99)
+        }
+
+        40% {
+            transform: scale(1.01)
+        }
+
+        to {
+            transform: scale(1)
+        }
+    }
+
+    @keyframes expanding {
+        0% {
+            transform: scaleX(0);
+            opacity: 0;
+        }
+
+        100% {
+            transform: scaleX(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes moving {
+        0% {
+            background-position: 0 0;
+        }
+
+        100% {
+            background-position: -200% 0;
+        }
+    }
+
+    @keyframes slidein {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes typing {
+        from {
+            opacity: 0;
+            width: 0%;
+        }
+
+        to {
+            opacity: 1;
+            width: 100%;
+        }
+    }
+}
+
+@layer components {
+    .card {
+        border: 1px solid var(--color-text-muted);
+        background-color: var(--color-accent);
+        padding: 1rem;
+        display: flex;
+        border-radius: 0.75rem;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .badge {
+        width: fit-content;
+        border: 1px solid var(--color-text-muted);
+        background-color: var(--color-accent);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text);
+        border-radius: 9999px;
+    }
+
+    .btn {
+        background-color: var(--color-text);
+        transition: opacity 0.15s ease-in-out;
+    }
+
+    .btn:hover {
+        opacity: 0.9;
+        cursor: pointer;
+    }
+
+    .btn {
+        display: flex;
+        justify-content: center;
+        color: var(--color-base);
+        font-weight: bold;
+        padding: 0.5rem 1rem;
+        border-radius: 0.75rem;
+        outline: none;
+        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+    }
+
+    .btn:focus {
+        outline: none;
+        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+    }
+
+    .btn:active {
+        animation: button-pop 0.4s ease-out;
+    }
+
+    .token.comment,
+    .token.block-comment,
+    .token.prolog,
+    .token.doctype,
+    .token.cdata {
+        color: #999;
+    }
+
+    .token.punctuation {
+        color: #ccc;
+    }
+
+    .token.tag,
+    .token.attr-name,
+    .token.namespace,
+    .token.deleted {
+        color: #e2777a;
+    }
+
+    .token.function-name {
+        color: #6196cc;
+    }
+
+    .token.boolean,
+    .token.number,
+    .token.function {
+        color: #f08d49;
+    }
+
+    .token.property,
+    .token.class-name,
+    .token.constant,
+    .token.symbol {
+        color: #f8c555;
+    }
+
+    .token.selector,
+    .token.important,
+    .token.atrule,
+    .token.keyword,
+    .token.builtin {
+        color: #cc99cd;
+    }
+
+    .token.string,
+    .token.char,
+    .token.attr-value,
+    .token.regex,
+    .token.variable {
+        color: #7ec699;
+    }
+
+    .token.operator,
+    .token.entity,
+    .token.url {
+        color: #67cdcc;
+    }
+
+    .token.important,
+    .token.bold {
+        font-weight: bold;
+    }
+
+    .token.italic {
+        font-style: italic;
+    }
+
+    .token.entity {
+        cursor: help;
+    }
+
+    .token.inserted {
+        color: green;
+    }
+}

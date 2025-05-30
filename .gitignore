@@ -5,3 +5,4 @@ tmp/
 
 // JS
 node_modules/
+dist/
