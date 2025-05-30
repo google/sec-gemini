@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEFAULT_TTL = 86400 * 3 # 3 days
+DEFAULT_TTL = 86400 * 3  # 3 days

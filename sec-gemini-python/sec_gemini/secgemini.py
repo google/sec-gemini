@@ -12,31 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
+from datetime import datetime, timezone
+
+from dotenv import load_dotenv
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
-from dotenv import load_dotenv
-from datetime import datetime, timezone
-import logging
 
-from .http import NetworkClient
-from .session import InteractiveSession
-from .enums import _EndPoints, _URLS
 from .constants import DEFAULT_TTL
-from .models.public import PublicSession, UserInfo
+from .enums import _URLS, _EndPoints
+from .http import NetworkClient
 from .models.modelinfo import ModelInfo
+from .models.public import PublicSession, UserInfo
+from .session import InteractiveSession
 
 load_dotenv()
 logging.basicConfig(level=logging.WARNING)
 
-class SecGemini:
 
-    def __init__(self,
-                 api_key: str = "",
-                 base_url: str = _URLS.HTTPS.value,
-                 base_websockets_url: str = _URLS.WEBSOCKET.value,
-                 console_width: int = 500):
+class SecGemini:
+    def __init__(
+        self,
+        api_key: str = "",
+        base_url: str = _URLS.HTTPS.value,
+        base_websockets_url: str = _URLS.WEBSOCKET.value,
+        console_width: int = 500,
+    ):
         """Initializes the SecGemini API client.
 
         Args:
@@ -55,7 +58,9 @@ class SecGemini:
         if api_key == "":
             api_key = os.getenv("SEC_GEMINI_API_KEY")
         if not api_key:
-            raise ValueError("API key required: explictly pass it or set env variable SEC_GEMINI_API_KEY (e.g in .env).")
+            raise ValueError(
+                "API key required: explictly pass it or set env variable SEC_GEMINI_API_KEY (e.g in .env)."
+            )
         self.api_key = api_key
 
         # http(s) endpoint
@@ -66,7 +71,9 @@ class SecGemini:
         # websocket endpoint
         self.base_websockets_url = base_websockets_url.rstrip("/")
         if not self.base_websockets_url.startswith("ws"):
-            raise ValueError(f"Invalid base_websockets_url {base_websockets_url} - must be a ws(s) url.")
+            raise ValueError(
+                f"Invalid base_websockets_url {base_websockets_url} - must be a ws(s) url."
+            )
 
         # instantiate the network client
         self.http = NetworkClient(base_url, api_key)
@@ -121,8 +128,12 @@ class SecGemini:
         user_table.add_row("Organization ID", ui.user.org_id)
         user_table.add_row("Never log?", str(ui.user.never_log))
         user_table.add_row("Key Expiration Time", key_expire_time)
-        user_table.add_row("Can disable session logging?", str(ui.user.can_disable_logging))
-        user_table.add_row("Cam use experimental features?", str(ui.user.allow_experimental))
+        user_table.add_row(
+            "Can disable session logging?", str(ui.user.can_disable_logging)
+        )
+        user_table.add_row(
+            "Cam use experimental features?", str(ui.user.allow_experimental)
+        )
         user_table.add_row("TPM Quota", f"{ui.user.tpm}")
         user_table.add_row("RPM Quota", f"{ui.user.rpm}")
         user_table.add_row("Vendors", vendors)
@@ -134,14 +145,15 @@ class SecGemini:
         # Session Table
         self._display_sessions(ui.sessions)
 
-
-    def create_session(self,
-                       name: str = "",
-                       description: str = "",
-                       ttl: int = DEFAULT_TTL,
-                       enable_logging: bool = True,
-                       model: str|ModelInfo = 'stable',
-                       language: str = "en") -> InteractiveSession:
+    def create_session(
+        self,
+        name: str = "",
+        description: str = "",
+        ttl: int = DEFAULT_TTL,
+        enable_logging: bool = True,
+        model: str | ModelInfo = "stable",
+        language: str = "en",
+    ) -> InteractiveSession:
         """Creates a new session.
 
         Args:
@@ -156,12 +168,14 @@ class SecGemini:
             A new session object.
         """
         if isinstance(model, str):
-            if model == 'stable':
+            if model == "stable":
                 model = self.stable_model
-            elif model == 'experimental':
+            elif model == "experimental":
                 model = self.experimental_model
             else:
-                raise ValueError(f"Invalid model name {model} - must be 'stable' or 'experimental'.")
+                raise ValueError(
+                    f"Invalid model name {model} - must be 'stable' or 'experimental'."
+                )
         else:
             if not isinstance(model, ModelInfo):
                 raise ValueError(f"Invalid model {model} - must be a ModelInfo object.")
@@ -171,17 +185,16 @@ class SecGemini:
             base_url=self.base_url,
             base_websockets_url=self.base_websockets_url,
             api_key=self.api_key,
-            enable_logging=enable_logging)
+            enable_logging=enable_logging,
+        )
 
-        session.register(ttl=ttl,
-                         model=model,
-                         language=language,
-                         name=name,
-                         description=description)
+        session.register(
+            ttl=ttl, model=model, language=language, name=name, description=description
+        )
         return session
 
     def resume_session(self, session_id: str) -> InteractiveSession:
-        """ Resume existing session.
+        """Resume existing session.
 
         Args:
             session_id: The session ID to resume.
@@ -190,10 +203,12 @@ class SecGemini:
             The session object.
         """
 
-        isession = InteractiveSession(user=self.user,
-                                      base_url=self.base_url,
-                                      base_websockets_url=self.base_websockets_url,
-                                      api_key=self.api_key)
+        isession = InteractiveSession(
+            user=self.user,
+            base_url=self.base_url,
+            base_websockets_url=self.base_websockets_url,
+            api_key=self.api_key,
+        )
 
         isession.resume(session_id=session_id)
         return isession
@@ -211,7 +226,8 @@ class SecGemini:
                 user=self.user,
                 base_url=self.base_url,
                 base_websockets_url=self.base_websockets_url,
-                api_key=self.api_key)
+                api_key=self.api_key,
+            )
             isession._session = session
             isessions.append(isession)
         return isessions
@@ -223,7 +239,7 @@ class SecGemini:
             return
         self._display_sessions(ui.sessions)
 
-    def _ts_to_string(self, ts, fmt='%Y-%m-%d %H:%M:%S'):
+    def _ts_to_string(self, ts, fmt="%Y-%m-%d %H:%M:%S"):
         return datetime.fromtimestamp(ts, tz=timezone.utc).strftime(fmt)
 
     def list_models(self) -> None:
@@ -248,7 +264,6 @@ class SecGemini:
 
     def _display_models(self, models: list[ModelInfo]) -> None:
         for model in models:
-
             model_table = Table(title=f"{model.model_string}", box=box.ROUNDED)
             model_table.add_column("Toolset")
             model_table.add_column("Vendor")
@@ -257,20 +272,28 @@ class SecGemini:
             model_table.add_column("Experimental?")
             model_table.add_column("Description", overflow="fold")
             for sa in model.toolsets:
-                model_table.add_row(sa.name, sa.vendor.name, str(sa.version),
-                                    str(sa.is_enabled), str(sa.is_experimental), sa.description)
+                model_table.add_row(
+                    sa.name,
+                    sa.vendor.name,
+                    str(sa.version),
+                    str(sa.is_enabled),
+                    str(sa.is_experimental),
+                    sa.description,
+                )
             self.console.print(f"\n[{model.model_string}]")
             self.console.print(model_table)
 
     def _display_sessions(self, sessions: list[PublicSession]) -> None:
         if len(sessions) > 0:
             sessions_table = Table(title="Sessions", box=box.ROUNDED)
-            sessions_table.add_column("ID / Name", style="dim", overflow="fold", width=32)
-            #sessions_table.add_column("Name", width=32)
+            sessions_table.add_column(
+                "ID / Name", style="dim", overflow="fold", width=32
+            )
+            # sessions_table.add_column("Name", width=32)
             sessions_table.add_column("Description", overflow="fold")
-            sessions_table.add_column("State", width=15),
-            sessions_table.add_column("#Msg", width=5),
-            sessions_table.add_column("#Files", width=6),
+            (sessions_table.add_column("State", width=15),)
+            (sessions_table.add_column("#Msg", width=5),)
+            (sessions_table.add_column("#Files", width=6),)
             sessions_table.add_column("Created", width=20)
             sessions_table.add_column("Updated", width=20)
             sessions_table.add_column("TTL (sec)", width=8)

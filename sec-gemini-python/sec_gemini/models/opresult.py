@@ -1,4 +1,3 @@
-
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,30 +13,40 @@
 # limitations under the License.
 
 
-from pydantic import BaseModel, Field
 from typing import Optional
 
-from ..models.enums import ResponseStatus, MimeType
+from pydantic import BaseModel, Field
+
+from ..models.enums import MimeType, ResponseStatus
+
 
 class OpResult(BaseModel):
-    ok: bool = Field(...,
-                     title="Operation Result",
-                     description="True if the operation was successful.")
+    ok: bool = Field(
+        ...,
+        title="Operation Result",
+        description="True if the operation was successful.",
+    )
 
-    status_code: ResponseStatus = Field(...,
-                                        title="Status Code",
-                                        description="HTTP status code to return.")
+    status_code: ResponseStatus = Field(
+        ..., title="Status Code", description="HTTP status code to return."
+    )
 
-    status_message: str = Field("",
-                                title="Error Message",
-                                description="Describe why the operation failed.")
+    status_message: str = Field(
+        "", title="Error Message", description="Describe why the operation failed."
+    )
 
-    data: Optional[dict] = Field(None,
-                                 title="Optional data",
-                                 description="Optional field for additional information.")
-    mime_type: Optional[MimeType] = Field(MimeType.TEXT,
-                                     title="Data Type",
-                                     description="The type of data in the data field.")
-    latency: Optional[float] = Field(0.0,
-                                     title="Latency",
-                                     description="The time taken to complete the request in seconds.")
+    data: Optional[dict] = Field(
+        None,
+        title="Optional data",
+        description="Optional field for additional information.",
+    )
+    mime_type: Optional[MimeType] = Field(
+        MimeType.TEXT,
+        title="Data Type",
+        description="The type of data in the data field.",
+    )
+    latency: Optional[float] = Field(
+        0.0,
+        title="Latency",
+        description="The time taken to complete the request in seconds.",
+    )

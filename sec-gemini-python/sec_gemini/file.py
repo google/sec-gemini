@@ -13,27 +13,19 @@
 # limitations under the License.
 
 from pydantic import BaseModel, Field
+
 from .models.enums import MimeType
+
 
 class File(BaseModel):
     """
     Represents a file that can be uploaded to the API.
     """
 
-    filename: str = Field(
-        ...,
-        title="Filename",
-        description="The name of the file."
-    )
+    filename: str = Field(..., title="Filename", description="The name of the file.")
 
     mime_type: MimeType = Field(
-        ...,
-        title="Mime Type",
-        description="The mime type of the file."
+        ..., title="Mime Type", description="The mime type of the file."
     )
 
-    file: bytes = Field(
-        ...,
-        title="File",
-        description="The file content."
-    )
+    file: bytes = Field(..., title="File", description="The file content.")

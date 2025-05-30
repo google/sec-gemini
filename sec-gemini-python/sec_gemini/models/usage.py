@@ -1,4 +1,3 @@
-
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,26 +15,43 @@
 
 from pydantic import BaseModel, Field
 
+
 class Usage(BaseModel):
     """
     Tracks token usage for a chat completion request and response.
     """
-    prompt_tokens: int = Field(0, title="Prompt Tokens",
-                               description="Number of tokens in the prompt")
-    generated_tokens: int = Field(0, title="Generated Tokens",
-                                  description="Number of tokens used during generation")
-    total_tokens: int = Field(0, title="Total Tokens",
-                              description="Total number of tokens used in the request (prompt + generation)")
 
-    cached_token_count: int = Field(0, title="Cached Token Count",
-                              description="Number of tokens used in the cached response")
+    prompt_tokens: int = Field(
+        0, title="Prompt Tokens", description="Number of tokens in the prompt"
+    )
+    generated_tokens: int = Field(
+        0,
+        title="Generated Tokens",
+        description="Number of tokens used during generation",
+    )
+    total_tokens: int = Field(
+        0,
+        title="Total Tokens",
+        description="Total number of tokens used in the request (prompt + generation)",
+    )
 
-    thoughts_token_count: int = Field(0, title="Thoughts Token Count",
-                                      description="Number of tokens used in the thoughts")
+    cached_token_count: int = Field(
+        0,
+        title="Cached Token Count",
+        description="Number of tokens used in the cached response",
+    )
 
-    tool_use_prompt_token_count: int = Field(0, title="Tool Use Prompt Token Count",
-                                             description="Number of tokens used in the tool use prompt")
+    thoughts_token_count: int = Field(
+        0,
+        title="Thoughts Token Count",
+        description="Number of tokens used in the thoughts",
+    )
 
+    tool_use_prompt_token_count: int = Field(
+        0,
+        title="Tool Use Prompt Token Count",
+        description="Number of tokens used in the tool use prompt",
+    )
 
     def tally(self, subusage: "Usage") -> None:
         """
@@ -51,4 +67,7 @@ class Usage(BaseModel):
             self.total_tokens += subusage.cached_token_count
 
     def __repr__(self):
-        return super().__repr__() + f" prompt_tokens={self.prompt_tokens}, generated_tokens={self.generated_tokens}, total_tokens={self.total_tokens})"
+        return (
+            super().__repr__()
+            + f" prompt_tokens={self.prompt_tokens}, generated_tokens={self.generated_tokens}, total_tokens={self.total_tokens})"
+        )

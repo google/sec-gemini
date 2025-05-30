@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import logging
 import sys
 from time import time
-from pydantic import BaseModel, Field
-import httpx
-import logging
-import websockets
-from .enums import SDKInfo
 from typing import TypeVar
+
+import httpx
+from pydantic import BaseModel, Field
+
+from .enums import SDKInfo
+
 # Define a TypeVar for subclasses of HTTPResponse
-T = TypeVar('T', bound='BaseModel')
+T = TypeVar("T", bound="BaseModel")
 
 
 class NetResponse(BaseModel):
@@ -29,17 +32,19 @@ class NetResponse(BaseModel):
     ok: bool
     error_message: str = Field("", title="Error Message")
     data: dict = Field({}, title="Response Data")
-    latency: float = Field(0.0, title="Latency",
-                           description="The time taken to complete the request in seconds.")
+    latency: float = Field(
+        0.0,
+        title="Latency",
+        description="The time taken to complete the request in seconds.",
+    )
 
-class NetworkClient():
-    def __init__(self,
-                 base_url: str,
-                 api_key: str):
+
+class NetworkClient:
+
+    def __init__(self, base_url: str, api_key: str):
         self.base_url = base_url
         self.api_key = api_key
         self.client = httpx.Client(timeout=90)
-
 
     def post(self, endpoint: str, model: T, headers: dict = {}) -> NetResponse:
         """Post Request to the API
@@ -56,21 +61,32 @@ class NetworkClient():
         url = self._make_url(endpoint)
         headers = self._make_headers(headers)
 
+        logging.debug("POST URL: %s, Headers:%s", url, headers)
+        logging.debug("Request: %s", model.model_dump_json())
         start_time = time()
         response = self.client.post(url, headers=headers, json=data)
         latency = time() - start_time
-
+        nr = None
         if response.status_code != 200:
-            return NetResponse(url=url,
-                                ok=False,
-                                error_message=self._make_error_message(url, response),
-                                latency=latency)
+            nr = NetResponse(
+                url=url,
+                ok=False,
+                error_message=self._make_error_message(url, response),
+                latency=latency,
+            )
+        else:
+            nr = NetResponse(url=url,
+                             ok=True,
+                             data=response.json(),
+                             latency=latency)
+        logging.debug("[HTTP][POST] %s -> latency: %s", url, latency)
+        logging.debug("Response: %s", nr.model_dump_json())
+        return nr
 
-        logging.debug(f"[HTTP][POST] {url} -> latency: {latency}")
-        return NetResponse(url=url, ok=True, data=response.json(),
-                            latency=latency)
-
-    def get(self, endpoint: str, query_params: dict = {}, headers: dict = {}) -> NetResponse:
+    def get(self,
+            endpoint: str,
+            query_params: dict = {},
+            headers: dict = {}) -> NetResponse:
         """Get Request to the API
 
         Args:
@@ -86,17 +102,28 @@ class NetworkClient():
 
         url = self._make_url(endpoint)
         headers = self._make_headers(headers)
+
+        logging.debug("GET URL: %s, Headers:%s", url, headers)
+        logging.debug("Request: %s", json.dumps(query_params))
         start_time = time()
         response = self.client.get(url, params=query_params, headers=headers)
         latency = time() - start_time
+        nr = None
         if response.status_code != 200:
-            return NetResponse(url=url,
-                                ok=False,
-                                error_message=self._make_error_message(url, response),
-                                latency=latency)
-        logging.debug(f"[HTTP][GET] {url} -> latency: {latency}")
-        return NetResponse(url=url, ok=True, data=response.json(),
-                            latency=latency)
+            nr = NetResponse(
+                url=url,
+                ok=False,
+                error_message=self._make_error_message(url, response),
+                latency=latency,
+            )
+        else:
+            nr = NetResponse(url=url,
+                             ok=True,
+                             data=response.json(),
+                             latency=latency)
+        logging.debug("[HTTP][GET] %s -> latency: %s", url, latency)
+        logging.debug("Response: %s", nr.model_dump_json())
+        return nr
 
     def _make_url(self, endpoint: str) -> str:
         return f"{self.base_url}/{endpoint.lstrip('/')}"
@@ -108,11 +135,12 @@ class NetworkClient():
         headers = headers or {}
 
         additional_headers = {
-            "User-Agent": f"{SDKInfo.NAME.value}/{SDKInfo.VERSION.value} ({sys.platform}) {sys.version} ({sys.version_info})",
+            "User-Agent":
+            f"{SDKInfo.NAME.value}/{SDKInfo.VERSION.value} ({sys.platform}) {sys.version} ({sys.version_info})",
             "x-sdk-version": SDKInfo.VERSION.value,
             "x-sdk": "python",
             "x-api-key": self.api_key,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         headers.update(additional_headers)
         return headers
