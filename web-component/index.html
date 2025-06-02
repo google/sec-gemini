@@ -1,114 +1,113 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sample Site</title>
-  <style>
-    .hero {
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      padding: 20px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    @media screen and (max-width: 768px) {
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sample Site</title>
+    <style>
       .hero {
-        flex-direction: column;
-        height: auto;
-        padding: 10px;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
       }
 
-    }
+      @media screen and (max-width: 768px) {
+        .hero {
+          flex-direction: column;
+          height: auto;
+          padding: 10px;
+        }
+      }
 
+      .hero-image-container {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
 
-    .hero-image-container {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
+      .hero-image-placeholder {
+        max-width: 100%;
+        max-height: 100%;
+        background-color: #ddd;
+        border-radius: 8px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 2em;
+        color: #888;
+      }
 
+      .hero-text {
+        flex: 1;
+        padding-left: 20px;
+        max-width: 600px;
+      }
 
-    .hero-image-placeholder {
-      max-width: 100%;
-      max-height: 100%;
-      background-color: #ddd;
-      border-radius: 8px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 2em;
-      color: #888;
-    }
+      .hero-title {
+        font-size: 3em;
+        margin-bottom: 15px;
+        color: #333;
+      }
 
+      .hero-subtitle {
+        font-size: 1.5em;
+        color: #666;
+        margin-bottom: 20px;
+      }
 
-    .hero-text {
-      flex: 1;
-      padding-left: 20px;
-      max-width: 600px;
-    }
+      .hero button {
+        background-color: #007bff;
+        color: white;
+        padding: 15px 30px;
+        border: none;
+        border-radius: 5px;
+        font-size: 1.2em;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
 
+      .hero button:hover {
+        background-color: #0056b3;
+      }
+    </style>
+  </head>
 
-    .hero-title {
-      font-size: 3em;
-      margin-bottom: 15px;
-      color: #333;
-    }
+  <!-- resumeSession="0e0d2312-7a80-4da6-931c-e29b6d08a5e6"  -->
 
+  <body>
+    <sec-gem-chat
+      incognito="true"
+      sessionId=""
+      sessionName="TestName"
+      sessionDescription="TestDescription"
+      sessionPrompt=""
+      theme="dark"
+    >
+    </sec-gem-chat>
+    <section class="hero">
+      <div class="hero-image-container">
+        <img
+          src="https://placehold.co/1000x1000"
+          alt="Placeholder Image"
+          class="hero-image-placeholder"
+        />
+      </div>
+      <div class="hero-text">
+        <h1 class="hero-title">Welcome to Our Sample Site</h1>
+        <p class="hero-subtitle">
+          Here you'll find amazing things and incredible value. This is just a
+          placeholder for our fantastic hero section. Imagine a captivating
+          image or video here!
+        </p>
+        <button>Learn More</button>
+      </div>
+    </section>
 
-    .hero-subtitle {
-      font-size: 1.5em;
-      color: #666;
-      margin-bottom: 20px;
-    }
-
-
-    .hero button {
-      background-color: #007bff;
-      color: white;
-      padding: 15px 30px;
-      border: none;
-      border-radius: 5px;
-      font-size: 1.2em;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-
-
-    .hero button:hover {
-      background-color: #0056b3;
-    }
-  </style>
-</head>
-
-
-<!-- resumeSession="0e0d2312-7a80-4da6-931c-e29b6d08a5e6"  -->
-
-<body>
-  <sec-gem-chat incognito="true" sessionId="" sessionName="TestName" sessionDescription="TestDescription"
-    sessionPrompt="" theme="dark">
-  </sec-gem-chat>
-  <section class="hero">
-    <div class="hero-image-container">
-      <img src="https://placehold.co/1000x1000" alt="Placeholder Image" class="hero-image-placeholder">
-    </div>
-    <div class="hero-text">
-      <h1 class="hero-title">Welcome to Our Sample Site</h1>
-      <p class="hero-subtitle">Here you'll find amazing things and incredible value. This is just a placeholder for our
-        fantastic hero section. Imagine a captivating image or video here!</p>
-      <button>Learn More</button>
-    </div>
-  </section>
-
-
-  <script type="module" src="/src/main.ts"></script>
-  <!-- <script type="module" src="/dist/swc.iife.js"></script> -->
-</body>
-
-
+    <!-- <script type="module" src="/src/main.ts"></script> -->
+    <script type="module" src="/dist/swc.iife.js"></script>
+  </body>
 </html>

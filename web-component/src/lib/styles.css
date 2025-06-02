@@ -47,9 +47,9 @@
 @theme {
     --tw-border-style: 1px;
     --breakpoint-md: 990px;
-    --font-base: Google Sans, Helvetica Neue, sans-serif;
-    --font-mono: Google Sans Mono, monospace;
-    --font-code: Google Sans Code, monospace;
+   --font-base: Noto Sans, Helvetica Neue, sans-serif;
+    --font-mono: Noto Sans Mono, monospace;
+    --font-code: Fira Code, monospace;
     /* Light Mode Colors (using a prefix to avoid naming conflicts) */
     --color-base: #f9fafb;
     --color-accent: #f0f4f9;

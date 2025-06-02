@@ -1,8 +1,12 @@
 {
-  "name": "sec-web",
-  "private": true,
-  "version": "0.0.0",
+  "name": "sec-gemini-web-component",
+  "description": "A web component for Sec Gemini",
+  "version": "0.0.1",
   "type": "module",
+  "license": "Apache-2.0",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
