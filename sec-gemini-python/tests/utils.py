@@ -1,5 +1,6 @@
 import functools
 import os
+import string
 
 import pytest
 
@@ -26,3 +27,17 @@ def require_env_variable(env_var_name):
         return wrapper
 
     return decorator
+
+
+def parse_secgemini_response(content: str) -> str:
+    """Parse SecGemini response.
+
+    When interacting with the prod backend, this is trivial. But in dev, the
+    output is somewhat a table. This function parses out far-right cell in the
+    last row, which should be the "result response".
+    """
+
+    if content.rstrip().endswith("|"):
+        return content.rstrip(string.whitespace + "|").rsplit("|", 1)[-1].strip()
+    else:
+        return content

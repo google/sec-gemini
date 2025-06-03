@@ -13,10 +13,14 @@
 # limitations under the License.
 
 
+import json
+import re
+
+import httpx
 import pytest
 from conftest import MOCK_SEC_GEMINI_API_HOST
 from pytest_httpx import HTTPXMock
-from utils import require_env_variable
+from utils import parse_secgemini_response, require_env_variable
 
 from sec_gemini import SecGemini
 from sec_gemini.models.public import PublicSession, UserInfo
@@ -142,5 +146,75 @@ def test_get_info_request_error(
 
 
 @require_env_variable("SEC_GEMINI_API_KEY")
-def test_create_session(secgemini_client: SecGemini):
-    secgemini_client.create_session()
+def test_simple_query(secgemini_client: SecGemini):
+    session = secgemini_client.create_session()
+    resp = session.query(
+        "How much is 12345+54321? Just answer with the numeric value, nothing else."
+    )
+    content = resp.text().strip()
+    assert content.find("66666") >= 0
+
+
+@require_env_variable("SEC_GEMINI_API_KEY")
+def test_query_get_ips(secgemini_client: SecGemini):
+    session = secgemini_client.create_session()
+
+    resp = session.query(
+        'What are the IP addresses of google.com? Reply with this format: {"ips": ["1.2.3.4", ...]}. '
+        "Do NOT add anything else, not even ``` or similar things. "
+        "In other words, the raw output must be a valid JSON."
+    )
+
+    content = resp.text().strip()
+    print(f"Raw response: {content}")
+
+    content = parse_secgemini_response(content)
+    print(f"Parsed response: {content}")
+
+    info = json.loads(content)
+    assert "ips" in info.keys()
+    assert len(info["ips"]) > 0
+    for ip in info["ips"]:
+        assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", ip)
+    print("Answer passed all checks.")
+
+
+@require_env_variable("SEC_GEMINI_API_KEY")
+def test_query_with_virustotal_tool_benign(secgemini_client: SecGemini):
+    session = secgemini_client.create_session()
+    resp = session.query(
+        "Is file 82aac168acbadca3b05a6c6aa2200aa87ae464ad415230f266e745f69fa130d8 benign or malicious? "
+        "Just output one word, 'benign' or 'malicious'. If uncertain, take your best guess."
+    )
+    content = resp.text().strip()
+    content = parse_secgemini_response(content)
+    assert content == "benign"
+
+
+@require_env_variable("SEC_GEMINI_API_KEY")
+def test_query_with_virustotat_tool_malicious(secgemini_client: SecGemini):
+    session = secgemini_client.create_session()
+    resp = session.query(
+        "Is file a188ff24aec863479408cee54b337a2fce25b9372ba5573595f7a54b784c65f8 benign or malicious? "
+        "Just output one word, 'benign' or 'malicious'. If uncertain, take your best guess."
+    )
+    content = resp.text().strip()
+    content = parse_secgemini_response(content)
+    assert content == "malicious"
+
+
+@require_env_variable("SEC_GEMINI_API_KEY")
+def test_query_with_attachment(secgemini_client: SecGemini):
+    TEST_PDF_URL = "https://elie.net/static/files/retsim-resilient-and-efficient-text-similarity/retsim-resilient-and-efficient-text-similarity.pdf"
+    pdf_content = httpx.get(TEST_PDF_URL).content
+
+    session = secgemini_client.create_session()
+    session.attach_file("paper.pdf", pdf_content)
+
+    resp = session.query(
+        "The file in attachment should be about a tool in machine learning. What is the name of the tool?"
+        "Just output one word, nothing else."
+    )
+    content = resp.text().strip()
+    content = parse_secgemini_response(content)
+    assert content.lower() == "retsim"
