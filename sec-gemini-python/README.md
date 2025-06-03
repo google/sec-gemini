@@ -1,24 +1,27 @@
 # Sec-Gemini Python SDK
 
-## Installation
+## Install dependencies
 
 ```bash
-pip install sec_gemini
+uv sync --all-extras --dev
 ```
 
 ## Basic Usage
 
-```python
-from sec_gemini import SecGemini
+Set your SecGemini API key in the `SEC_GEMINI_API_KEY` environment variable (or add it to the `.env` file).
 
-# initialize the SecGemini SDK
-sg = SecGemini()
+Then, see `./scripts/basic_example.py` or `./scripts/basic_openai_example.py` as examples.
 
-# create a new session - optionally add a name and description
-session = sg.create_session()
+You can run them with: `uv run ./scripts/basic_example.py`
 
-# Ask a question
-resp = session.query('What are the IP addresses of google.com?')
-print(resp.text())
-```
 
+# Testing
+
+The tests mostly use mock objects. However, a few tests also expect to hit a live backend. By default such tests hit the prod backend, but the tests can be configured to hit a local backend as well.
+
+These are the relevant environment variables:
+- `SEC_GEMINI_API_KEY`: must be a valid SecGemini API key.
+- `SEC_GEMINI_API_HTTP_URL`: specify a custom HTTP(s) endpoint for the API, e.g., `http://localhost:8000`.
+- `SEC_GEMINI_API_WEBSOCKET_URL`: specify a custom websocket(s) endpoint for the API, e.g., `ws://localhost:8000`.
+
+Then, to run the tests: `uv run -m pytest`.
