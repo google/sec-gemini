@@ -16,6 +16,7 @@
 import pytest
 from conftest import MOCK_SEC_GEMINI_API_HOST
 from pytest_httpx import HTTPXMock
+from utils import require_env_variable
 
 from sec_gemini import SecGemini
 from sec_gemini.models.public import PublicSession, UserInfo
@@ -140,5 +141,6 @@ def test_get_info_request_error(
         _ = mock_secgemini_client.get_user_info()
 
 
+@require_env_variable("SEC_GEMINI_API_KEY")
 def test_create_session(secgemini_client: SecGemini):
     secgemini_client.create_session()

@@ -18,6 +18,7 @@ import time
 
 import pytest
 from pytest_httpx import HTTPXMock
+from utils import require_env_variable
 
 from sec_gemini import SecGemini
 from sec_gemini.enums import _URLS
@@ -158,6 +159,7 @@ def mock_public_session(mock_stable_model_info: ModelInfo) -> PublicSession:
 
 
 @pytest.fixture
+@require_env_variable("SEC_GEMINI_API_KEY")
 def secgemini_client() -> SecGemini:
     """Provides a SecGemini client for testing.
 
