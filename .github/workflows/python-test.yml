@@ -17,6 +17,10 @@ jobs:
   build:
     name: python
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./sec-gemini-python
     steps:
       - uses: actions/checkout@v4
 
@@ -25,26 +29,21 @@ jobs:
 
       - name: Install the project
         run: uv sync --all-extras --dev
-        working-directory: sec-gemini-python
 
       - name: Check source
         run: bash ./scripts/check_source.sh
-        working-directory: sec-gemini-python
         
       - name: Run tests
         run: uv run -m pytest
-        working-directory: sec-gemini-python
         env:
           SEC_GEMINI_API_KEY: ${{ secrets.SEC_GEMINI_API_KEY }}
       
       - name: Run basic example
         run: uv run ./scripts/basic_example.py
-        working-directory: sec-gemini-python
         env:
           SEC_GEMINI_API_KEY: ${{ secrets.SEC_GEMINI_API_KEY }}
 
       - name: Run basic openai example
         run: uv run ./scripts/basic_openai_example.py
-        working-directory: sec-gemini-python
         env:
           SEC_GEMINI_API_KEY: ${{ secrets.SEC_GEMINI_API_KEY }}
