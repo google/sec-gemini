@@ -36,3 +36,15 @@ jobs:
         working-directory: sec-gemini-python
         env:
           SEC_GEMINI_API_KEY: ${{ secrets.SEC_GEMINI_API_KEY }}
+      
+      - name: Run basic example
+        run: uv run ./scripts/basic_example.py
+        working-directory: sec-gemini-python
+        env:
+          SEC_GEMINI_API_KEY: ${{ secrets.SEC_GEMINI_API_KEY }}
+
+      - name: Run basic openai example
+        run: uv run ./scripts/basic_openai_example.py
+        working-directory: sec-gemini-python
+        env:
+          SEC_GEMINI_API_KEY: ${{ secrets.SEC_GEMINI_API_KEY }}
