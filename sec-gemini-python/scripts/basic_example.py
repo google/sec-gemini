@@ -1,5 +1,8 @@
 import json
 import re
+import sys
+
+print(sys.path)
 
 from sec_gemini import SecGemini
 
