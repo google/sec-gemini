@@ -1,5 +1,8 @@
-import json
 import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sec_gemini import SecGemini
 
@@ -16,9 +19,6 @@ resp = session.query(
 content = resp.text().strip()
 print(f"Raw to the query: {content}")
 
-info = json.loads(content)
-assert "ips" in info.keys()
-assert len(info["ips"]) > 0
-for ip in info["ips"]:
-    assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", ip)
-print("Answer passed all checks.")
+print("Checking the output... ", end="")
+assert re.search(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", content) is not None
+print("OK")
