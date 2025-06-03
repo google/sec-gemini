@@ -7,6 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
     "asyncio>=3.4.3",
     "httpx>=0.28.1",
+    "magika>=0.6.2",
     "openai>=1.59.7",
     "orjson>=3.10.12",
     "pydantic>=2.10.4",
