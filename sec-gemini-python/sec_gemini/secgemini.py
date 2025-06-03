@@ -102,8 +102,9 @@ class SecGemini:
 
         response = self.http.get(_EndPoints.USER_INFO.value)
         if not response.ok:
-            logging.error(f"Request Error: {response.error_message}")
-            return None
+            error_msg = f"Request Error: {response.error_message}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
         return UserInfo(**response.data)
 
     def display_info(self) -> None:
@@ -115,7 +116,9 @@ class SecGemini:
 
         # User Table
         if ui.user.key_expire_time > 0:
-            key_expire_time = datetime.fromtimestamp(ui.user.key_expire_time)
+            key_expire_time = datetime.fromtimestamp(ui.user.key_expire_time).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         else:
             key_expire_time = "Never"
 
@@ -264,9 +267,9 @@ class SecGemini:
             )
             # sessions_table.add_column("Name", width=32)
             sessions_table.add_column("Description", overflow="fold")
-            (sessions_table.add_column("State", width=15),)
-            (sessions_table.add_column("#Msg", width=5),)
-            (sessions_table.add_column("#Files", width=6),)
+            sessions_table.add_column("State", width=15)
+            sessions_table.add_column("#Msg", width=5)
+            sessions_table.add_column("#Files", width=6)
             sessions_table.add_column("Created", width=20)
             sessions_table.add_column("Updated", width=20)
             sessions_table.add_column("TTL (sec)", width=8)

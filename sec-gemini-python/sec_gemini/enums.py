@@ -15,21 +15,21 @@
 from enum import Enum
 
 
-class SDKInfo(Enum):
+class SDKInfo(str, Enum):
     """SDK Info"""
 
     NAME = "secgemini-python"
     VERSION = "0.2.0"  # reported in the header of the API
 
 
-class _URLS(Enum):
+class _URLS(str, Enum):
     """API URLs"""
 
     HTTPS = "https://api.secgemini.google"
     WEBSOCKET = "wss://api.secgemini.google"
 
 
-class _EndPoints(Enum):
+class _EndPoints(str, Enum):
     """API Endpoints"""
 
     # users

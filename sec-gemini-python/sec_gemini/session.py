@@ -20,7 +20,7 @@ import mimetypes
 import random
 from base64 import b64encode
 from pathlib import Path
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 import websockets
 from rich.console import Console
@@ -58,93 +58,107 @@ class InteractiveSession:
         self.api_key = api_key
         self.enable_logging = enable_logging
         self.http = NetworkClient(self.base_url, self.api_key)
-        self._session: PublicSession = None  # session object
+        self._session: Optional[PublicSession] = None  # session object
 
     @property
     def id(self) -> str:
         """Session ID"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.id
 
     @property
     def model(self) -> ModelInfo:
         """Session model"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.model
 
     @property
     def ttl(self) -> int:
         """Session TTL"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.ttl
 
     @property
     def language(self) -> str:
         """Session language"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.language
 
     @property
     def turns(self) -> int:
         """Session turns"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.turns
 
     @property
     def name(self) -> str:
         """Session name"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.name
 
     @property
     def description(self) -> str:
         """Session description"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.description
 
     @property
     def create_time(self) -> int:
         """Session creation time"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.create_time
 
     @property
     def update_time(self) -> int:
         """Session update time"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.update_time
 
     @property
     def messages(self) -> list[Message]:
         """Session messages"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.messages
 
     @property
     def usage(self) -> Usage:
         """Session usage"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.usage
 
     @property
     def can_log(self) -> bool:
         """Session can log"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.can_log
 
     @property
     def state(self) -> State:
         """Session state"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.state
 
     @property
     def files(self) -> list[PublicSessionFile]:
         """Session attachments"""
+        assert self._session is not None
         self._refresh_data()
         return self._session.files
 
-    def _refresh_data(self) -> PublicSession:
+    def _refresh_data(self) -> None:
         """Refresh the session"""
         if self._session is None:
             raise ValueError("Session not initialized")
@@ -177,11 +191,11 @@ class InteractiveSession:
 
     def delete_file(self, filename: str) -> bool:
         """Delete a file from the session"""
+        assert self._session is not None
 
-        # check if the file exists
-        if not filename:
+        if filename == "":
             raise ValueError("Filename is required")
-        if not any(f.filename == filename for f in self.files):
+        if not any(f.name == filename for f in self.files):
             raise ValueError(f"File {filename} not found in session")
 
         # delete the file
@@ -197,14 +211,16 @@ class InteractiveSession:
         if not resp.ok:
             logging.error("[Session][Delete][HTTP]: %s", resp.error_message)
             return False
-        resp = OpResult(**resp.data)
-        if resp.status_code != ResponseStatus.OK:
-            logging.error("[Session][Delete][Session]: %s", resp.status_message)
+        op_result = OpResult(**resp.data)
+        if op_result.status_code != ResponseStatus.OK:
+            logging.error("[Session][Delete][Session]: %s", op_result.status_message)
             return False
         return True
 
     def attach_file(self, filename: str, content: bytes) -> bool:
         """Attach a file to the session"""
+        assert self._session is not None
+
         # guess the mime type
         mime_type, _ = mimetypes.guess_type(filename)
         if mime_type is None:
@@ -216,28 +232,31 @@ class InteractiveSession:
             raise ValueError(f"Mime type {mime_type} not supported")
 
         # we always encode the content to base64
-        content = b64encode(content).decode("ascii")
+        encoded_content = b64encode(content).decode("ascii")
 
         # generate a unique id for the attachment
         attachment = Attachment(
             session_id=self._session.id,
             filename=filename,
             mime_type=mime_type_enum,
-            content=content,
+            content=encoded_content,
         )
 
         resp = self.http.post(_EndPoints.ATTACH_FILE.value, attachment)
         if not resp.ok:
             logging.error("[Session][Attachment][HTTP]: %s", resp.error_message)
             return False
-        resp = OpResult(**resp.data)
-        if resp.status_code != ResponseStatus.OK:
-            logging.error("[Session][Attachment][Session]: %s", resp.status_message)
+        op_result = OpResult(**resp.data)
+        if op_result.status_code != ResponseStatus.OK:
+            logging.error(
+                "[Session][Attachment][Session]: %s", op_result.status_message
+            )
             return False
         return True
 
     def send_bug_report(self, bug: str, group_id: str = "") -> bool:
         """Send a bug report"""
+        assert self._session is not None
         feedback = Feedback(
             session_id=self._session.id,
             type=FeedbackType.BUG_REPORT,
@@ -251,6 +270,7 @@ class InteractiveSession:
 
     def send_feedback(self, score: int, comment: str, group_id: str = "") -> bool:
         """Send session/span feedback"""
+        assert self._session is not None
         feedback = Feedback(
             session_id=self._session.id,
             type=FeedbackType.USER_FEEDBACK,
@@ -269,14 +289,15 @@ class InteractiveSession:
         if not resp.ok:
             logging.error("[Session][Feedback][HTTP]: %s", resp.error_message)
             return False
-        resp = OpResult(**resp.data)
-        if resp.status_code != ResponseStatus.OK:
-            logging.error("[Session][Feedback][Session]: %s", resp.status_message)
+        op_result = OpResult(**resp.data)
+        if op_result.status_code != ResponseStatus.OK:
+            logging.error("[Session][Feedback][Session]: %s", op_result.status_message)
             return False
         return True
 
     def update(self, name: str = "", description: str = "", ttl: int = 0) -> bool:
         """Update session information"""
+        assert self._session is not None
 
         # update the session object
         if name:
@@ -294,21 +315,23 @@ class InteractiveSession:
         if not resp.ok:
             logging.error("[Session][Update][HTTP]: %s", resp.error_message)
             return False
-        resp = OpResult(**resp.data)
-        if resp.status_code != ResponseStatus.OK:
-            logging.error("[Session][Update][Session]: %s", resp.status_message)
+        op_result = OpResult(**resp.data)
+        if op_result.status_code != ResponseStatus.OK:
+            logging.error("[Session][Update][Session]: %s", op_result.status_message)
             return False
         return True
 
     def delete(self) -> bool:
         """Delete the session"""
+        assert self._session is not None
+
         resp = self.http.post(_EndPoints.DELETE_SESSION.value, self._session)
         if not resp.ok:
             logging.error("[Session][Delete][HTTP]: %s", resp.error_message)
             return False
-        resp = OpResult(**resp.data)
-        if resp.status_code != ResponseStatus.OK:
-            logging.error("[Session][Delete][Session]: %s", resp.status_message)
+        op_result = OpResult(**resp.data)
+        if op_result.status_code != ResponseStatus.OK:
+            logging.error("[Session][Delete][Session]: %s", op_result.status_message)
             return False
         return True
 
@@ -333,13 +356,15 @@ class InteractiveSession:
         )
         for msg in session.messages:
             if msg.mime_type == MimeType.TEXT:
+                content = msg.get_content()
+                assert isinstance(content, str)
                 prefix = f"[{msg.role}][{msg.message_type}]"
                 if msg.message_type == MessageType.RESULT:
-                    text = f"{prefix}[green]\n{msg.get_content()}[/green]"
+                    text = f"{prefix}[green]\n{content}[/green]"
                 elif msg.message_type == MessageType.INFO:
-                    text = f"{prefix}[blue]\n{msg.get_content()}[/blue]"
+                    text = f"{prefix}[blue]\n{content}[/blue]"
                 else:
-                    text = f"[grey]{prefix}{msg.get_content()}[grey]"
+                    text = f"[grey]{prefix}{content}[grey]"
             else:
                 # FIXME more info here
                 text = f"[{msg.role}][{msg.message_type}][magenta][File]{msg.mime_type}File[/magenta]"
@@ -394,9 +419,9 @@ class InteractiveSession:
             logging.error("[Session][Register][HTTP]: %s", resp.error_message)
             return False
 
-        resp = OpResult(**resp.data)
-        if resp.status_code != ResponseStatus.OK:
-            logging.error("[Session][Register][Session]: %s", resp.status_message)
+        op_result = OpResult(**resp.data)
+        if op_result.status_code != ResponseStatus.OK:
+            logging.error("[Session][Register][Session]: %s", op_result.status_message)
             return False
 
         self._session = session
@@ -419,18 +444,16 @@ class InteractiveSession:
         resp = self.http.post(_EndPoints.GENERATE.value, req)
 
         if not resp.ok:
-            logging.error("[Sesssion][Generate][HTTP]: %s", resp.error_message)
-            return None
+            error_msg = f"[Session][Generate][HTTP]: {resp.error_message}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
 
-        resp = SessionResponse(**resp.data)
-        if resp.status_code != ResponseStatus.OK:
-            logging.error(
-                "[Session][Generate][Response] %d:%s",
-                resp.status_code,
-                resp.status_message,
-            )
-            return None
-        return resp
+        session_resp = SessionResponse(**resp.data)
+        if session_resp.status_code != ResponseStatus.OK:
+            error_msg = f"[Session][Generate][Response] {session_resp.status_code}:{session_resp.status_message}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
+        return session_resp
 
     async def stream(self, query: str) -> AsyncIterator[Message]:
         """Streaming Generation/Completion Request"""
@@ -456,7 +479,7 @@ class InteractiveSession:
                     # receiving til end
                     while True:
                         try:
-                            data = await ws.recv()
+                            data = await ws.recv(decode=True)
                             msg = Message.from_json(data)
                             if msg.status_code != ResponseStatus.OK:
                                 logging.error(
@@ -483,14 +506,16 @@ class InteractiveSession:
             f"{_EndPoints.GET_SESSION.value}", query_params=query_params
         )
         if not resp.ok:
-            logging.error("[Session][Resume][HTTP]: %s", resp.error_message)
-            return None
+            error_msg = f"[Session][Resume][HTTP]: {resp.error_message}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
 
         try:
             session = PublicSession(**resp.data)
         except Exception as e:
-            logging.error("[Session][Resume][Session]: %s - %s", repr(e), resp.data)
-            return None
+            error_msg = f"[Session][Resume][Session]: {e!r} - {resp.data}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
         return session
 
     def _build_prompt_message(self, prompt: str) -> Message:

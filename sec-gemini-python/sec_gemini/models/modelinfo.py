@@ -76,10 +76,10 @@ class ModelInfo(BaseModel):
     version: str = Field(
         ..., title="Model Version", description="The version of the model."
     )
-    is_experimental: bool = Field(
+    use_experimental: bool = Field(
         False,
-        title="Is Experimental",
-        description="Whether the model is experimental or not.",
+        title="Use Experimental",
+        description="Whether to use experimental sub agents and tools.",
     )
     model_string: str = Field(
         ..., title="Model String", description="The string used to identify the model."

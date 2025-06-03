@@ -92,7 +92,7 @@ class Message(BaseModel):
     )
 
     mime_type: Optional[MimeType] = Field(
-        default=MimeType.TEXT,
+        default=None,
         title="Content Type",
         description="The content type of the content field.",
     )
@@ -127,7 +127,7 @@ class Message(BaseModel):
             assert isinstance(data, dict)
         return Message(**data)
 
-    def set_message_type(self, message_type: MessageType) -> "Message":
+    def set_message_type(self, message_type: MessageType) -> Message:
         """
         Set the message type to a block message.
         """
@@ -135,7 +135,7 @@ class Message(BaseModel):
         self.set_content(message_type.value)
         return self
 
-    def set_status(self, status: ResponseStatus) -> "Message":
+    def set_status(self, status: ResponseStatus) -> Message:
         """
         Set the status code and message of the message.
         """
@@ -144,17 +144,22 @@ class Message(BaseModel):
         return self
 
     def set_content(
-        self, content: bytes | str, mime_type: MimeType = MimeType.TEXT
-    ) -> "Message":
+        self, content: str | bytes, mime_type: MimeType = MimeType.TEXT
+    ) -> Message:
         """
-        Set the content of the message while encoding bytes as base64.
+        Set the content of the message.
+
+        If `content` is of textual nature (as determined by the `mime_type`),
+        the message's content is set to `content` itself, which is expected to
+        be of type `str`. Otherwise, the message's content base64-encoded first.
         """
         if mime_type.value.startswith("text/"):
-            assert isinstance(content, str), "Text mime type requires a string content."
+            assert isinstance(content, str)
             self.content = content
         else:
-            self.mime_type = mime_type
+            assert isinstance(content, bytes)
             self.content = b64encode(content).decode("ascii")
+        self.mime_type = mime_type
         return self
 
     def get_content(self) -> bytes | str:
@@ -162,12 +167,14 @@ class Message(BaseModel):
         Decodes the content of the message either to bytes or utf-8 string
         depending of the mime type.
         """
-        if not self.content:
+        if self.content is None:
             return ""
 
-        # return text content as is
+        assert self.mime_type is not None
+
         if self.mime_type.value.startswith("text/"):
+            # Return text content as is
             return self.content
         else:
-            # Decode the content if it is base64 encoded
-            return b64decode(self.content.encode("ascii"))
+            # Base64 decode the content before returning it.
+            return b64decode(self.content)
