@@ -350,7 +350,7 @@ class InteractiveSession:
 
     def register(
         self,
-        model: ModelInfo,
+        model: str | ModelInfo,
         ttl: int = DEFAULT_TTL,
         name: str = "",
         description: str = "",
@@ -361,7 +361,6 @@ class InteractiveSession:
         notes:
          - usually called via `SecGemini.create_session()`
         """
-        # FIXME: add model customization
 
         # basic checks
         if ttl < 300:
@@ -371,9 +370,16 @@ class InteractiveSession:
         if not name:
             name = self._generate_session_name()
 
+        if isinstance(model, ModelInfo):
+            model_info = model
+        elif isinstance(model, str):
+            model_info = ModelInfo.get_model_info_from_model_string(model)
+        else:
+            raise ValueError(f"Invalid model as input: {model}")
+
         # register the session
         session = PublicSession(
-            model=model,
+            model=model_info,
             user_id=self.user.id,
             org_id=self.user.org_id,
             ttl=ttl,

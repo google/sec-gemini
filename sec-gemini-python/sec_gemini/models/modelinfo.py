@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
 
 from typing import Optional
 
@@ -69,21 +70,42 @@ class OptionalToolSet(BaseModel):
 class ModelInfo(BaseModel):
     """Describes a Sec-Gemini model."""
 
-    model_string: str = Field(
-        ..., title="Model String", description="The string used to identify the model."
+    model_name: str = Field(
+        ..., title="Model name", description="The string used to identify the model."
     )
     version: str = Field(
         ..., title="Model Version", description="The version of the model."
-    )
-    # Temporary fix while we fix the backend
-    model_name: Optional[str] = Field(
-        ..., title="Model name", description="The string used to identify the model."
     )
     is_experimental: bool = Field(
         False,
         title="Is Experimental",
         description="Whether the model is experimental or not.",
     )
+    model_string: str = Field(
+        ..., title="Model String", description="The string used to identify the model."
+    )
     toolsets: list[OptionalToolSet] = Field(
         [], title="Tools", description="Toggable tools used by the model."
     )
+
+    @staticmethod
+    def get_model_info_from_model_string(model_string: str) -> ModelInfo:
+        try:
+            if model_string.endswith("-experimental"):
+                use_experimental = True
+                parts = model_string.rsplit("-", 2)
+                model_name, version = parts[0], parts[1]
+                assert parts[2] == "experimental"
+            else:
+                use_experimental = False
+                parts = model_string.rsplit("-", 1)
+                model_name, version = parts[0], parts[1]
+        except Exception:
+            raise ValueError(f"Invalid model string as input: {model_string}")
+        return ModelInfo(
+            model_name=model_name,
+            version=version,
+            use_experimental=use_experimental,
+            toolsets=[],
+            model_string=model_string,
+        )

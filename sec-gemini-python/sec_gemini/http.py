@@ -40,7 +40,6 @@ class NetResponse(BaseModel):
 
 
 class NetworkClient:
-
     def __init__(self, base_url: str, api_key: str):
         self.base_url = base_url
         self.api_key = api_key
@@ -75,18 +74,14 @@ class NetworkClient:
                 latency=latency,
             )
         else:
-            nr = NetResponse(url=url,
-                             ok=True,
-                             data=response.json(),
-                             latency=latency)
+            nr = NetResponse(url=url, ok=True, data=response.json(), latency=latency)
         logging.debug("[HTTP][POST] %s -> latency: %s", url, latency)
         logging.debug("Response: %s", nr.model_dump_json())
         return nr
 
-    def get(self,
-            endpoint: str,
-            query_params: dict = {},
-            headers: dict = {}) -> NetResponse:
+    def get(
+        self, endpoint: str, query_params: dict = {}, headers: dict = {}
+    ) -> NetResponse:
         """Get Request to the API
 
         Args:
@@ -98,13 +93,12 @@ class NetworkClient:
             HTTPResponse: The response from the API.
         """
 
-        # FIXME: Support for query parameters
-
         url = self._make_url(endpoint)
         headers = self._make_headers(headers)
 
         logging.debug("GET URL: %s, Headers:%s", url, headers)
         logging.debug("Request: %s", json.dumps(query_params))
+
         start_time = time()
         response = self.client.get(url, params=query_params, headers=headers)
         latency = time() - start_time
@@ -117,10 +111,7 @@ class NetworkClient:
                 latency=latency,
             )
         else:
-            nr = NetResponse(url=url,
-                             ok=True,
-                             data=response.json(),
-                             latency=latency)
+            nr = NetResponse(url=url, ok=True, data=response.json(), latency=latency)
         logging.debug("[HTTP][GET] %s -> latency: %s", url, latency)
         logging.debug("Response: %s", nr.model_dump_json())
         return nr
@@ -135,8 +126,7 @@ class NetworkClient:
         headers = headers or {}
 
         additional_headers = {
-            "User-Agent":
-            f"{SDKInfo.NAME.value}/{SDKInfo.VERSION.value} ({sys.platform}) {sys.version} ({sys.version_info})",
+            "User-Agent": f"{SDKInfo.NAME.value}/{SDKInfo.VERSION.value} ({sys.platform}) {sys.version} ({sys.version_info})",
             "x-sdk-version": SDKInfo.VERSION.value,
             "x-sdk": "python",
             "x-api-key": self.api_key,

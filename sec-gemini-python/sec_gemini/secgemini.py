@@ -11,10 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import logging
 import os
 from datetime import datetime, timezone
+from typing import Optional
 
 from dotenv import load_dotenv
 from rich import box
@@ -33,9 +35,11 @@ logging.basicConfig(level=logging.WARNING)
 
 
 class SecGemini:
+    DEFAULT_STABLE_MODEL_NAME = "sec-gemini-1.1"
+
     def __init__(
         self,
-        api_key: str = "",
+        api_key: Optional[str] = None,
         base_url: str = _URLS.HTTPS.value,
         base_websockets_url: str = _URLS.WEBSOCKET.value,
         console_width: int = 500,
@@ -55,9 +59,10 @@ class SecGemini:
         # setup display console
         self.console = Console(width=console_width)
 
+        if api_key is None:
+            api_key = os.getenv("SEC_GEMINI_API_KEY", "").strip()
+
         if api_key == "":
-            api_key = os.getenv("SEC_GEMINI_API_KEY")
-        if not api_key:
             raise ValueError(
                 "API key required: explictly pass it or set env variable SEC_GEMINI_API_KEY (e.g in .env)."
             )
@@ -79,26 +84,22 @@ class SecGemini:
         self.http = NetworkClient(base_url, api_key)
 
         # check if the API is working and get user info
-        ui = self.get_info()
+        ui = self.get_user_info()
         if not ui:
             raise ValueError("API Key is invalid or the API is down.")
         self.user = ui.user
 
         # assign the models to stable and experimental
-        self.stable_model = None
-        self.experimental_model = None
-        for model in ui.available_models:
-            if model.is_experimental:
-                self.experimental_model = model
-            else:
-                self.stable_model = model
+        self.available_models = ui.available_models
+        assert len(self.available_models) > 0
 
-    def get_info(self) -> UserInfo:
+    def get_user_info(self) -> UserInfo:
         """Return users info.
 
         Returns:
             UserInfo: User information.
         """
+
         response = self.http.get(_EndPoints.USER_INFO.value)
         if not response.ok:
             logging.error(f"Request Error: {response.error_message}")
@@ -107,7 +108,7 @@ class SecGemini:
 
     def display_info(self) -> None:
         """Display users info."""
-        ui = self.get_info()
+        ui = self.get_user_info()
         if not ui:
             print("Failed to retrieve user information.")
             return
@@ -151,7 +152,7 @@ class SecGemini:
         description: str = "",
         ttl: int = DEFAULT_TTL,
         enable_logging: bool = True,
-        model: str | ModelInfo = "stable",
+        model: str = DEFAULT_STABLE_MODEL_NAME,
         language: str = "en",
     ) -> InteractiveSession:
         """Creates a new session.
@@ -161,24 +162,12 @@ class SecGemini:
             description: optional session description
             ttl: live of inactive session in sec.
             enable_logging: enable/disable logging (if allowed)
-            model: model to use - 'stable' or 'experimental' or ModelInfo object
+            model: model to use, either a str or ModelInfo
             language: language to use - defaults to 'en'
 
         Returns:
             A new session object.
         """
-        if isinstance(model, str):
-            if model == "stable":
-                model = self.stable_model
-            elif model == "experimental":
-                model = self.experimental_model
-            else:
-                raise ValueError(
-                    f"Invalid model name {model} - must be 'stable' or 'experimental'."
-                )
-        else:
-            if not isinstance(model, ModelInfo):
-                raise ValueError(f"Invalid model {model} - must be a ModelInfo object.")
 
         session = InteractiveSession(
             user=self.user,
@@ -219,7 +208,7 @@ class SecGemini:
         Returns:
             list[Session]: List of sessions for the user.
         """
-        ui = self.get_info()
+        ui = self.get_user_info()
         isessions = []
         for session in ui.sessions:
             isession = InteractiveSession(
@@ -234,7 +223,7 @@ class SecGemini:
 
     def list_sessions(self) -> None:
         """List active sessions."""
-        ui = self.get_info()
+        ui = self.get_user_info()
         if not ui:
             return
         self._display_sessions(ui.sessions)
@@ -244,23 +233,7 @@ class SecGemini:
 
     def list_models(self) -> None:
         """List available models."""
-        if not self.stable_model and not self.experimental_model:
-            print("No models available.")
-            return
-        if self.experimental_model:
-            self._display_models([self.stable_model, self.experimental_model])
-        else:
-            self._display_models([self.stable_model])
-
-    def get_stable_model(self) -> ModelInfo:
-        """Get the stable model."""
-        return self.stable_model
-
-    def get_experimental_model(self) -> ModelInfo:
-        """Get the experimental model."""
-        return self.experimental_model
-
-    # FIXME: add ability to configure model
+        self._display_models(self.available_models)
 
     def _display_models(self, models: list[ModelInfo]) -> None:
         for model in models:
