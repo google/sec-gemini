@@ -29,4 +29,4 @@ jobs:
         run: uv run -m pytest
         working-directory: sec-gemini-python
         env:
-          SEC_GEMINI_APKEY: ${{ secrets.SEC_GEMINI_API_KEY }}
+          SEC_GEMINI_API_KEY: ${{ secrets.SEC_GEMINI_API_KEY }}
