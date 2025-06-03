@@ -24,8 +24,9 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
         working-directory: sec-gemini-python
+        
       - name: Test
-        run: uv run pytest
+        run: uv run -m pytest
         working-directory: sec-gemini-python
         env:
           SEC_GEMINI_APKEY: ${{ secrets.SEC_GEMINI_API_KEY }}
