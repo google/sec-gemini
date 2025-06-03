@@ -17,8 +17,12 @@ if api_key == "":
     )
     sys.exit(1)
 
+base_url = os.getenv("SEC_GEMINI_API_HTTP_URL", "https://api.secgemini.google")
+
+print(f'Connecting to "{base_url}"')
+
 client = OpenAI(
-    base_url="http://localhost:8000/",
+    base_url=base_url,
     api_key=api_key,
     max_retries=1,
 )
@@ -44,4 +48,9 @@ response = client.chat.completions.create(
     ],
 )
 
-print(response)
+print(f"Raw response {response}")
+
+print("Checking the output... ", end="")
+assert response.choices[0].message.content is not None
+assert response.choices[0].message.content.lower().find("retsim") >= 0
+print("OK")
