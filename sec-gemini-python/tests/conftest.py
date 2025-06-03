@@ -174,16 +174,7 @@ def secgemini_client() -> SecGemini:
             "Could not find a valid key in the SEC_GEMINI_API_KEY env variable"
         )
 
-    sec_gemini_api_http_url = os.getenv("SEC_GEMINI_API_HTTP_URL", _URLS.HTTPS.value)
-    sec_gemini_api_websocket_url = os.getenv(
-        "SEC_GEMINI_API_WEBSOCKET_URL", _URLS.WEBSOCKET.value
-    )
-
-    return SecGemini(
-        api_key=api_key,
-        base_url=sec_gemini_api_http_url,
-        base_websockets_url=sec_gemini_api_websocket_url,
-    )
+    return SecGemini(api_key=api_key)
 
 
 @pytest.fixture

@@ -40,8 +40,8 @@ class SecGemini:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        base_url: str = _URLS.HTTPS.value,
-        base_websockets_url: str = _URLS.WEBSOCKET.value,
+        base_url: Optional[str] = None,
+        base_websockets_url: Optional[str] = None,
         console_width: int = 500,
     ):
         """Initializes the SecGemini API client.
@@ -56,6 +56,17 @@ class SecGemini:
 
             console_width: Console width for displaying tables. Defaults to 500.
         """
+
+        if base_url is None:
+            base_url = os.getenv("SEC_GEMINI_API_HTTP_URL", "").strip()
+            if base_url == "":
+                base_url = _URLS.HTTPS.value
+
+        if base_websockets_url is None:
+            base_websockets_url = os.getenv("SEC_GEMINI_API_WEBSOCKET_URL", "").strip()
+            if base_websockets_url == "":
+                base_websockets_url = _URLS.WEBSOCKET.value
+
         # setup display console
         self.console = Console(width=console_width)
 
@@ -71,13 +82,13 @@ class SecGemini:
         # http(s) endpoint
         self.base_url = base_url.rstrip("/")
         if not self.base_url.startswith("http"):
-            raise ValueError(f"Invalid base_url {base_url} - must be an http(s) url.")
+            raise ValueError(f'Invalid base_url "{base_url}" - must be an http(s) url.')
 
         # websocket endpoint
         self.base_websockets_url = base_websockets_url.rstrip("/")
         if not self.base_websockets_url.startswith("ws"):
             raise ValueError(
-                f"Invalid base_websockets_url {base_websockets_url} - must be a ws(s) url."
+                f'Invalid base_websockets_url "{base_websockets_url}" - must be a ws(s) url.'
             )
 
         # instantiate the network client
@@ -105,6 +116,7 @@ class SecGemini:
             error_msg = f"Request Error: {response.error_message}"
             logging.error(error_msg)
             raise Exception(error_msg)
+
         return UserInfo(**response.data)
 
     def display_info(self) -> None:
