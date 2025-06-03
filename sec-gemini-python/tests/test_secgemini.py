@@ -114,7 +114,7 @@ def test_init_get_user_info_fails(httpx_mock: HTTPXMock):
         method="GET",
         status_code=500,
     )
-    with pytest.raises(ValueError, match="API Key is invalid or the API is down."):
+    with pytest.raises(Exception, match="Request Error: "):
         SecGemini(
             api_key="test_key",
             base_url=f"http://{MOCK_SEC_GEMINI_API_HOST}:8000",
@@ -136,8 +136,8 @@ def test_get_info_request_error(
             "detail": "Authentication credentials were not provided or were invalid."
         },
     )
-    user_info = mock_secgemini_client.get_user_info()
-    assert user_info is None
+    with pytest.raises(Exception, match="Request Error: "):
+        _ = mock_secgemini_client.get_user_info()
 
 
 def test_create_session(secgemini_client: SecGemini):
