@@ -82,7 +82,7 @@ def mock_stable_model_info() -> ModelInfo:
     return ModelInfo(
         model_name="sec-gemini",
         version="1",
-        is_experimental=False,
+        use_experimental=False,
         model_string="sec-gemini-1.1",
         toolsets=[
             OptionalToolSet(
@@ -109,7 +109,7 @@ def mock_experimental_model_info() -> ModelInfo:
     return ModelInfo(
         model_name="sec-gemini",
         version="1",
-        is_experimental=True,
+        use_experimental=True,
         model_string="sec-gemini-1.1-experimental",
         toolsets=[
             OptionalToolSet(
