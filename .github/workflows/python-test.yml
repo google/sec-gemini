@@ -24,6 +24,10 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
         working-directory: sec-gemini-python
+
+      - name: Check source
+        run: bash ./scripts/check_source.sh
+        working-directory: sec-gemini-python
         
       - name: Test
         run: uv run -m pytest
