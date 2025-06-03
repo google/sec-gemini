@@ -1,4 +1,4 @@
-name: Python - test
+name: Python - Run checks and tests
 on:
   workflow_dispatch:
   push:
@@ -7,6 +7,8 @@ on:
   pull_request:
     branches:
       - main
+  schedule:
+    - cron: "42 */6 * * *"
         
 permissions:
   contents: read
@@ -29,7 +31,7 @@ jobs:
         run: bash ./scripts/check_source.sh
         working-directory: sec-gemini-python
         
-      - name: Test
+      - name: Run tests
         run: uv run -m pytest
         working-directory: sec-gemini-python
         env:
