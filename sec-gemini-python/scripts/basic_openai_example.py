@@ -31,7 +31,7 @@ b64_image = base64.b64encode(res.content).decode("ascii")
 response = client.chat.completions.create(
     model="sec-gemini-1.1",
     messages=[
-        {
+        {  # type: ignore[misc, list-item]
             "role": "user",
             "content": [
                 {"type": "text", "text": "What's is the image about?"},

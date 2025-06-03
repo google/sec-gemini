@@ -14,4 +14,4 @@ uv run ruff format --check
 uv run ruff check
 
 # Check if we have typing issues
-uv run mypy sec_gemini tests
+uv run mypy sec_gemini tests scripts/*.py

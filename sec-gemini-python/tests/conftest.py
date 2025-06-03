@@ -21,7 +21,6 @@ from pytest_httpx import HTTPXMock
 from utils import require_env_variable
 
 from sec_gemini import SecGemini
-from sec_gemini.enums import _URLS
 from sec_gemini.models.enums import State, UserType
 from sec_gemini.models.modelinfo import ModelInfo, OptionalToolSet, ToolSetVendor
 from sec_gemini.models.public import (
