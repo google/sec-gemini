@@ -1,5 +1,6 @@
 import MarkdownIt from "markdown-it";
-import Prism from "prismjs";
+import DOMPurify from "dompurify";
+import * as Prism from "prismjs";
 
 import "prismjs/themes/prism-tomorrow.css"; // or another theme
 import "prismjs/components/prism-python";
@@ -10,8 +11,23 @@ import "prismjs/components/prism-yaml";
 import "prismjs/components/prism-markdown";
 import "prismjs/components/prism-docker";
 
-const md: any = new MarkdownIt({
-  html: true,
+const customPurifyOptions = {
+  USE_PROFILES: { html: true }, // Allows common HTML tags
+};
+
+class SafeMarkdownIt extends MarkdownIt {
+  constructor(options: any) {
+    super(options);
+  }
+
+  render(src: string, env?: any): string {
+    const sanitizedSrc = DOMPurify.sanitize(src, customPurifyOptions);
+    return super.render(sanitizedSrc, env);
+  }
+}
+
+const md: any = new SafeMarkdownIt({
+  html: false,
   breaks: true,
   linkify: true,
   typographer: true,

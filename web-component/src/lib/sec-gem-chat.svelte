@@ -1,6 +1,7 @@
 <svelte:options customElement="sec-gem-chat" />
 
 <script lang="ts">
+  import DOMPurify from "dompurify";
   import SecGemini, {
     MessageTypeEnum,
     MimeTypeEnum,
@@ -342,7 +343,7 @@
   });
 </script>
 
-{@html style}
+{@html DOMPurify.sanitize(style)}
 <div id="wrapper" class="font-base" data-theme={theme}>
   <button
     aria-label="toggle"
