@@ -30,7 +30,7 @@ client = OpenAI(
 
 res = httpx.get(TEST_PDF_URL)
 assert res.status_code == 200
-b64_image = base64.b64encode(res.content).decode("ascii")
+file_content = base64.b64encode(res.content).decode("ascii")
 
 response = client.chat.completions.create(
     model="sec-gemini-1.1",
@@ -38,10 +38,10 @@ response = client.chat.completions.create(
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "What's is the image about?"},
+                {"type": "text", "text": "What's is the PDF about?"},
                 {
                     "type": "image_url",
-                    "image_url": {"url": f"data:image/png;base64,{b64_image}"},
+                    "image_url": {"url": f"data:application/pdf;base64,{file_content}"},
                 },
             ],
         }
