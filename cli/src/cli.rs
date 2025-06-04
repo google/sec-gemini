@@ -69,7 +69,7 @@ impl Action {
         let query = self.query.join(" ");
         match query.len() {
             0 => self.options.session().await,
-            1 ..= 3 => fail!("The query is too short."),
+            1 ..= 3 => fail!("the query is too short"),
             _ => self.options.query(&query).await,
         }
     }

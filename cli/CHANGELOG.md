@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.2-git
+
+### Minor
+
+- Improve configuration file handling in case of errors
+- Print chain of error causes for failures
+- Match recent changes to Sec-Gemini API
+
 ## 0.0.1
 
 ### Minor

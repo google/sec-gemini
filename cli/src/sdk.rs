@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::Display;
 use std::sync::Arc;
 
 use futures_util::{SinkExt, StreamExt};
 use reqwest::StatusCode;
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use url::Url;
-use uuid::Uuid;
 
 use self::types::*;
 use crate::config::Config;
-use crate::{or_fail, try_to};
+use crate::{StrError, fail_str, or_fail, try_to};
 
 mod http;
 pub mod types;
@@ -37,7 +37,7 @@ pub struct Sdk {
     options: Options,
     http: http::Client,
     user: PublicUser,
-    model: ModelInfoInput,
+    model: ModelInfo,
 }
 
 pub struct Session {
@@ -45,33 +45,37 @@ pub struct Session {
 }
 
 impl Sdk {
-    pub async fn new(mut options: Options) -> (Self, Vec<PublicSessionOutput>) {
-        options.api_key.force();
-        let http = http::Client::new(&options);
-        let UserInfo { user, sessions, available_models } =
-            match http.get::<UserInfo>("/v1/user/info", None).await {
+    pub async fn new(mut options: Options) -> (Self, Vec<PublicSession>) {
+        let mut bypass = false;
+        let (http, UserInfo { user, sessions, available_models }) = loop {
+            options.api_key.force(bypass);
+            let http = http::Client::new(&options);
+            let info = match http.get::<UserInfo>("/v1/user/info", None).await {
                 Ok(user_info) => {
                     options.api_key.persist();
                     user_info
                 }
                 Err(error) => {
-                    options.api_key.delete();
-                    let instr = match error.status() {
+                    let instr: Option<&dyn Display> = match error.status() {
                         Some(StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) => {
-                            "\n\nPlease check your API key."
+                            if !bypass && options.api_key.reset() {
+                                bypass = true;
+                                continue;
+                            }
+                            Some(&"Please check your API key.")
                         }
-                        _ => "",
+                        _ => None,
                     };
-                    fail!("Failed to get user info: {error}{instr}");
+                    fail_str("failed to get user info", Some(&error), instr);
                 }
             };
-        let sessions = sessions.unwrap_or_default();
+            break (http, info);
+        };
         if options.interactive {
             println!("User: {} ({})", user.id, user.org_id);
         }
-        let Some(available_models) = available_models else { fail!("No available models.") };
         for model in available_models {
-            if model.is_experimental == Some(true) {
+            if model.use_experimental {
                 continue;
             }
             if options.interactive {
@@ -79,54 +83,42 @@ impl Sdk {
             }
             return (Sdk { options, http, user, model }, sessions);
         }
-        fail!("No stable model found.")
+        fail!("no stable model found")
     }
 
-    async fn session_register(&self, session: &PublicSessionOutput) -> OpResult {
+    async fn session_register(&self, session: &PublicSession) -> OpResult {
         or_fail(self.http.post("/v1/session/register", session).await)
     }
 
     #[allow(dead_code)]
-    async fn session_get(&self, id: &str) -> PublicSessionOutput {
+    async fn session_get(&self, id: &str) -> PublicSession {
         or_fail(self.http.get("/v1/session/get", Some(&format!("session_id={id}"))).await)
     }
 
     #[allow(dead_code)]
-    async fn session_delete(&self, session: &PublicSessionOutput) -> OpResult {
+    async fn session_delete(&self, session: &PublicSession) -> OpResult {
         or_fail(self.http.post("/v1/session/delete", session).await)
     }
 }
 
 impl Session {
     pub async fn new(sdk: Arc<Sdk>, name: String, onmessage: UnboundedSender<Message>) -> Session {
-        let can_log = match sdk.user.never_log {
-            Some(true) => false,
-            _ => true, // TODO: function parameter (check can_disable_logging)
-        };
-        let id = Uuid::new_v4().to_string();
-        let session = PublicSessionInput {
-            id: Some(id.clone()),
-            user_id: sdk.user.id.clone(),
-            org_id: sdk.user.org_id.clone(),
-            model: sdk.model.clone(),
-            ttl: 86400,
+        let session = PublicSessionBuilder::new(
+            sdk.user.id.clone(),
+            sdk.user.org_id.clone(),
+            sdk.model.clone(),
+            86400,
             name,
-            description: "no description".to_string(), // TODO: function paramater
-            can_log: Some(can_log),
-            language: Some("en".to_string()),
-            ..Default::default()
-        };
+            "no description".to_string(), // TODO: function paramater
+        )
+        .can_log(!sdk.user.never_log) // TODO: function parameter (check can_disable_logging)
+        .build();
+        let id = session.id.clone();
         let result = sdk.session_register(&session).await;
         if !result.ok {
-            let message = match result.status_message {
-                Some(x) => format!(": {x}"),
-                None => String::new(),
-            };
-            fail!("Failed to create session{message}");
+            fail!("failed to create session"; &StrError(&result.status_message));
         }
-        if let Some(message) = result.status_message {
-            log::info!("{message}");
-        }
+        log::info!("{}", result.status_message);
         Self::create(&sdk, id, onmessage).await
     }
 
@@ -147,7 +139,7 @@ impl Session {
                 let message = match try_to("receive web-socket message", message) {
                     tungstenite::Message::Text(x) => x,
                     tungstenite::Message::Ping(_) => continue, // handled by tungstenite
-                    x => fail!("Received unexpected web-socket message {x:?}"),
+                    x => fail!("received unexpected web-socket message {x:?}"),
                 };
                 log::trace!("received {message}");
                 match onmessage.send(serde_json::from_str(message.as_str()).unwrap()) {
@@ -166,26 +158,19 @@ impl Session {
     }
 
     #[allow(dead_code)]
-    pub async fn delete(sdk: &Sdk, id: &str) -> PublicSessionOutput {
+    pub async fn delete(sdk: &Sdk, id: &str) -> PublicSession {
         let session = sdk.session_get(id).await;
         let result = sdk.session_delete(&session).await;
         assert!(result.ok);
-        if let Some(message) = result.status_message {
-            log::info!("{message}");
-        }
+        log::info!("{}", result.status_message);
         session
     }
 
     pub fn send(&self, prompt: &str) {
-        let message = Message {
-            id: Some(Uuid::new_v4().to_string()),
-            parent_id: Some("3713".to_string()),
-            role: Some(Role::User),
-            mime_type: Some(Some("text/plain".to_string())),
-            message_type: MessageType::Query,
-            content: Some(Some(prompt.to_string())),
-            ..Default::default()
-        };
+        let message = MessageBuilder::new(MessageType::Query)
+            .mime_type(Some("text/plain".to_string()))
+            .content(Some(prompt.to_string()))
+            .build();
         let message = serde_json::to_string(&message).unwrap();
         try_to("send web-socket message", self.send.send(tungstenite::Message::text(message)));
     }

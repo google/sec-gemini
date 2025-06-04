@@ -12,12 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::error::Error;
+use std::fmt::{Arguments, Display};
+
+use colored::Colorize;
+
 macro_rules! fail {
-    ($($x:tt)*) => {{
-        use colored::Colorize;
-        println!("{}: {}", "Error".bold().red(), format!($($x)*));
-        std::process::exit(1);
-    }};
+    ($fmt:literal $(, $($args:expr)*)? $(; $source:expr)? $(=> $suggestion:expr)?) => {
+        crate::fail(
+            std::format_args!($fmt $(, $($args)*)?),
+            fail!(opt $($source)?),
+            fail!(opt $($suggestion)?),
+        )
+    };
+    (opt) => (None);
+    (opt $val:expr) => (Some($val));
 }
 
 mod cli;
@@ -31,16 +40,54 @@ async fn main() {
     <cli::Action as clap::Parser>::parse().run().await
 }
 
-fn or_fail<T, E: std::fmt::Display>(x: Result<T, E>) -> T {
-    match x {
-        Ok(x) => x,
-        Err(e) => fail!("{e}"),
+#[derive(Debug)]
+struct StrError<'a>(&'a str);
+
+impl Error for StrError<'_> {}
+impl Display for StrError<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }
 
-fn try_to<T, E: std::fmt::Display>(f: &str, x: Result<T, E>) -> T {
+fn fail(
+    message: Arguments<'_>, mut source: Option<&dyn Error>, suggestion: Option<&dyn Display>,
+) -> ! {
+    println!("{}: {message}", "Error".bold().red());
+    while let Some(error) = source {
+        println!("{}: {error}", "cause".red());
+        source = error.source();
+    }
+    if let Some(suggestion) = suggestion {
+        println!("\n{suggestion}");
+    }
+    std::process::exit(1);
+}
+
+fn fail_str(message: &str, source: Option<&dyn Error>, suggestion: Option<&dyn Display>) -> ! {
+    fail(format_args!("{message}"), source, suggestion)
+}
+
+fn or_fail<T, E: Error>(x: Result<T, E>) -> T {
     match x {
         Ok(x) => x,
-        Err(e) => fail!("Failed to {f}: {e}"),
+        Err(e) => match e.source() {
+            Some(s) => fail!("{e}"; s),
+            None => fail!("{e}"),
+        },
+    }
+}
+
+fn try_to<T, E: Error>(f: &str, x: Result<T, E>) -> T {
+    match x {
+        Ok(x) => x,
+        Err(e) => fail!("failed to {f}"; &e),
+    }
+}
+
+fn try_to_opt<T>(f: &str, x: Option<T>) -> T {
+    match x {
+        Some(x) => x,
+        None => fail!("failed to {f}"),
     }
 }
