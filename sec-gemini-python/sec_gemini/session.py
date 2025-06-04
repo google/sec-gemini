@@ -16,7 +16,6 @@
 
 import asyncio
 import logging
-import mimetypes
 import random
 from base64 import b64encode
 from pathlib import Path
@@ -221,16 +220,6 @@ class InteractiveSession:
         """Attach a file to the session"""
         assert self._session is not None
 
-        # guess the mime type
-        mime_type, _ = mimetypes.guess_type(filename)
-        if mime_type is None:
-            raise ValueError(f"Could not determine mime type for {filename}")
-
-        try:
-            mime_type_enum = MimeType(mime_type)
-        except ValueError:
-            raise ValueError(f"Mime type {mime_type} not supported")
-
         # we always encode the content to base64
         encoded_content = b64encode(content).decode("ascii")
 
@@ -238,7 +227,6 @@ class InteractiveSession:
         attachment = Attachment(
             session_id=self._session.id,
             filename=filename,
-            mime_type=mime_type_enum,
             content=encoded_content,
         )
 
