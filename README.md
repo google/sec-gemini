@@ -7,7 +7,26 @@ SDKs are available for:
 * Python in `sec-gemini-python/`
 * TypeScript `sec-gemini-ts/`
 
+
+We also have a web component to ease integration on your website. Here's how to load it:
+
+```html
+<sec-gem-chat
+      incognito="true"
+      sessionId=""
+      sessionName="TestName"
+      sessionDescription="TestDescription"
+      sessionPrompt=""
+      theme="dark"
+    >
+    </sec-gem-chat>
+<script src='https://cdn.jsdelivr.net/npm/sec-gemini-web-component/dist/swc.iife.js'>
+```
+
 For more information on Sec-Gemini, visit [https://secgemini.google](https://secgemini.google).
+
+
+
 
 This is not an officially supported Google product. This project is not
 eligible for the [Google Open Source Software Vulnerability Rewards
