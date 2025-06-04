@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 from .enums import MimeType
@@ -34,8 +36,8 @@ class Attachment(BaseModel):
     )
 
     # TODO: remove this field after the SDK stops using it.
-    mime_type: MimeType = Field(
-        ...,
+    mime_type: Optional[MimeType] = Field(
+        None,
         title="Mime Type",
         description="The mime type of the file.",
         deprecated=True,

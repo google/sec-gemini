@@ -81,20 +81,14 @@ class PublicUser(BaseModel):
 class PublicSessionFile(BaseModel):
     """Only add the fields necessary to show to users."""
 
-    # FIXME: remove optional when the backend is fixed
-    name: Optional[str] = Field(
-        None, title="File Name", description="The original name of the file."
-    )
-
-    # FIXME: remove optional when the backend is fixed
-    mime_type: Optional[str] = Field(
-        None, title="Mime Type", description="The mime type of the file."
-    )
-
+    name: str = Field(..., title="Filename", description="Name of the file.")
     size: int = Field(..., title="File size", description="Size of the file in bytes.")
-
     sha256: str = Field(
         ..., title="SHA256 of the file", description="SHA256 of the file."
+    )
+    mime_type: str = Field(..., title="Mime type", description="Mime type.")
+    content_type_label: str = Field(
+        ..., title="Content type label", description="Content type label."
     )
 
 
