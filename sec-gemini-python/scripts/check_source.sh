@@ -5,7 +5,7 @@ SEC_GEMINI_PYTHON_DIR="$(readlink -f "$SCRIPT_DIR/..")"
 
 cd $SEC_GEMINI_PYTHON_DIR
 
-set -x
+set -xe
 
 # Check if we have unformatted files
 uv run ruff format --check
