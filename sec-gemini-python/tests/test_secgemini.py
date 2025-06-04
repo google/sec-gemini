@@ -209,7 +209,8 @@ def test_query_with_attachment(secgemini_client: SecGemini):
     pdf_content = httpx.get(TEST_PDF_URL).content
 
     session = secgemini_client.create_session()
-    session.attach_file("paper.pdf", pdf_content)
+    assert session.attach_file("paper.pdf", pdf_content) is True
+    assert len(session.files) == 1
 
     resp = session.query(
         "The file in attachment should be about a tool in machine learning. What is the name of the tool?"
@@ -218,3 +219,19 @@ def test_query_with_attachment(secgemini_client: SecGemini):
     content = resp.text().strip()
     content = parse_secgemini_response(content)
     assert content.lower() == "retsim"
+
+
+@require_env_variable("SEC_GEMINI_API_KEY")
+def test_session_with_multiple_attachment(secgemini_client: SecGemini):
+    TEST_PDF_URL = "https://elie.net/static/files/retsim-resilient-and-efficient-text-similarity/retsim-resilient-and-efficient-text-similarity.pdf"
+    pdf_content = httpx.get(TEST_PDF_URL).content
+
+    TEST_PYTHON_URL = "https://raw.githubusercontent.com/google/magika/refs/heads/main/tests_data/basic/python/code.py"
+    python_content = httpx.get(TEST_PYTHON_URL).content
+
+    session = secgemini_client.create_session()
+
+    assert session.attach_file("paper.pdf", pdf_content) is True
+    assert len(session.files) == 1
+    assert session.attach_file("code.py", python_content) is True
+    assert len(session.files) == 2
