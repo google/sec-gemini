@@ -16,8 +16,7 @@ permissions:
   contents: read
   id-token: write
 jobs:
-  build:
-    name: python
+  tests:
     runs-on: ubuntu-latest
     defaults:
       run:
