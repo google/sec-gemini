@@ -10,7 +10,7 @@ publish = false
 [package.metadata.bundle]
 identifier = "google.secgemini"
 copyright = "Copyright 2025 Google LLC"
-# TODO: icon (list of icns, ico, png)
+icon = ["icon.png"]
 category = "Productivity"
 linux_exec_args = "--open-ui"
 linux_use_terminal = true
