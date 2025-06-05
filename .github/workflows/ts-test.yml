@@ -1,4 +1,4 @@
-name: Python - Run checks and tests
+name: Typescript - Run checks and tests
 on:
   workflow_dispatch:
   push:
