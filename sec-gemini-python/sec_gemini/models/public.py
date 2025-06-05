@@ -14,6 +14,7 @@
 
 
 from time import time
+from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -86,8 +87,8 @@ class PublicSessionFile(BaseModel):
         ..., title="SHA256 of the file", description="SHA256 of the file."
     )
     mime_type: str = Field(..., title="Mime type", description="Mime type.")
-    content_type_label: str = Field(
-        ..., title="Content type label", description="Content type label."
+    content_type_label: Optional[str] = Field(
+        None, title="Content type label", description="Content type label."
     )
 
 
