@@ -12,21 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::convert::Infallible;
 use std::error::Error;
-use std::fmt::{Arguments, Display};
+use std::fmt::Display;
 
 use colored::Colorize;
 
-macro_rules! fail {
-    ($fmt:literal $(, $($args:expr)*)? $(; $source:expr)? $(=> $suggestion:expr)?) => {
-        crate::fail(
-            std::format_args!($fmt $(, $($args)*)?),
-            fail!(opt $($source)?),
-            fail!(opt $($suggestion)?),
-        )
+macro_rules! _fmt {
+    ($fmt:literal) => {
+        std::format_args!($fmt)
     };
-    (opt) => (None);
-    (opt $val:expr) => (Some($val));
+    (($($fmt:tt)*)) => {
+        std::format_args!($($fmt)*)
+    };
+}
+
+macro_rules! _opt {
+    () => {
+        None
+    };
+    ($val:expr) => {
+        Some($val)
+    };
+}
+
+macro_rules! fail {
+    ($fmt:tt $(, $source:expr $(, $suggestion:expr)?)?) => {
+        crate::fail(_fmt!($fmt), _opt!($($source)?), _opt!($($($suggestion)?)?))
+    };
+}
+
+macro_rules! try_to {
+    ($fmt:tt , $value:expr $(, $($suggestion:expr)?)?) => {
+        crate::try_to(_fmt!($fmt), $value, _opt!($($($suggestion)?)?))
+    };
 }
 
 mod cli;
@@ -51,7 +70,7 @@ impl Display for StrError<'_> {
 }
 
 fn fail(
-    message: Arguments<'_>, mut source: Option<&dyn Error>, suggestion: Option<&dyn Display>,
+    message: impl Display, mut source: Option<&dyn Error>, suggestion: Option<&dyn Display>,
 ) -> ! {
     println!("{}: {message}", "Error".bold().red());
     while let Some(error) = source {
@@ -64,30 +83,31 @@ fn fail(
     std::process::exit(1);
 }
 
-fn fail_str(message: &str, source: Option<&dyn Error>, suggestion: Option<&dyn Display>) -> ! {
-    fail(format_args!("{message}"), source, suggestion)
-}
-
 fn or_fail<T, E: Error>(x: Result<T, E>) -> T {
-    match x {
-        Ok(x) => x,
-        Err(e) => match e.source() {
-            Some(s) => fail!("{e}"; s),
-            None => fail!("{e}"),
-        },
+    x.unwrap_or_else(|e| fail(e.to_string(), e.source(), None))
+}
+
+fn try_to<T>(action: impl Display, value: impl ToResult<T>, suggestion: Option<&dyn Display>) -> T {
+    value.to_result().unwrap_or_else(|error| {
+        fail(format!("failed to {action}"), error.as_ref().map(|x| x as &dyn Error), suggestion)
+    })
+}
+
+trait ToResult<T> {
+    type Error: Error;
+    fn to_result(self) -> Result<T, Option<Self::Error>>;
+}
+
+impl<T> ToResult<T> for Option<T> {
+    type Error = Infallible;
+    fn to_result(self) -> Result<T, Option<Self::Error>> {
+        self.ok_or(None)
     }
 }
 
-fn try_to<T, E: Error>(f: &str, x: Result<T, E>) -> T {
-    match x {
-        Ok(x) => x,
-        Err(e) => fail!("failed to {f}"; &e),
-    }
-}
-
-fn try_to_opt<T>(f: &str, x: Option<T>) -> T {
-    match x {
-        Some(x) => x,
-        None => fail!("failed to {f}"),
+impl<T, E: Error> ToResult<T> for Result<T, E> {
+    type Error = E;
+    fn to_result(self) -> Result<T, Option<Self::Error>> {
+        self.map_err(Some)
     }
 }

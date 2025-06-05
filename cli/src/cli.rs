@@ -14,8 +14,7 @@
 
 use clap::Parser;
 
-use crate::try_to;
-
+mod completion;
 mod interact;
 mod update;
 
@@ -59,6 +58,10 @@ enum Command {
     /// If a newer version exists, its release page is opened in a browser.
     #[command(name = "--check-update", visible_alias = "--update")]
     CheckUpdate(update::Action),
+
+    /// Generates a shell completion file.
+    #[command(name = "--generate-completion", visible_alias = "--completion")]
+    Completion(completion::Action),
 }
 
 impl Action {
@@ -79,9 +82,10 @@ impl Command {
     async fn run(self) {
         match self {
             Command::OpenUi => {
-                try_to("open browser", opener::open_browser("https://ui.secgemini.google/"))
+                try_to!("open browser", opener::open_browser("https://ui.secgemini.google/"))
             }
             Command::CheckUpdate(x) => x.run().await,
+            Command::Completion(x) => x.run().await,
         }
     }
 }

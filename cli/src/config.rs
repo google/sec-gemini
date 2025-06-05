@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use dialoguer::Input;
 use directories::ProjectDirs;
 
-use crate::{fail_str, try_to};
+use crate::fail;
 
 /// A configurable value.
 pub struct Config(ConfigImpl);
@@ -92,8 +92,8 @@ impl Config {
             let prompt = desc.prompt;
             log::info!("Writing {prompt} config file.");
             let config_dir = path.parent().unwrap();
-            try_to("create Sec-Gemini config directory", std::fs::create_dir_all(config_dir));
-            try_to(&format!("write {prompt} config file"), std::fs::write(path, value.as_bytes()));
+            try_to!("create Sec-Gemini config directory", std::fs::create_dir_all(config_dir));
+            try_to!("write {prompt} config file", std::fs::write(path, value.as_bytes()));
         }
     }
 }
@@ -146,7 +146,7 @@ fn read_value(desc: &'static Desc, bypass: bool) -> ConfigImpl {
     let Desc { config, prompt, .. } = desc;
     let instr = desc.instr();
     let Some(dirs) = ProjectDirs::from("", "Google", "Sec-Gemini") else {
-        fail_str("failed to find Sec-Gemini config directiory", None, Some(&instr));
+        fail("failed to find Sec-Gemini config directiory", None, Some(&instr));
     };
     let config_dir = dirs.config_dir();
     let path = config_dir.join(config);
@@ -157,19 +157,19 @@ fn read_value(desc: &'static Desc, bypass: bool) -> ConfigImpl {
                 Ok(value) => return ConfigImpl::Known { value, path, config: true, desc },
                 Err(_) => {
                     log::warn!("{prompt} config file is not UTF-8. Removing it.");
-                    try_to(&format!("remove {prompt} config file"), std::fs::remove_file(&path));
+                    try_to!("remove {prompt} config file", std::fs::remove_file(&path));
                 }
             },
             Err(e) if e.kind() == ErrorKind::NotFound => (),
-            Err(e) => fail!("failed to read {prompt} config file"; &e),
+            Err(e) => fail!("failed to read {prompt} config file", &e),
         }
     }
     if !console::user_attended() {
-        fail!("Sec-Gemini {prompt} is not set" => &instr);
+        fail(format_args!("Sec-Gemini {prompt} is not set"), None, Some(&instr));
     }
     log::debug!("Reading {prompt} from terminal.");
-    let value: String = try_to(
-        &format!("read {prompt} from terminal"),
+    let value: String = try_to!(
+        "read {prompt} from terminal",
         Input::new().with_prompt(format!("Enter your Sec-Gemini {prompt}")).interact_text(),
     );
     ConfigImpl::Known { value, path, config: false, desc }
