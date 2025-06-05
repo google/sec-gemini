@@ -7,8 +7,6 @@ on:
     paths:
       - 'sec-gemini-ts/**'
   pull_request:
-    branches:
-      - main
     paths:
       - 'sec-gemini-ts/**'
   schedule:
