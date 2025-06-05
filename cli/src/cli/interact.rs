@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 use crate::config::Config;
 use crate::or_fail;
-use crate::sdk::types::{Message, MessageType, PublicSessionOutput, Role};
+use crate::sdk::types::{Message, MessageType, PublicSession};
 use crate::sdk::{Sdk, Session};
 
 #[derive(clap::Args)]
@@ -89,24 +89,21 @@ impl Options {
         session.send(query);
         progress.set_message("Waiting response");
         while let Some(message) = recv.recv().await {
-            let content = message.content.unwrap_or_default().unwrap_or_default();
+            let content = message.content.unwrap_or_default();
             match message.message_type {
                 MessageType::Result => {
-                    if message.role == Some(Role::System) {
-                        break;
-                    }
                     progress.finish_and_clear();
                     println!("{}", content.trim_end());
+                    break;
                 }
                 MessageType::Info => progress.set_message(content),
                 MessageType::Thinking if self.show_thinking => {
                     let mut thinking = String::new();
                     thinking.push_str(&"Thinking".bold().yellow().to_string());
-                    if let Some(actor) = message.actor {
-                        write!(thinking, "({actor})").unwrap();
-                    }
-                    thinking.push_str(": ");
-                    if let Some(Some(subtype)) = message.message_sub_type {
+                    thinking.push('(');
+                    thinking.push_str(&message.actor);
+                    thinking.push_str("): ");
+                    if let Some(subtype) = message.message_sub_type {
                         write!(thinking, "[{subtype}] ").unwrap();
                     }
                     thinking.push_str(&content);
@@ -120,7 +117,7 @@ impl Options {
 }
 
 async fn get_session(
-    sdk: Arc<Sdk>, sessions: Vec<PublicSessionOutput>, send: UnboundedSender<Message>,
+    sdk: Arc<Sdk>, sessions: Vec<PublicSession>, send: UnboundedSender<Message>,
 ) -> Session {
     const SESSION_NAME: &str = "sec-gemini query";
     let mut best = None;
@@ -128,11 +125,9 @@ async fn get_session(
         if session.name != SESSION_NAME {
             continue;
         }
-        let Some(id) = session.id else { continue };
-        let Some(create_time) = session.create_time else { continue };
         match best {
-            Some((best_time, _)) if create_time < best_time => (),
-            _ => best = Some((create_time, id)),
+            Some((best_time, _)) if session.create_time < best_time => (),
+            _ => best = Some((session.create_time, session.id)),
         }
     }
     if let Some((_, id)) = best {

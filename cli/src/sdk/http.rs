@@ -60,7 +60,7 @@ impl Client {
 
 fn insert_api_key(headers: &mut HeaderMap, api_key: &str) {
     let Ok(mut api_key) = HeaderValue::from_str(api_key) else {
-        fail!("The Sec-Gemini API key is malformed.")
+        fail!("the Sec-Gemini API key is malformed")
     };
     api_key.set_sensitive(true);
     assert!(headers.insert("x-api-key", api_key).is_none());

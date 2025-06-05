@@ -19,8 +19,8 @@ use reqwest::header::HeaderMap;
 use semver::Version;
 use serde::Deserialize;
 
-use crate::try_to;
 use crate::util::{USER_AGENT, insert_static};
+use crate::{try_to, try_to_opt};
 
 #[derive(clap::Args)]
 pub struct Action {
@@ -62,19 +62,19 @@ async fn fetch() -> Option<String> {
         next_page = response.headers().get(reqwest::header::LINK).and_then(|link| {
             let link = try_to("parse link header", link.to_str());
             for x in link.split(", ") {
-                let (url, rel) = try_to("split link header", x.split_once("; ").ok_or(x));
+                let (url, rel) = try_to_opt("split link header", x.split_once("; "));
                 if rel != r#"rel="next""# {
                     continue;
                 }
-                let url = try_to(
+                let url = try_to_opt(
                     "extract link url",
-                    url.strip_prefix("<").and_then(|x| x.strip_suffix(">")).ok_or(url),
+                    url.strip_prefix("<").and_then(|x| x.strip_suffix(">")),
                 );
                 return Some(url.to_string());
             }
             None
         });
-        for release in try_to("failed to parse response", response.json::<Vec<Release>>().await) {
+        for release in try_to("parse response", response.json::<Vec<Release>>().await) {
             let Some(version) = release.tag_name.strip_prefix("cli-v") else { continue };
             let version = try_to("parse release version", Version::parse(version));
             log::debug!("Checking {version}");
@@ -85,7 +85,7 @@ async fn fetch() -> Option<String> {
             }
         }
     }
-    fail!("Failed to find the current release.")
+    fail!("failed to find the current release")
 }
 
 #[derive(Debug, Deserialize)]
