@@ -236,6 +236,10 @@ export type MimeType =
  */
 export type ModelInfoInput = {
   /**
+   * Model name.
+   */
+  model_name?: string;
+  /**
    * The string used to identify the model.
    */
   model_string: string;
@@ -246,17 +250,26 @@ export type ModelInfoInput = {
   /**
    * Whether the model is experimental or not.
    */
-  is_experimental?: boolean;
+  use_experimental?: boolean;
+  /**
+   * Description of the agent.
+   */
+  description?: string;
   /**
    * Toggable tools used by the model.
    */
   toolsets?: Array<OptionalToolSet>;
 };
 
+
 /**
  * Describes a Sec-Gemini model.
  */
 export type ModelInfoOutput = {
+  /**
+   * Model name.
+   */
+  model_name?: string;
   /**
    * The string used to identify the model.
    */
@@ -268,12 +281,17 @@ export type ModelInfoOutput = {
   /**
    * Whether the model is experimental or not.
    */
-  is_experimental?: boolean;
+  use_experimental?: boolean;
+  /**
+   * Description of the agent.
+   */
+  description?: string;
   /**
    * Toggable tools used by the model.
    */
   toolsets?: Array<OptionalToolSet>;
 };
+
 
 export type OpResult = {
   /**
@@ -495,9 +513,21 @@ export type PublicSessionFile = {
    */
   name: string;
   /**
+   * Size of the file.
+   */
+  size?: number;
+  /**
+   * SHA256 of the file.
+   */
+  sha256?: string;
+  /**
    * The mime type of the file.
    */
   mime_type: string;
+  /**
+   * A simple label to identify the content type.
+   */
+  content_type_label?: string;
 };
 
 /**

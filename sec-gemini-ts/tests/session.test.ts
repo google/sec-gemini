@@ -88,7 +88,7 @@ const config = {
   onConnectionStatusChange: jest.fn((status: string) => {}),
   onReconnect: jest.fn((status: boolean, attempts: number) => {}),
 };
-const model = { model_string: 'fakeModel', version: 'v1', is_experimental: false, toolsets: [] };
+const model = { model_string: 'fakeModel', version: 'v1', use_experimental: false, toolsets: [] };
 
 let session: InteractiveSession;
 describe('Session', () => {
@@ -152,7 +152,7 @@ describe('Session', () => {
     expect(registerSession).toHaveBeenCalledWith({
       id: 'a-b-c-d-e',
       user_id: 'user1',
-      model: { model_string: 'fakeModel', version: 'v1', is_experimental: false, toolsets: [] },
+      model: { model_string: 'fakeModel', version: 'v1', use_experimental: false, toolsets: [] },
       ttl: 301,
       name: 'sessionName',
       description: 'sessionDescription',
@@ -216,7 +216,7 @@ describe('Session', () => {
     expect(JSON.parse(updateReq!)).toEqual({
       id: 'a-b-c-d-e',
       user_id: 'user1',
-      model: { model_string: 'fakeModel', version: 'v1', is_experimental: false, toolsets: [] },
+      model: { model_string: 'fakeModel', version: 'v1', use_experimental: false, toolsets: [] },
       ttl: 302,
       name: 'sessionName',
       description: 'new description',
@@ -250,7 +250,7 @@ describe('Session', () => {
     expect(JSON.parse(updateReq!)).toEqual({
       id: 'a-b-c-d-e',
       user_id: 'user1',
-      model: { model_string: 'fakeModel', version: 'v1', is_experimental: false, toolsets: [] },
+      model: { model_string: 'fakeModel', version: 'v1', use_experimental: false, toolsets: [] },
       ttl: 302,
       name: 'sessionName',
       description: 'new description',
@@ -293,7 +293,7 @@ describe('Session', () => {
       id: 'a-b-c-d-e',
       user_id: 'user1',
       org_id: undefined,
-      model: { model_string: 'fakeModel', version: 'v1', is_experimental: false, toolsets: [] },
+      model: { model_string: 'fakeModel', version: 'v1', use_experimental: false, toolsets: [] },
       ttl: 301,
       name: 'sessionName',
       description: 'sessionDescription',

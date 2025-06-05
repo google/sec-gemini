@@ -160,7 +160,7 @@ export class SecGemini {
     }
 
     for (const model of models) {
-      if (model.is_experimental) {
+      if (model.use_experimental) {
         if (!this.experimentalModel) {
           // Take the first experimental model found
           this.experimentalModel = model;
@@ -304,7 +304,7 @@ export class SecGemini {
           `Using provided ModelInfoInput for '${resolvedModel.model_string}', but it wasn't listed in available models.`
         ); // Use logger
       }
-      if (resolvedModel.is_experimental && !this.user.allow_experimental) {
+      if (resolvedModel.use_experimental && !this.user.allow_experimental) {
         throw new Error(
           `Cannot create session with provided experimental model '${resolvedModel.model_string}': User is not authorized.`
         );
