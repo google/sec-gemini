@@ -84,6 +84,9 @@ class ModelInfo(BaseModel):
     model_string: str = Field(
         ..., title="Model String", description="The string used to identify the model."
     )
+    description: Optional[str] = Field(
+        "", title="Model Description", description="A brief description of the model."
+    )
     toolsets: list[OptionalToolSet] = Field(
         [], title="Tools", description="Toggable tools used by the model."
     )
