@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'sec-gemini-python/**'
   pull_request:
-    branches:
-      - main
+    paths:
+      - 'sec-gemini-python/**'
   schedule:
     - cron: "42 */6 * * *"
         
