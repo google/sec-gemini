@@ -1,0 +1,42 @@
+name: Python - Run checks and tests
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'sec-gemini-ts/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'sec-gemini-ts/**'
+  schedule:
+    - cron: "35 */6 * * *"
+
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  build:
+    name: python
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./sec-gemini-ts
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # pin@v4
+
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # pin@v4
+        with:
+          node-version: "20.x"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Run tests
+        run: npm run test
