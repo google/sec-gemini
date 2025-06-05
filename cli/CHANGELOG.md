@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add icons when bundling packages
 - Improve configuration file handling in case of errors
 - Print chain of error causes for failures
 - Match recent changes to Sec-Gemini API
