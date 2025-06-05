@@ -19,8 +19,8 @@ use reqwest::header::HeaderMap;
 use semver::Version;
 use serde::Deserialize;
 
+use crate::or_fail;
 use crate::util::{USER_AGENT, insert_static};
-use crate::{or_fail, try_to, try_to_opt};
 
 #[derive(clap::Args)]
 pub struct Action {
@@ -53,7 +53,7 @@ impl Action {
             let token = or_fail(format!("Bearer {token}").parse());
             assert!(headers.insert(reqwest::header::AUTHORIZATION, token).is_none());
         }
-        let client = try_to(
+        let client = try_to!(
             "build HTTP client",
             Client::builder().user_agent(USER_AGENT).default_headers(headers).build(),
         );
@@ -63,18 +63,18 @@ impl Action {
         log::debug!("Searching against {current}");
         while let Some(url) = next_page {
             log::debug!("Fetching {url}");
-            let response = try_to(
+            let response = try_to!(
                 "fetch next release page",
                 client.get(url).send().await.and_then(|x| x.error_for_status()),
             );
             next_page = response.headers().get(reqwest::header::LINK).and_then(|link| {
-                let link = try_to("parse link header", link.to_str());
+                let link = try_to!("parse link header", link.to_str());
                 for x in link.split(", ") {
-                    let (url, rel) = try_to_opt("split link header", x.split_once("; "));
+                    let (url, rel) = try_to!("split link header", x.split_once("; "));
                     if rel != r#"rel="next""# {
                         continue;
                     }
-                    let url = try_to_opt(
+                    let url = try_to!(
                         "extract link url",
                         url.strip_prefix("<").and_then(|x| x.strip_suffix(">")),
                     );
@@ -82,9 +82,9 @@ impl Action {
                 }
                 None
             });
-            for release in try_to("parse response", response.json::<Vec<Release>>().await) {
+            for release in try_to!("parse response", response.json::<Vec<Release>>().await) {
                 let Some(version) = release.tag_name.strip_prefix("cli-v") else { continue };
-                let version = try_to("parse release version", Version::parse(version));
+                let version = try_to!("parse release version", Version::parse(version));
                 log::debug!("Checking {version}");
                 match current.cmp_precedence(&version) {
                     Ordering::Less => return Some(release.html_url),

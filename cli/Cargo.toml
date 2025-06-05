@@ -18,6 +18,7 @@ dep_depends = ["libssl-dev"]
 
 [dependencies]
 clap = { version = "4.5.32", features = ["derive", "env", "unstable-markdown", "wrap_help"] }
+clap_complete = "4.5.52"
 colored = "3.0.0"
 console = "0.15.11"
 dialoguer = "0.11.0"

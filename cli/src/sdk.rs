@@ -22,7 +22,7 @@ use url::Url;
 
 use self::types::*;
 use crate::config::Config;
-use crate::{StrError, fail_str, or_fail, try_to};
+use crate::{StrError, fail, or_fail, try_to};
 
 mod http;
 pub mod types;
@@ -66,7 +66,7 @@ impl Sdk {
                         }
                         _ => None,
                     };
-                    fail_str("failed to get user info", Some(&error), instr);
+                    fail("failed to get user info", Some(&error), instr);
                 }
             };
             break (http, info);
@@ -116,7 +116,7 @@ impl Session {
         let id = session.id.clone();
         let result = sdk.session_register(&session).await;
         if !result.ok {
-            fail!("failed to create session"; &StrError(&result.status_message));
+            fail!("failed to create session", &StrError(&result.status_message));
         }
         log::info!("{}", result.status_message);
         Self::create(&sdk, id, onmessage).await
@@ -131,12 +131,14 @@ impl Session {
         url.set_scheme("wss").unwrap();
         url.set_path("/v1/stream");
         url.set_query(Some(&format!("api_key={}&session_id={id}", &*sdk.options.api_key)));
-        let (stream, _) =
-            try_to("connect to Sec-Gemini web-socket", tokio_tungstenite::connect_async(url).await);
+        let (stream, _) = try_to!(
+            "connect to Sec-Gemini web-socket",
+            tokio_tungstenite::connect_async(url).await,
+        );
         let (mut sink, mut stream) = stream.split();
         drop(tokio::spawn(async move {
             while let Some(message) = stream.next().await {
-                let message = match try_to("receive web-socket message", message) {
+                let message = match try_to!("receive web-socket message", message) {
                     tungstenite::Message::Text(x) => x,
                     tungstenite::Message::Ping(_) => continue, // handled by tungstenite
                     x => fail!("received unexpected web-socket message {x:?}"),
@@ -151,7 +153,7 @@ impl Session {
         let (send, mut recv) = unbounded_channel::<tungstenite::Message>();
         drop(tokio::spawn(async move {
             while let Some(message) = recv.recv().await {
-                try_to("send web-socket message", sink.send(message).await);
+                try_to("send web-socket message", sink.send(message).await, None);
             }
         }));
         Session { send }
@@ -172,6 +174,6 @@ impl Session {
             .content(Some(prompt.to_string()))
             .build();
         let message = serde_json::to_string(&message).unwrap();
-        try_to("send web-socket message", self.send.send(tungstenite::Message::text(message)));
+        try_to!("send web-socket message", self.send.send(tungstenite::Message::text(message)));
     }
 }

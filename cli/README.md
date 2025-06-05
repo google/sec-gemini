@@ -38,8 +38,9 @@ Usage: sec-gemini [OPTIONS] [QUERY]...
        sec-gemini <COMMAND>
 
 Commands:
-  --open-ui       Opens the Sec-Gemini web UI in a browser [aliases: --ui]
-  --check-update  Checks whether the CLI is up-to-date [aliases: --update]
+  --open-ui              Opens the Sec-Gemini web UI in a browser [aliases: --ui]
+  --check-update         Checks whether the CLI is up-to-date [aliases: --update]
+  --generate-completion  Generates a shell completion file [aliases: --completion]
 
 Arguments:
   [QUERY]...

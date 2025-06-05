@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add `sec-gemini --completion` to generate shell completion files
 - Add icons when bundling packages
 - Improve configuration file handling in case of errors
 - Print chain of error causes for failures

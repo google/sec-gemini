@@ -17,7 +17,6 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use url::Url;
 
-use crate::try_to;
 use crate::util::{USER_AGENT, insert_static};
 
 pub struct Client {
@@ -33,7 +32,7 @@ impl Client {
         insert_static(&mut headers, "x-sdk", "rust");
         insert_api_key(&mut headers, &options.api_key);
         insert_static(&mut headers, reqwest::header::CONTENT_TYPE, "application/json");
-        let inner = try_to(
+        let inner = try_to!(
             "build HTTP client",
             reqwest::Client::builder().user_agent(USER_AGENT).default_headers(headers).build(),
         );
