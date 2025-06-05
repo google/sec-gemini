@@ -20,18 +20,22 @@ use semver::Version;
 use serde::Deserialize;
 
 use crate::util::{USER_AGENT, insert_static};
-use crate::{try_to, try_to_opt};
+use crate::{or_fail, try_to, try_to_opt};
 
 #[derive(clap::Args)]
 pub struct Action {
     /// Only prints the release page URL instead of opening it.
     #[arg(long)]
     print: bool,
+
+    /// Access token for github.com/google/sec-gemini.
+    #[arg(hide = true, long, env = "GITHUB_TOKEN")]
+    github_token: Option<String>,
 }
 
 impl Action {
     pub async fn run(self) {
-        let Some(url) = fetch().await else {
+        let Some(url) = self.fetch().await else {
             println!("The CLI is up-to-date.");
             return;
         };
@@ -40,52 +44,57 @@ impl Action {
             println!("You can download it from {url}");
         }
     }
-}
 
-async fn fetch() -> Option<String> {
-    let mut headers = HeaderMap::new();
-    insert_static(&mut headers, reqwest::header::ACCEPT, "application/vnd.github+json");
-    insert_static(&mut headers, "x-github-api-version", "2022-11-28");
-    let client = try_to(
-        "build HTTP client",
-        Client::builder().user_agent(USER_AGENT).default_headers(headers).build(),
-    );
-    let mut next_page = Some("https://api.github.com/repos/google/sec-gemini/releases".to_string());
-    let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-    log::debug!("Searching against {current}");
-    while let Some(url) = next_page {
-        log::debug!("Fetching {url}");
-        let response = try_to(
-            "fetch next release page",
-            client.get(url).send().await.and_then(|x| x.error_for_status()),
+    async fn fetch(&self) -> Option<String> {
+        let mut headers = HeaderMap::new();
+        insert_static(&mut headers, reqwest::header::ACCEPT, "application/vnd.github+json");
+        insert_static(&mut headers, "x-github-api-version", "2022-11-28");
+        if let Some(token) = &self.github_token {
+            let token = or_fail(format!("Bearer {token}").parse());
+            assert!(headers.insert(reqwest::header::AUTHORIZATION, token).is_none());
+        }
+        let client = try_to(
+            "build HTTP client",
+            Client::builder().user_agent(USER_AGENT).default_headers(headers).build(),
         );
-        next_page = response.headers().get(reqwest::header::LINK).and_then(|link| {
-            let link = try_to("parse link header", link.to_str());
-            for x in link.split(", ") {
-                let (url, rel) = try_to_opt("split link header", x.split_once("; "));
-                if rel != r#"rel="next""# {
-                    continue;
+        let mut next_page =
+            Some("https://api.github.com/repos/google/sec-gemini/releases".to_string());
+        let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        log::debug!("Searching against {current}");
+        while let Some(url) = next_page {
+            log::debug!("Fetching {url}");
+            let response = try_to(
+                "fetch next release page",
+                client.get(url).send().await.and_then(|x| x.error_for_status()),
+            );
+            next_page = response.headers().get(reqwest::header::LINK).and_then(|link| {
+                let link = try_to("parse link header", link.to_str());
+                for x in link.split(", ") {
+                    let (url, rel) = try_to_opt("split link header", x.split_once("; "));
+                    if rel != r#"rel="next""# {
+                        continue;
+                    }
+                    let url = try_to_opt(
+                        "extract link url",
+                        url.strip_prefix("<").and_then(|x| x.strip_suffix(">")),
+                    );
+                    return Some(url.to_string());
                 }
-                let url = try_to_opt(
-                    "extract link url",
-                    url.strip_prefix("<").and_then(|x| x.strip_suffix(">")),
-                );
-                return Some(url.to_string());
-            }
-            None
-        });
-        for release in try_to("parse response", response.json::<Vec<Release>>().await) {
-            let Some(version) = release.tag_name.strip_prefix("cli-v") else { continue };
-            let version = try_to("parse release version", Version::parse(version));
-            log::debug!("Checking {version}");
-            match current.cmp_precedence(&version) {
-                Ordering::Less => return Some(release.html_url),
-                Ordering::Equal => return None,
-                Ordering::Greater => (),
+                None
+            });
+            for release in try_to("parse response", response.json::<Vec<Release>>().await) {
+                let Some(version) = release.tag_name.strip_prefix("cli-v") else { continue };
+                let version = try_to("parse release version", Version::parse(version));
+                log::debug!("Checking {version}");
+                match current.cmp_precedence(&version) {
+                    Ordering::Less => return Some(release.html_url),
+                    Ordering::Equal => return None,
+                    Ordering::Greater => (),
+                }
             }
         }
+        fail!("failed to find the current release")
     }
-    fail!("failed to find the current release")
 }
 
 #[derive(Debug, Deserialize)]
