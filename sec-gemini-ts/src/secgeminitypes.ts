@@ -408,11 +408,11 @@ export type PublicSessionInput = {
    */
   description: string;
   /**
-   * The Unix timestamp (in seconds) of when the session was created.
+   * The Unix timestamp of when the session was created.
    */
   create_time?: number;
   /**
-   * The Unix timestamp (in seconds) of when the session was last updated.
+   * The Unix timestamp of when the session was last updated.
    */
   update_time?: number;
   /**

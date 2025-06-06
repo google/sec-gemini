@@ -141,16 +141,16 @@ class PublicSession(BaseModel):
         description="A brief description to help users remember what the session is about.",
     )
 
-    create_time: int = Field(
-        default_factory=lambda: int(time()),
+    create_time: float = Field(
+        default_factory=lambda: time(),
         title="Create Time",
-        description="The Unix timestamp (in seconds) of when the session was created.",
+        description="The Unix timestamp of when the session was created.",
     )
 
-    update_time: int = Field(
-        default_factory=lambda: int(time()),
+    update_time: float = Field(
+        default_factory=lambda: time(),
         title="Update Time",
-        description="The Unix timestamp (in seconds) of when the session was last updated.",
+        description="The Unix timestamp of when the session was last updated.",
     )
 
     # this is useful when we do list sessions which don't returns the messages
