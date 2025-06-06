@@ -204,12 +204,13 @@ def test_query_with_virustotat_tool_malicious(secgemini_client: SecGemini):
 
 
 @require_env_variable("SEC_GEMINI_API_KEY")
-def test_query_with_attachment(secgemini_client: SecGemini):
-    TEST_PDF_URL = "https://elie.net/static/files/retsim-resilient-and-efficient-text-similarity/retsim-resilient-and-efficient-text-similarity.pdf"
-    pdf_content = httpx.get(TEST_PDF_URL).content
+def test_query_with_attachment(
+    secgemini_client: SecGemini, test_pdf_info: tuple[str, bytes]
+):
+    pdf_filename, pdf_content = test_pdf_info
 
     session = secgemini_client.create_session()
-    assert session.attach_file("paper.pdf", pdf_content) is True
+    assert session.attach_file(pdf_filename, pdf_content) is True
     assert len(session.files) == 1
 
     resp = session.query(
@@ -222,12 +223,13 @@ def test_query_with_attachment(secgemini_client: SecGemini):
 
 
 @require_env_variable("SEC_GEMINI_API_KEY")
-def test_session_with_multiple_attachment(secgemini_client: SecGemini):
-    TEST_PDF_URL = "https://elie.net/static/files/retsim-resilient-and-efficient-text-similarity/retsim-resilient-and-efficient-text-similarity.pdf"
-    pdf_content = httpx.get(TEST_PDF_URL).content
-
-    TEST_PYTHON_URL = "https://raw.githubusercontent.com/google/magika/refs/heads/main/tests_data/basic/python/code.py"
-    python_content = httpx.get(TEST_PYTHON_URL).content
+def test_session_with_multiple_attachment(
+    secgemini_client: SecGemini,
+    test_pdf_info: tuple[str, bytes],
+    test_python_info: tuple[str, bytes],
+):
+    pdf_filename, pdf_content = test_pdf_info
+    python_filename, python_content = test_python_info
 
     session = secgemini_client.create_session()
 

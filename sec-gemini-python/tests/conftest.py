@@ -16,6 +16,7 @@
 import os
 import time
 
+import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 from utils import require_env_variable
@@ -33,6 +34,8 @@ from sec_gemini.models.usage import Usage
 
 MOCK_SEC_GEMINI_API_HOST = "api.secgemini.google-mock"
 MOCK_SEC_GEMINI_API_KEY = "p9XXXXMOCKKEYXXXX"
+TEST_PDF_URL = "https://elie.net/static/files/retsim-resilient-and-efficient-text-similarity/retsim-resilient-and-efficient-text-similarity.pdf"
+TEST_PYTHON_URL = "https://raw.githubusercontent.com/google/magika/refs/heads/main/tests_data/basic/python/code.py"
 
 
 @pytest.fixture
@@ -189,3 +192,21 @@ def mock_secgemini_client(httpx_mock: HTTPXMock, mock_user: UserInfo) -> SecGemi
     return SecGemini(
         api_key=MOCK_SEC_GEMINI_API_KEY, base_url=base_url, base_websockets_url=wss_url
     )
+
+
+@pytest.fixture
+def test_pdf_info() -> tuple[str, bytes]:
+    """Provides filename/content for a test PDF."""
+    res = httpx.get(TEST_PDF_URL)
+    assert res.status_code == 200
+    filename = TEST_PDF_URL.split("/")[-1]
+    return filename, res.content
+
+
+@pytest.fixture
+def test_python_info() -> tuple[str, bytes]:
+    """Provides filename/content for a test python code."""
+    res = httpx.get(TEST_PYTHON_URL)
+    assert res.status_code == 200
+    filename = TEST_PYTHON_URL.split("/")[-1]
+    return filename, res.content
