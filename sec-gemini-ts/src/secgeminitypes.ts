@@ -38,13 +38,13 @@ export type Attachment = {
   content: string;
 };
 
-export type DeleteFileRequest = {
+export type DetachFileRequest = {
   /**
-   * The session ID the file should be deleted from.
+   * The session ID the file should be detached from.
    */
   session_id: string;
   /**
-   * The index of the files to delete.
+   * The index of the files to detach.
    */
   file_idx: number;
 };

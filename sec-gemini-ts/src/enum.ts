@@ -32,7 +32,7 @@ enum EndPointsEnum {
 
   // files
   ATTACH_FILE = '/v1/session/attach_file',
-  DELETE_FILE = '/v1/session/delete_file',
+  DETACH_FILE = '/v1/session/detach_file',
 }
 
 enum ResponseStatusEnum {

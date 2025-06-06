@@ -288,7 +288,7 @@ describe('Session', () => {
       'Session operation failed: Session is not initialized. Call register() or resume() first.'
     );
   });
-  test('should attach and delete a file to the session', async () => {
+  test('should attach and detach a file to the session', async () => {
     const expectedSessionAfterAttach = {
       id: 'a-b-c-d-e',
       user_id: 'user1',
@@ -302,7 +302,7 @@ describe('Session', () => {
       messages: [],
       files: [{ name: 'filename1', size: 18, sha256: 'eb2eb8f9bbe4c506bd67c2a8b8f76badb0ab870b7c272fc273cd2b849281d4b9', mime_type: 'text/plain', content_type_label: 'txt' }],
     };
-    const expectedSessionAfterDeletion = {
+    const expectedSessionAfterDetachment = {
       id: 'a-b-c-d-e',
       user_id: 'user1',
       org_id: undefined,
@@ -324,7 +324,7 @@ describe('Session', () => {
       language: 'en',
     });
     let attachFileReq: string | undefined;
-    let deleteFileReq: string | undefined;
+    let detachFileRequest: string | undefined;
     const mockFetchImplementation = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
       _checkHeaders(init!);
       if (input === 'http://google.com/v1/session/attach_file' && init!.method === 'POST') {
@@ -332,16 +332,16 @@ describe('Session', () => {
         return new Response(JSON.stringify({ ok: true, status_code: 200 }));
       }
       if (input === 'http://google.com/v1/session/get?session_id=a-b-c-d-e' && init!.method === 'GET') {
-        if (deleteFileReq === undefined) {
+        if (detachFileRequest === undefined) {
           // This is hit after the attachment but before the deletion
           return new Response(JSON.stringify(expectedSessionAfterAttach));
         } else {
           // This is hit after the deletion
-          return new Response(JSON.stringify(expectedSessionAfterDeletion));
+          return new Response(JSON.stringify(expectedSessionAfterDetachment));
         }
       }
-      if (input === 'http://google.com/v1/session/delete_file' && init!.method === 'POST') {
-        deleteFileReq = init!.body! as string;
+      if (input === 'http://google.com/v1/session/detach_file' && init!.method === 'POST') {
+        detachFileRequest = init!.body! as string;
         return new Response(JSON.stringify({ ok: true, status_code: 200 }));
       }
       throw new Error(`Expected call to attach/detach file or session fetch: ${input}, ${JSON.stringify(init)}`);
@@ -364,7 +364,7 @@ describe('Session', () => {
       mime_type: 'text/plain',
       content: 'ZmlsZW5hbWUxIGNvbnRlbnRz',
     });
-    expect(deleteFileReq).not.toBeDefined();
+    expect(detachFileRequest).not.toBeDefined();
     expect(session.files.length).toEqual(1);
 
     // Check that the session is being updated
@@ -374,11 +374,11 @@ describe('Session', () => {
     expect(fetchedSession).toEqual(expectedSessionAfterAttach);
     expect(session.files.length).toEqual(1);
 
-    // // Test file deletion
-    respPromise = session.deleteFile(0);
+    // // Test file detachment
+    respPromise = session.detachFile(0);
     expect(respPromise).resolves.not.toThrow();
     await respPromise;
-    expect(JSON.parse(deleteFileReq!)).toEqual({
+    expect(JSON.parse(detachFileRequest!)).toEqual({
       session_id: 'a-b-c-d-e',
       file_idx: 0,
     });
@@ -387,7 +387,7 @@ describe('Session', () => {
     fetchSessionPromise = session.fetchSession();
     expect(fetchSessionPromise).resolves.not.toThrow();
     const fetchedSession2 = await fetchSessionPromise;
-    expect(fetchedSession2).toEqual(expectedSessionAfterDeletion);
+    expect(fetchedSession2).toEqual(expectedSessionAfterDetachment);
     expect(session.files.length).toEqual(0);
   });
   test('should send feedback', async () => {

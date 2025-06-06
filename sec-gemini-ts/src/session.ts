@@ -42,7 +42,7 @@ import {
   State,
   ModelInfoInput,
   PublicSessionFile,
-  DeleteFileRequest,
+  DetachFileRequest,
 } from './secgeminitypes';
 
 // --- Constants ---
@@ -607,16 +607,15 @@ class InteractiveSession {
   }
 
   /**
-   * Deletes a file from the session by its index.
+   * Detaches a file from the session by its index.
    *
-   * @param file_idx - The index of the file to delete.
+   * @param file_idx - The index of the file to detach.
    * @throws Error if session not initialized, filename missing, file not found, or API fails.
    */
-  public async deleteFile(file_idx: number): Promise<void> {
+  public async detachFile(file_idx: number): Promise<void> {
     this._ensureInitialized();
 
-    // Construct the DeleteFileRequest object needed for the API body.
-    const deleteFileRequest: DeleteFileRequest = {
+    const detachFileRequest: DetachFileRequest = {
       session_id: this.id,
       file_idx: file_idx,
     };
@@ -624,20 +623,20 @@ class InteractiveSession {
     // --- API Call ---
     let resp: OpResult;
     try {
-      resp = await this.http.post<OpResult>(EndPointsEnum.DELETE_FILE, deleteFileRequest);
+      resp = await this.http.post<OpResult>(EndPointsEnum.DETACH_FILE, detachFileRequest);
     } catch (error: any) {
-      console.error(`[Session][DeleteFile][HTTP]: Network or client error`, error);
-      throw new Error(`Deleting file failed due to a network error: ${error.message}`);
+      console.error(`[Session][DetachFile][HTTP]: Network or client error`, error);
+      throw new Error(`Detaching file failed due to a network error: ${error.message}`);
     }
 
     // --- Handle Response ---
     if (!resp || !resp.ok || resp.status_code !== ResponseStatusEnum.OK) {
-      const errorMsg = `Deleting file failed: ${resp?.status_message || 'Unknown API error'} (Status: ${resp?.status_code})`;
-      console.error(`[Session][DeleteFile][API]: ${errorMsg}`);
+      const errorMsg = `Detaching file failed: ${resp?.status_message || 'Unknown API error'} (Status: ${resp?.status_code})`;
+      console.error(`[Session][DetachFile][API]: ${errorMsg}`);
       throw new Error(errorMsg);
     }
 
-    console.info(`[Session][DeleteFile][API]: File @ ${file_idx} deleted from session ${this.id}.`);
+    console.info(`[Session][DetachFile][API]: File @ ${file_idx} detached from session ${this.id}.`);
 
     // Refreshing cached PublicSession
     await this.fetchSession();
