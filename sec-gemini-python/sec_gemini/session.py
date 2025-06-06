@@ -210,20 +210,23 @@ class InteractiveSession:
 
         resp = self.http.post(_EndPoints.ATTACH_FILE.value, attachment)
         if not resp.ok:
-            logging.error("[Session][Attachment][HTTP]: %s", resp.error_message)
+            logging.error(f"[Session][Attachment][HTTP]: {resp.error_message}")
             return None
+
         op_result = OpResult(**resp.data)
-        if op_result.status_code != ResponseStatus.OK or op_result.data is None:
-            logging.error(
-                "[Session][Attachment][Session]: %s", op_result.status_message
-            )
+        if op_result.status_code != ResponseStatus.OK:
+            logging.error(f"[Session][Attachment][Session]: {op_result.status_message}")
+            return None
+
+        if op_result.data is None:
+            logging.error("[Session][Attachment][Session]: op_result.data is None")
             return None
 
         try:
             public_session_file = PublicSessionFile(**op_result.data)
         except Exception:
             logging.error(
-                f"Exception when parsing the PublicSessionFile. {traceback.format_exc()}"
+                f"Exception when parsing PublicSessionFile. {traceback.format_exc()}"
             )
             return None
 
