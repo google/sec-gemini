@@ -360,3 +360,13 @@ def test_session_list_and_delete(secgemini_client: SecGemini):
     assert res is True
     isessions = secgemini_client.list_sessions()
     assert len(isessions) == 0
+
+
+@require_env_variable("SEC_GEMINI_API_KEY")
+def test_report_feedback_and_bug_report(secgemini_client: SecGemini):
+    session = secgemini_client.create_session()
+    res = session.send_bug_report("this is a bug", "group X")
+    assert res is True
+
+    res = session.send_feedback(3, "this is a comment", "group Y")
+    assert res is True
