@@ -269,13 +269,11 @@ class InteractiveSession:
         assert self._session is not None
         feedback = Feedback(
             session_id=self._session.id,
+            group_id=group_id,
             type=FeedbackType.BUG_REPORT,
             score=0,
             comment=bug,
         )
-        if group_id:
-            feedback.group_id = group_id
-
         return self._upload_feedback(feedback)
 
     def send_feedback(self, score: int, comment: str, group_id: str = "") -> bool:
@@ -283,13 +281,11 @@ class InteractiveSession:
         assert self._session is not None
         feedback = Feedback(
             session_id=self._session.id,
+            group_id=group_id,
             type=FeedbackType.USER_FEEDBACK,
             score=score,
             comment=comment,
         )
-        if group_id:
-            feedback.group_id = group_id
-
         return self._upload_feedback(feedback)
 
     def _upload_feedback(self, feedback: Feedback) -> bool:
@@ -297,11 +293,12 @@ class InteractiveSession:
 
         resp = self.http.post(_EndPoints.SEND_FEEDBACK.value, feedback)
         if not resp.ok:
-            logging.error("[Session][Feedback][HTTP]: %s", resp.error_message)
+            logging.error(f"[Session][Feedback][HTTP]: {resp.error_message}")
             return False
+
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
-            logging.error("[Session][Feedback][Session]: %s", op_result.status_message)
+            logging.error(f"[Session][Feedback][Session]: {op_result.status_message}")
             return False
         return True
 
