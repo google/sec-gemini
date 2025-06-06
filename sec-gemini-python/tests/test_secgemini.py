@@ -22,7 +22,7 @@ from pytest_httpx import HTTPXMock
 from utils import parse_secgemini_response, require_env_variable
 
 from sec_gemini import SecGemini
-from sec_gemini.models.public import PublicSession, UserInfo
+from sec_gemini.models.public import PublicSession, PublicSessionFile, UserInfo
 from sec_gemini.session import InteractiveSession
 
 
@@ -230,7 +230,8 @@ def test_session_attachments_apis(
     test_jpeg_info: tuple[str, bytes],
 ):
     def check_session_files(
-        session_files: list[PublicSession], test_files_infos: tuple
+        session_files: list[PublicSessionFile],
+        test_files_infos: list[tuple[str, bytes, str, str]],
     ) -> None:
         assert len(session_files) == len(test_files_infos)
         for session_file, test_file_info in zip(session_files, test_files_infos):
@@ -254,47 +255,47 @@ def test_session_attachments_apis(
         test_mime_type,
         test_content_type_label,
     ) in enumerate(test_files_infos):
-        res = session.attach_file(test_filename, test_content)
-        assert res is not None
-        assert res.name == test_filename
-        assert res.size == len(test_content)
-        assert res.sha256 == hashlib.sha256(test_content).hexdigest()
-        assert res.mime_type == test_mime_type
-        assert res.content_type_label == test_content_type_label
+        attach_res = session.attach_file(test_filename, test_content)
+        assert attach_res is not None
+        assert attach_res.name == test_filename
+        assert attach_res.size == len(test_content)
+        assert attach_res.sha256 == hashlib.sha256(test_content).hexdigest()
+        assert attach_res.mime_type == test_mime_type
+        assert attach_res.content_type_label == test_content_type_label
         assert len(session.files) == test_file_idx + 1
     check_session_files(session.files, test_files_infos)
 
-    res = session.delete_file(session.id, 3)
-    assert res is False
+    delete_res = session.delete_file(session.id, 3)
+    assert delete_res is False
     check_session_files(session.files, test_files_infos)
 
-    res = session.delete_file(session.id, -1)
-    assert res is False
+    delete_res = session.delete_file(session.id, -1)
+    assert delete_res is False
     check_session_files(session.files, test_files_infos)
 
-    res = session.delete_file(session.id, 1)
+    delete_res = session.delete_file(session.id, 1)
     test_files_infos.pop(1)
-    assert res is True
+    assert delete_res is True
     check_session_files(session.files, test_files_infos)
 
-    res = session.delete_file(session.id, 2)
-    assert res is False
+    delete_res = session.delete_file(session.id, 2)
+    assert delete_res is False
     check_session_files(session.files, test_files_infos)
 
-    res = session.delete_file(session.id, 0)
+    delete_res = session.delete_file(session.id, 0)
     test_files_infos.pop(0)
-    assert res is True
+    assert delete_res is True
     check_session_files(session.files, test_files_infos)
 
-    res = session.delete_file(session.id, 1)
-    assert res is False
+    delete_res = session.delete_file(session.id, 1)
+    assert delete_res is False
     check_session_files(session.files, test_files_infos)
 
-    res = session.delete_file(session.id, 0)
+    delete_res = session.delete_file(session.id, 0)
     test_files_infos.pop(0)
-    assert res is True
+    assert delete_res is True
     check_session_files(session.files, test_files_infos)
     assert len(session.files) == 0
 
-    res = session.delete_file(session.id, 0)
-    assert res is False
+    delete_res = session.delete_file(session.id, 0)
+    assert delete_res is False
