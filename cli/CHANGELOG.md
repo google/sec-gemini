@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Use more colors in interactive session
 - Add `sec-gemini --completion` to generate shell completion files
 - Add icons when bundling packages
 - Improve configuration file handling in case of errors

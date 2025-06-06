@@ -15,6 +15,7 @@
 use std::fmt::Display;
 use std::sync::Arc;
 
+use colored::Colorize;
 use futures_util::{SinkExt, StreamExt};
 use reqwest::StatusCode;
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
@@ -72,14 +73,14 @@ impl Sdk {
             break (http, info);
         };
         if options.interactive {
-            println!("User: {} ({})", user.id, user.org_id);
+            println!("User: {} ({})", user.id.blue(), user.org_id.purple());
         }
         for model in available_models {
             if model.use_experimental {
                 continue;
             }
             if options.interactive {
-                println!("Model: {}", model.model_string);
+                println!("Model: {}", model.model_string.green());
             }
             return (Sdk { options, http, user, model }, sessions);
         }
