@@ -31,9 +31,11 @@ import {
   MimeType, // If needed directly, else use MimeTypeEnum
   // Session related types
   PublicSessionInput, // Input for register/update/delete
+  PublicSessionFile,
   PublicSessionOutput, // Output from get/list sessions
   SessionRequest, // Input for generate
   SessionResponse, // Output from generate
+  
   // User and Model Info
   PublicUser,
   UserInfo,
@@ -406,6 +408,7 @@ export {
   // Session Interaction Types
   PublicSessionInput,
   PublicSessionOutput,
+  PublicSessionFile,
   SessionRequest,
   SessionResponse,
   State, // State string literal union type
