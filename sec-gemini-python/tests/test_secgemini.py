@@ -345,6 +345,7 @@ def test_session_list_and_delete(secgemini_client: SecGemini):
     assert isessions[1].id == s4.id
 
     fake_isession = copy.copy(isessions[0])
+    assert fake_isession._session is not None
     fake_isession._session.id = "0" * len(fake_isession._session.id)
     res = fake_isession.delete()
     assert res is False

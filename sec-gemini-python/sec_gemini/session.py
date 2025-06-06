@@ -696,5 +696,6 @@ class InteractiveSession:
             api_key=self.api_key,
             enable_logging=self.enable_logging,
         )
-        int_sess._session = self._session.model_copy()
+        if self._session is not None:
+            int_sess._session = self._session.model_copy()
         return int_sess
