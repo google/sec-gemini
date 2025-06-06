@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import hashlib
 import json
 import re
@@ -299,3 +300,62 @@ def test_session_attachments_apis(
 
     detach_res = session.detach_file(session.id, 0)
     assert detach_res is False
+
+
+@require_env_variable("SEC_GEMINI_API_KEY")
+def test_session_list_and_delete(secgemini_client: SecGemini):
+    isessions = secgemini_client.list_sessions()
+    for isession in isessions:
+        isession.delete()
+    assert len(secgemini_client.list_sessions()) == 0
+
+    s1 = secgemini_client.create_session()
+    isessions = secgemini_client.list_sessions()
+    assert len(isessions) == 1
+    assert isessions[0].id == s1.id
+
+    s2 = secgemini_client.create_session()
+    isessions = secgemini_client.list_sessions()
+    assert len(isessions) == 2
+    assert isessions[1].id == s2.id
+
+    s3 = secgemini_client.create_session()
+    isessions = secgemini_client.list_sessions()
+    assert len(isessions) == 3
+    assert isessions[2].id == s3.id
+
+    assert isessions[1].id == s2.id
+    res = isessions[1].delete()
+    assert res is True
+    isessions = secgemini_client.list_sessions()
+    assert len(isessions) == 2
+    assert isessions[0].id == s1.id
+    assert isessions[1].id == s3.id
+
+    s4 = secgemini_client.create_session()
+    isessions = secgemini_client.list_sessions()
+    assert len(isessions) == 3
+    assert isessions[2].id == s4.id
+
+    res = isessions[0].delete()
+    assert res is True
+    isessions = secgemini_client.list_sessions()
+    assert len(isessions) == 2
+    assert isessions[0].id == s3.id
+    assert isessions[1].id == s4.id
+
+    fake_isession = copy.copy(isessions[0])
+    fake_isession._session.id = "0" * len(fake_isession._session.id)
+    res = fake_isession.delete()
+    assert res is False
+
+    res = isessions[1].delete()
+    assert res is True
+    isessions = secgemini_client.list_sessions()
+    assert len(isessions) == 1
+    assert isessions[0].id == s3.id
+
+    res = isessions[0].delete()
+    assert res is True
+    isessions = secgemini_client.list_sessions()
+    assert len(isessions) == 0

@@ -14,6 +14,8 @@
 
 """Interactive session class that interact with the user."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import random
@@ -337,10 +339,13 @@ class InteractiveSession:
         if not resp.ok:
             logging.error("[Session][Delete][HTTP]: %s", resp.error_message)
             return False
+
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
             logging.error("[Session][Delete][Session]: %s", op_result.status_message)
             return False
+
+        self._session = None
         return True
 
     def history(self) -> list[Message]:
@@ -682,3 +687,14 @@ class InteractiveSession:
         ]
 
         return f"{random.choice(adjs)}-{random.choice(terms)}"
+
+    def __copy__(self) -> InteractiveSession:
+        int_sess = InteractiveSession(
+            user=self.user.model_copy(),
+            base_url=self.base_url,
+            base_websockets_url=self.websocket_url,
+            api_key=self.api_key,
+            enable_logging=self.enable_logging,
+        )
+        int_sess._session = self._session.model_copy()
+        return int_sess
