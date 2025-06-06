@@ -217,8 +217,8 @@ class SecGemini:
         isession.resume(session_id=session_id)
         return isession
 
-    def get_sessions(self) -> list[InteractiveSession]:
-        """Get all active sessions for a user.
+    def list_sessions(self) -> list[InteractiveSession]:
+        """List all active sessions for a user.
 
         Returns:
             list[Session]: List of sessions for the user.
@@ -236,14 +236,15 @@ class SecGemini:
             isessions.append(isession)
         return isessions
 
-    def list_sessions(self) -> None:
-        """List active sessions."""
+    def print_sessions(self) -> None:
+        """Print active sessions."""
         ui = self.get_user_info()
         if not ui:
             return
         self._display_sessions(ui.sessions)
 
-    def _ts_to_string(self, ts, fmt="%Y-%m-%d %H:%M:%S"):
+    @staticmethod
+    def _ts_to_string(ts, fmt="%Y-%m-%d %H:%M:%S"):
         return datetime.fromtimestamp(ts, tz=timezone.utc).strftime(fmt)
 
     def list_models(self) -> None:
@@ -294,8 +295,8 @@ class SecGemini:
                     session.state.value,
                     str(session.num_messages),
                     str(len(session.files)),
-                    self._ts_to_string(session.create_time),
-                    self._ts_to_string(session.update_time),
+                    SecGemini._ts_to_string(session.create_time),
+                    SecGemini._ts_to_string(session.update_time),
                     str(session.ttl),
                 )
 
