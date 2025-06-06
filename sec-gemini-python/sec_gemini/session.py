@@ -188,6 +188,32 @@ class InteractiveSession:
 
         return self.attach_file(fpath.name, content)
 
+    def attach_file(self, filename: str, content: bytes) -> bool:
+        """Attach a file to the session"""
+        assert self._session is not None
+
+        # we always encode the content to base64
+        encoded_content = b64encode(content).decode("ascii")
+
+        # generate a unique id for the attachment
+        attachment = Attachment(
+            session_id=self._session.id,
+            filename=filename,
+            content=encoded_content,
+        )
+
+        resp = self.http.post(_EndPoints.ATTACH_FILE.value, attachment)
+        if not resp.ok:
+            logging.error("[Session][Attachment][HTTP]: %s", resp.error_message)
+            return False
+        op_result = OpResult(**resp.data)
+        if op_result.status_code != ResponseStatus.OK:
+            logging.error(
+                "[Session][Attachment][Session]: %s", op_result.status_message
+            )
+            return False
+        return True
+
     def delete_file(self, filename: str) -> bool:
         """Delete a file from the session"""
         assert self._session is not None
@@ -213,32 +239,6 @@ class InteractiveSession:
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
             logging.error("[Session][Delete][Session]: %s", op_result.status_message)
-            return False
-        return True
-
-    def attach_file(self, filename: str, content: bytes) -> bool:
-        """Attach a file to the session"""
-        assert self._session is not None
-
-        # we always encode the content to base64
-        encoded_content = b64encode(content).decode("ascii")
-
-        # generate a unique id for the attachment
-        attachment = Attachment(
-            session_id=self._session.id,
-            filename=filename,
-            content=encoded_content,
-        )
-
-        resp = self.http.post(_EndPoints.ATTACH_FILE.value, attachment)
-        if not resp.ok:
-            logging.error("[Session][Attachment][HTTP]: %s", resp.error_message)
-            return False
-        op_result = OpResult(**resp.data)
-        if op_result.status_code != ResponseStatus.OK:
-            logging.error(
-                "[Session][Attachment][Session]: %s", op_result.status_message
-            )
             return False
         return True
 
