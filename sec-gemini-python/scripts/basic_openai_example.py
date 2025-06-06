@@ -28,9 +28,12 @@ client = OpenAI(
 )
 
 
+filename = TEST_PDF_URL.split("/")[-1]
+
 res = httpx.get(TEST_PDF_URL)
 assert res.status_code == 200
-file_content = base64.b64encode(res.content).decode("ascii")
+b64_file_content = base64.b64encode(res.content).decode("ascii")
+
 
 response = client.chat.completions.create(
     model="sec-gemini-1.1",
@@ -38,10 +41,19 @@ response = client.chat.completions.create(
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "What's is the PDF about?"},
                 {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:application/pdf;base64,{file_content}"},
+                    "type": "text",
+                    "text": (
+                        "The file in attachment should be about a tool in machine learning. What is the name of the tool?"
+                        "Just output one word, nothing else."
+                    ),
+                },
+                {
+                    "type": "file",
+                    "file": {
+                        "filename": filename,
+                        "file_data": f"data:application/pdf;base64,{b64_file_content}",
+                    },
                 },
             ],
         }
