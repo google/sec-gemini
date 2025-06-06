@@ -35,7 +35,8 @@ from sec_gemini.models.usage import Usage
 MOCK_SEC_GEMINI_API_HOST = "api.secgemini.google-mock"
 MOCK_SEC_GEMINI_API_KEY = "p9XXXXMOCKKEYXXXX"
 TEST_PDF_URL = "https://elie.net/static/files/retsim-resilient-and-efficient-text-similarity/retsim-resilient-and-efficient-text-similarity.pdf"
-TEST_PYTHON_URL = "https://raw.githubusercontent.com/google/magika/refs/heads/main/tests_data/basic/python/code.py"
+TEST_PNG_URL = "https://raw.githubusercontent.com/google/magika/refs/heads/main/tests_data/basic/png/magika_test.png"
+TEST_JPEG_URL = "https://raw.githubusercontent.com/google/magika/refs/heads/main/tests_data/basic/jpeg/magika_test.jpg"
 
 
 @pytest.fixture
@@ -196,7 +197,7 @@ def mock_secgemini_client(httpx_mock: HTTPXMock, mock_user: UserInfo) -> SecGemi
 
 @pytest.fixture
 def test_pdf_info() -> tuple[str, bytes]:
-    """Provides filename/content for a test PDF."""
+    """Provides filename/content for a test PDF file."""
     res = httpx.get(TEST_PDF_URL)
     assert res.status_code == 200
     filename = TEST_PDF_URL.split("/")[-1]
@@ -204,9 +205,18 @@ def test_pdf_info() -> tuple[str, bytes]:
 
 
 @pytest.fixture
-def test_python_info() -> tuple[str, bytes]:
-    """Provides filename/content for a test python code."""
-    res = httpx.get(TEST_PYTHON_URL)
+def test_png_info() -> tuple[str, bytes]:
+    """Provides filename/content for a test PNG file."""
+    res = httpx.get(TEST_PNG_URL)
     assert res.status_code == 200
-    filename = TEST_PYTHON_URL.split("/")[-1]
+    filename = TEST_PNG_URL.split("/")[-1]
+    return filename, res.content
+
+
+@pytest.fixture
+def test_jpeg_info() -> tuple[str, bytes]:
+    """Provides filename/content for a test JPEG file."""
+    res = httpx.get(TEST_JPEG_URL)
+    assert res.status_code == 200
+    filename = TEST_JPEG_URL.split("/")[-1]
     return filename, res.content

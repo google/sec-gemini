@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import hashlib
 import json
 import re
 
-import httpx
 import pytest
 from conftest import MOCK_SEC_GEMINI_API_HOST
 from pytest_httpx import HTTPXMock
@@ -210,7 +209,8 @@ def test_query_with_attachment(
     pdf_filename, pdf_content = test_pdf_info
 
     session = secgemini_client.create_session()
-    assert session.attach_file(pdf_filename, pdf_content) is True
+    res = session.attach_file(pdf_filename, pdf_content)
+    assert res is not None
     assert len(session.files) == 1
 
     resp = session.query(
@@ -223,17 +223,78 @@ def test_query_with_attachment(
 
 
 @require_env_variable("SEC_GEMINI_API_KEY")
-def test_session_with_multiple_attachment(
+def test_session_attachments_apis(
     secgemini_client: SecGemini,
     test_pdf_info: tuple[str, bytes],
-    test_python_info: tuple[str, bytes],
+    test_png_info: tuple[str, bytes],
+    test_jpeg_info: tuple[str, bytes],
 ):
+    def check_session_files(
+        session_files: list[PublicSession], test_files_infos: tuple
+    ) -> None:
+        assert len(session_files) == len(test_files_infos)
+        for session_file, test_file_info in zip(session_files, test_files_infos):
+            assert session_file.name == test_file_info[0]
+
     pdf_filename, pdf_content = test_pdf_info
-    python_filename, python_content = test_python_info
+    png_filename, png_content = test_png_info
+    jpeg_filename, jpeg_content = test_jpeg_info
+
+    test_files_infos = [
+        (pdf_filename, pdf_content, "application/pdf", "pdf"),
+        (png_filename, png_content, "image/png", "png"),
+        (jpeg_filename, jpeg_content, "image/jpeg", "jpeg"),
+    ]
 
     session = secgemini_client.create_session()
 
-    assert session.attach_file("paper.pdf", pdf_content) is True
-    assert len(session.files) == 1
-    assert session.attach_file("code.py", python_content) is True
-    assert len(session.files) == 2
+    for test_file_idx, (
+        test_filename,
+        test_content,
+        test_mime_type,
+        test_content_type_label,
+    ) in enumerate(test_files_infos):
+        res = session.attach_file(test_filename, test_content)
+        assert res is not None
+        assert res.name == test_filename
+        assert res.size == len(test_content)
+        assert res.sha256 == hashlib.sha256(test_content).hexdigest()
+        assert res.mime_type == test_mime_type
+        assert res.content_type_label == test_content_type_label
+        assert len(session.files) == test_file_idx + 1
+    check_session_files(session.files, test_files_infos)
+
+    res = session.delete_file(session.id, 3)
+    assert res is False
+    check_session_files(session.files, test_files_infos)
+
+    res = session.delete_file(session.id, -1)
+    assert res is False
+    check_session_files(session.files, test_files_infos)
+
+    res = session.delete_file(session.id, 1)
+    test_files_infos.pop(1)
+    assert res is True
+    check_session_files(session.files, test_files_infos)
+
+    res = session.delete_file(session.id, 2)
+    assert res is False
+    check_session_files(session.files, test_files_infos)
+
+    res = session.delete_file(session.id, 0)
+    test_files_infos.pop(0)
+    assert res is True
+    check_session_files(session.files, test_files_infos)
+
+    res = session.delete_file(session.id, 1)
+    assert res is False
+    check_session_files(session.files, test_files_infos)
+
+    res = session.delete_file(session.id, 0)
+    test_files_infos.pop(0)
+    assert res is True
+    check_session_files(session.files, test_files_infos)
+    assert len(session.files) == 0
+
+    res = session.delete_file(session.id, 0)
+    assert res is False

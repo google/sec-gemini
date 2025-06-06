@@ -17,6 +17,7 @@
 import asyncio
 import logging
 import random
+import traceback
 from base64 import b64encode
 from pathlib import Path
 from typing import AsyncIterator, Optional
@@ -29,6 +30,7 @@ from .constants import DEFAULT_TTL
 from .enums import _EndPoints
 from .http import NetworkClient
 from .models.attachment import Attachment
+from .models.delete_file_request import DeleteFileRequest
 from .models.enums import FeedbackType, MessageType, MimeType, Role, State
 from .models.feedback import Feedback
 from .models.message import Message
@@ -175,21 +177,25 @@ class InteractiveSession:
         logging.error("[Session][Resume]: Session %s not found", session_id)
         return False
 
-    def attach_file_from_disk(self, file_path: str) -> bool:
-        """Attach a file to the session"""
+    def attach_file_from_disk(self, file_path: str) -> Optional[PublicSessionFile]:
+        """Attach a file to the session from disk. Returns a PublicSessionFile with the
+        information, or None in case of errors.
+        """
+
         fpath = Path(file_path)
         if not fpath.exists():
             raise FileNotFoundError(f"File {file_path} not found")
         if not fpath.is_file():
             raise ValueError(f"Path {file_path} is not a file")
 
-        with open(file_path, "rb") as f:
-            content = f.read()
+        content = fpath.read_bytes()
 
         return self.attach_file(fpath.name, content)
 
-    def attach_file(self, filename: str, content: bytes) -> bool:
-        """Attach a file to the session"""
+    def attach_file(self, filename: str, content: bytes) -> Optional[PublicSessionFile]:
+        """Attach a file to the session. Returns a PublicSessionFile with the
+        information, or None in case of errors.
+        """
         assert self._session is not None
 
         # we always encode the content to base64
@@ -205,41 +211,49 @@ class InteractiveSession:
         resp = self.http.post(_EndPoints.ATTACH_FILE.value, attachment)
         if not resp.ok:
             logging.error("[Session][Attachment][HTTP]: %s", resp.error_message)
-            return False
+            return None
         op_result = OpResult(**resp.data)
-        if op_result.status_code != ResponseStatus.OK:
+        if op_result.status_code != ResponseStatus.OK or op_result.data is None:
             logging.error(
                 "[Session][Attachment][Session]: %s", op_result.status_message
             )
-            return False
-        return True
+            return None
 
-    def delete_file(self, filename: str) -> bool:
-        """Delete a file from the session"""
-        assert self._session is not None
+        try:
+            public_session_file = PublicSessionFile(**op_result.data)
+        except Exception:
+            logging.error(
+                f"Exception when parsing the PublicSessionFile. {traceback.format_exc()}"
+            )
+            return None
 
-        if filename == "":
-            raise ValueError("Filename is required")
-        if not any(f.name == filename for f in self.files):
-            raise ValueError(f"File {filename} not found in session")
+        return public_session_file
 
-        # delete the file
+    def delete_file(self, session_id: str, file_idx: int) -> bool:
+        """Delete a file from the session. The file to delete is indicated by
+        its index in the `session.files` list.
+        """
+
         resp = self.http.post(
-            _EndPoints.DELETE_FILE.value,
-            Attachment(
-                session_id=self._session.id,
-                filename=filename,
-                mime_type=MimeType.TEXT,
-                content="",
+            f"{_EndPoints.DELETE_FILE.value}",
+            DeleteFileRequest(
+                session_id=session_id,
+                file_idx=file_idx,
             ),
         )
         if not resp.ok:
-            logging.error("[Session][Delete][HTTP]: %s", resp.error_message)
+            error_msg = f"[Session][DeleteFile][HTTP]: {resp.error_message}"
+            logging.error(error_msg)
             return False
+
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
-            logging.error("[Session][Delete][Session]: %s", op_result.status_message)
+            error_msg = f"[Session][DeleteFile][HTTP]: {op_result.status_message}"
+            logging.error(error_msg)
             return False
+
+        msg = f"[Session][DeleteFile][HTTP] {session_id=} {file_idx=}: OK"
+        logging.debug(msg)
         return True
 
     def send_bug_report(self, bug: str, group_id: str = "") -> bool:
