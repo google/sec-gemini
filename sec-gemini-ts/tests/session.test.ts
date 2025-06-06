@@ -75,7 +75,7 @@ global.fetch = jest.fn(async (input: string | URL | Request, init?: RequestInit)
     registerSession(JSON.parse(init!.body! as string));
     return new Response(JSON.stringify({ ok: true, status_code: 200 }));
   }
-  return new Response(JSON.stringify({ hello: 'secgemini' }));
+  throw new Error(`Uncaught fetch request: ${input}, ${JSON.stringify(init)}`);
 });
 
 const onmessage = jest.fn(() => {});
@@ -288,8 +288,8 @@ describe('Session', () => {
       'Session operation failed: Session is not initialized. Call register() or resume() first.'
     );
   });
-  test('should attach and detach a file to the session', async () => {
-    const expectedSession = {
+  test('should attach and delete a file to the session', async () => {
+    const expectedSessionAfterAttach = {
       id: 'a-b-c-d-e',
       user_id: 'user1',
       org_id: undefined,
@@ -300,7 +300,20 @@ describe('Session', () => {
       can_log: true,
       language: 'en',
       messages: [],
-      files: [{ name: 'filename1', mime_type: 'text/plain' }],
+      files: [{ name: 'filename1', size: 18, sha256: 'eb2eb8f9bbe4c506bd67c2a8b8f76badb0ab870b7c272fc273cd2b849281d4b9', mime_type: 'text/plain', content_type_label: 'txt' }],
+    };
+    const expectedSessionAfterDeletion = {
+      id: 'a-b-c-d-e',
+      user_id: 'user1',
+      org_id: undefined,
+      model: { model_string: 'fakeModel', version: 'v1', use_experimental: false, toolsets: [] },
+      ttl: 301,
+      name: 'sessionName',
+      description: 'sessionDescription',
+      can_log: true,
+      language: 'en',
+      messages: [],
+      files: [],
     };
 
     await session.register({
@@ -310,20 +323,25 @@ describe('Session', () => {
       description: 'sessionDescription',
       language: 'en',
     });
-    let attachedFileReq: string | undefined;
-    let detachedFileReq: string | undefined;
+    let attachFileReq: string | undefined;
+    let deleteFileReq: string | undefined;
     const mockFetchImplementation = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
       _checkHeaders(init!);
       if (input === 'http://google.com/v1/session/attach_file' && init!.method === 'POST') {
-        attachedFileReq = init!.body! as string;
+        attachFileReq = init!.body! as string;
         return new Response(JSON.stringify({ ok: true, status_code: 200 }));
       }
       if (input === 'http://google.com/v1/session/get?session_id=a-b-c-d-e' && init!.method === 'GET') {
-        // filename1 should already be attached if the tests above pass.
-        return new Response(JSON.stringify(expectedSession));
+        if (deleteFileReq === undefined) {
+          // This is hit after the attachment but before the deletion
+          return new Response(JSON.stringify(expectedSessionAfterAttach));
+        } else {
+          // This is hit after the deletion
+          return new Response(JSON.stringify(expectedSessionAfterDeletion));
+        }
       }
       if (input === 'http://google.com/v1/session/delete_file' && init!.method === 'POST') {
-        detachedFileReq = init!.body! as string;
+        deleteFileReq = init!.body! as string;
         return new Response(JSON.stringify({ ok: true, status_code: 200 }));
       }
       throw new Error(`Expected call to attach/detach file or session fetch: ${input}, ${JSON.stringify(init)}`);
@@ -331,38 +349,46 @@ describe('Session', () => {
     (global.fetch as jest.Mock)
       .mockImplementationOnce(mockFetchImplementation)
       .mockImplementationOnce(mockFetchImplementation)
+      .mockImplementationOnce(mockFetchImplementation)
+      .mockImplementationOnce(mockFetchImplementation)
+      .mockImplementationOnce(mockFetchImplementation)
       .mockImplementationOnce(mockFetchImplementation);
     // Send request and expect response.
+
     let respPromise = session.attachFile('filename1', 'text/plain', 'filename1 contents');
     expect(respPromise).resolves.not.toThrow();
     await respPromise;
-    expect(JSON.parse(attachedFileReq!)).toEqual({
+    expect(JSON.parse(attachFileReq!)).toEqual({
       session_id: 'a-b-c-d-e',
       filename: 'filename1',
       mime_type: 'text/plain',
       content: 'ZmlsZW5hbWUxIGNvbnRlbnRz',
     });
-    expect(detachedFileReq).not.toBeDefined();
+    expect(deleteFileReq).not.toBeDefined();
+    expect(session.files.length).toEqual(1);
 
-    // Detach file before fetching session cache.
-    // TODO: Not sure if we should need to fetch the session cache first. May want to update session.ts code to store some sort of cache locally.
-    respPromise = session.detachFile('filename1');
-    expect(respPromise).rejects.toThrow("File 'filename1' not found in session cache. Cannot detach.");
-
+    // Check that the session is being updated
     let fetchSessionPromise = session.fetchSession();
     expect(fetchSessionPromise).resolves.not.toThrow();
     const fetchedSession = await fetchSessionPromise;
-    expect(fetchedSession).toEqual(expectedSession);
+    expect(fetchedSession).toEqual(expectedSessionAfterAttach);
+    expect(session.files.length).toEqual(1);
 
-    respPromise = session.detachFile('filename1');
+    // // Test file deletion
+    respPromise = session.deleteFile(0);
     expect(respPromise).resolves.not.toThrow();
     await respPromise;
-    expect(JSON.parse(detachedFileReq!)).toEqual({
+    expect(JSON.parse(deleteFileReq!)).toEqual({
       session_id: 'a-b-c-d-e',
-      filename: 'filename1',
-      content: '',
-      mime_type: 'text/plain',
+      file_idx: 0,
     });
+    expect(session.files.length).toEqual(0);
+
+    fetchSessionPromise = session.fetchSession();
+    expect(fetchSessionPromise).resolves.not.toThrow();
+    const fetchedSession2 = await fetchSessionPromise;
+    expect(fetchedSession2).toEqual(expectedSessionAfterDeletion);
+    expect(session.files.length).toEqual(0);
   });
   test('should send feedback', async () => {
     await session.register({

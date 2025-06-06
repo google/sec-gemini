@@ -38,6 +38,17 @@ export type Attachment = {
   content: string;
 };
 
+export type DeleteFileRequest = {
+  /**
+   * The session ID the file should be deleted from.
+   */
+  session_id: string;
+  /**
+   * The index of the files to delete.
+   */
+  file_idx: number;
+};
+
 export type ChatCompletionRequest = {
   model: string;
   messages: Array<OpenAiMessage>;

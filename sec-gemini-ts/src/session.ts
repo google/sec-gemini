@@ -42,6 +42,7 @@ import {
   State,
   ModelInfoInput,
   PublicSessionFile,
+  DeleteFileRequest,
 } from './secgeminitypes';
 
 // --- Constants ---
@@ -601,68 +602,45 @@ class InteractiveSession {
 
     console.info(`[Session][Attachment][API]: File ${filename} attached to session ${this.id}.`);
 
-    // TODO: Consider refreshing _session.files cache here? Fetching is safest.
+    // Refreshing cached PublicSession
+    await this.fetchSession();
   }
 
   /**
-   * Detaches (deletes) a file from the session by its filename.
-   * Note: Relies on unique filenames within the session.
+   * Deletes a file from the session by its index.
    *
-   * @param filename - The name of the file to detach.
+   * @param file_idx - The index of the file to delete.
    * @throws Error if session not initialized, filename missing, file not found, or API fails.
    */
-  public async detachFile(filename: string): Promise<void> {
+  public async deleteFile(file_idx: number): Promise<void> {
     this._ensureInitialized();
 
-    if (!filename) {
-      throw new Error('Filename is required to detach a file.');
-    }
-
-    // Find file in the current cache to get mime type for payload (API requires it)
-    const fileInfo = this._session?.files?.find((f) => f.name === filename);
-    if (!fileInfo) {
-      // Optionally fetch session here to double-check before throwing?
-      // const freshSession = await this._fetchSessionById(this.id);
-      // fileInfo = freshSession?.files?.find((f) => f.name === filename);
-      // if (!fileInfo) {
-      throw new Error(`File '${filename}' not found in session cache. Cannot detach.`);
-      // }
-      // this._session = freshSession; // Update cache if found after fetch
-    }
-
-    // Construct the Attachment object needed for the API body
-    // API requires full Attachment, even for delete (unusual)
-    const attachmentToDelete: Attachment = {
+    // Construct the DeleteFileRequest object needed for the API body.
+    const deleteFileRequest: DeleteFileRequest = {
       session_id: this.id,
-      filename: fileInfo.name,
-      mime_type: fileInfo.mime_type as MimeType, // Assume cached mime_type is valid
-      content: '', // Content not needed for delete
+      file_idx: file_idx,
     };
 
     // --- API Call ---
     let resp: OpResult;
     try {
-      // Ensure EndPointsEnum.DELETE_FILE maps to '/v1/session/delete_file'
-      resp = await this.http.post<OpResult>(EndPointsEnum.DELETE_FILE, attachmentToDelete);
+      resp = await this.http.post<OpResult>(EndPointsEnum.DELETE_FILE, deleteFileRequest);
     } catch (error: any) {
-      console.error(`[Session][DetachFile][HTTP]: Network or client error`, error);
-      throw new Error(`Detaching file failed due to network/HTTP error: ${error.message}`);
+      console.error(`[Session][DeleteFile][HTTP]: Network or client error`, error);
+      throw new Error(`Deleting file failed due to a network error: ${error.message}`);
     }
 
     // --- Handle Response ---
     if (!resp || !resp.ok || resp.status_code !== ResponseStatusEnum.OK) {
-      const errorMsg = `Detaching file failed: ${resp?.status_message || 'Unknown API error'} (Status: ${resp?.status_code})`;
-      console.error(`[Session][DetachFile][API]: ${errorMsg}`);
+      const errorMsg = `Deleting file failed: ${resp?.status_message || 'Unknown API error'} (Status: ${resp?.status_code})`;
+      console.error(`[Session][DeleteFile][API]: ${errorMsg}`);
       throw new Error(errorMsg);
     }
 
-    console.info(`[Session][DetachFile][API]: File ${filename} detached from session ${this.id}.`);
+    console.info(`[Session][DeleteFile][API]: File @ ${file_idx} deleted from session ${this.id}.`);
 
-    // TODO: Consider refreshing _session.files cache here? Fetching is safest.
-    // Optimistic removal from cache:
-    // if (this._session?.files) {
-    //    this._session.files = this._session.files.filter(f => f.name !== filename);
-    // }
+    // Refreshing cached PublicSession
+    await this.fetchSession();
   }
 
   // --- Feedback ---
