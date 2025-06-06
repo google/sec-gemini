@@ -113,14 +113,14 @@ class InteractiveSession:
         return self._session.description
 
     @property
-    def create_time(self) -> int:
+    def create_time(self) -> float:
         """Session creation time"""
         assert self._session is not None
         self._refresh_data()
         return self._session.create_time
 
     @property
-    def update_time(self) -> int:
+    def update_time(self) -> float:
         """Session update time"""
         assert self._session is not None
         self._refresh_data()
