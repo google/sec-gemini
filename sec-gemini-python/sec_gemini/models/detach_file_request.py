@@ -16,7 +16,7 @@
 from pydantic import BaseModel, Field
 
 
-class DeleteFileRequest(BaseModel):
+class DetachFileRequest(BaseModel):
     """Represents a file upload to the session."""
 
     session_id: str = Field(

@@ -30,7 +30,7 @@ from .constants import DEFAULT_TTL
 from .enums import _EndPoints
 from .http import NetworkClient
 from .models.attachment import Attachment
-from .models.delete_file_request import DeleteFileRequest
+from .models.detach_file_request import DetachFileRequest
 from .models.enums import FeedbackType, MessageType, MimeType, Role, State
 from .models.feedback import Feedback
 from .models.message import Message
@@ -210,16 +210,16 @@ class InteractiveSession:
 
         resp = self.http.post(_EndPoints.ATTACH_FILE.value, attachment)
         if not resp.ok:
-            logging.error(f"[Session][Attachment][HTTP]: {resp.error_message}")
+            logging.error(f"[Session][AttachFile][HTTP]: {resp.error_message}")
             return None
 
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
-            logging.error(f"[Session][Attachment][Session]: {op_result.status_message}")
+            logging.error(f"[Session][AttachFile][Session]: {op_result.status_message}")
             return None
 
         if op_result.data is None:
-            logging.error("[Session][Attachment][Session]: op_result.data is None")
+            logging.error("[Session][AttachFile][Session]: op_result.data is None")
             return None
 
         try:
@@ -230,32 +230,35 @@ class InteractiveSession:
             )
             return None
 
+        msg = f"[Session][AttachFile] session_id={self._session.id} {public_session_file.sha256}: OK"
+        logging.debug(msg)
+
         return public_session_file
 
-    def delete_file(self, session_id: str, file_idx: int) -> bool:
-        """Delete a file from the session. The file to delete is indicated by
+    def detach_file(self, session_id: str, file_idx: int) -> bool:
+        """Detach a file from the session. The file to detach is indicated by
         its index in the `session.files` list.
         """
 
         resp = self.http.post(
-            f"{_EndPoints.DELETE_FILE.value}",
-            DeleteFileRequest(
+            f"{_EndPoints.DETACH_FILE.value}",
+            DetachFileRequest(
                 session_id=session_id,
                 file_idx=file_idx,
             ),
         )
         if not resp.ok:
-            error_msg = f"[Session][DeleteFile][HTTP]: {resp.error_message}"
+            error_msg = f"[Session][DetachFile][HTTP]: {resp.error_message}"
             logging.error(error_msg)
             return False
 
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
-            error_msg = f"[Session][DeleteFile][HTTP]: {op_result.status_message}"
+            error_msg = f"[Session][DetachFile][HTTP]: {op_result.status_message}"
             logging.error(error_msg)
             return False
 
-        msg = f"[Session][DeleteFile][HTTP] {session_id=} {file_idx=}: OK"
+        msg = f"[Session][DetachFile] {session_id=} {file_idx=}: OK"
         logging.debug(msg)
         return True
 

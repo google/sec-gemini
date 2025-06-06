@@ -49,4 +49,4 @@ class _EndPoints(str, Enum):
 
     # files
     ATTACH_FILE = "/v1/session/attach_file"
-    DELETE_FILE = "/v1/session/delete_file"
+    DETACH_FILE = "/v1/session/detach_file"
