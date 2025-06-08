@@ -9,7 +9,7 @@
     type Message,
   } from "sec-gemini";
   import { onMount } from "svelte";
-  import libstyles from "./styles.css?inline";
+  import globStyles from "./styles.css?inline";
   import MaterialSymbolsAdd2Rounded from "../icons/MaterialSymbolsAdd2Rounded.svelte";
   import PhGreaterThanBold from "../icons/PhGreaterThanBold.svelte";
   import SecGeminiLogo from "../icons/SecGeminiLogo.svelte";
@@ -17,8 +17,20 @@
   import Thinking from "./thinking.svelte";
   import MaterialSymbolsClose from "../icons/MaterialSymbolsClose.svelte";
   import MdiIncognito from "../icons/MdiIncognito.svelte";
+  import postcss from "postcss";
+  import postcssNested from "postcss-nested";
 
-  let style = "<style>" + libstyles + "</style>";
+  async function compileCssString(cssString: string): Promise<string> {
+    try {
+      const result = await postcss([postcssNested] as any).process(cssString, {
+        from: undefined,
+      });
+      return result.css;
+    } catch (error) {
+      console.error("Error compiling CSS string:", error);
+      return "";
+    }
+  }
 
   const {
     resumeSession,
@@ -27,6 +39,9 @@
     sessionDescription,
     sessionName,
   } = $props();
+
+  let compiledGlobStyles = $state("");
+  let sanitizedStyleContent = $state("");
 
   const securityTopics = [
     {
@@ -90,12 +105,7 @@
       if (!file) return;
       try {
         const fileContent = await readFileAsArrayBuffer(file);
-        const mimeType = checkMimeType(file.type);
-        if (mimeType === null) {
-          console.error("Unsupported MIME type:", file.type);
-          return;
-        }
-        await session.attachFile(file.name, mimeType, fileContent);
+        await session.attachFile(file.name, "mimeType", fileContent);
       } catch (error) {
         console.error("Error attaching file:", error);
       }
@@ -115,12 +125,6 @@
       reader.onerror = () => reject(reader.error);
       reader.readAsArrayBuffer(file);
     });
-  }
-  function checkMimeType(value: string): MimeTypeEnum | null {
-    if (Object.values(MimeTypeEnum).includes(value as MimeTypeEnum)) {
-      return value as MimeTypeEnum;
-    }
-    return null;
   }
 
   function scrollToTop() {
@@ -331,19 +335,25 @@
     messageInput.style.height = `${newHeight}px`;
   }
 
-  onMount(() => {
+  onMount(async () => {
+    compiledGlobStyles = await compileCssString(globStyles);
+
+    console.log("Compiled globStyles:", compiledGlobStyles);
+
+    sanitizedStyleContent = DOMPurify.sanitize(
+      `${compiledGlobStyles}`,
+    );
     if (apiKey) {
       initializeSDK();
     }
     const fontFaces = `@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&family=Noto+Sans+Mono:wght@100..900&family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');`;
-
     const style = document.createElement("style");
     style.textContent = fontFaces;
     document.head.appendChild(style);
   });
 </script>
 
-{@html DOMPurify.sanitize(style)}
+{@html "<style>" + sanitizedStyleContent + "</style>"}
 <div id="wrapper" class="font-base" data-theme={theme}>
   <button
     aria-label="toggle"
@@ -356,7 +366,7 @@
   <dialog
     onmousedown={handleClickOutside}
     bind:this={dialog}
-    class="chatbot-container fixed inset-0 left-1/2 top-20 z-50 w-screen max-w-3xl h-[80vh] -translate-x-1/2 translate-y-0 opacity-0 transform bg-base p-2 rounded-3xl text-text backdrop:backdrop-blur-xs backdrop:bg-base/50 backdrop-blur-lg transition-[overlay,display,opacity] duration-300 transition-discrete backdrop:transition-[overlay,display,opacity] backdrop:duration-300 backdrop:transition-discrete open:block open:opacity-100 open:starting:opacity-0"
+    class="chatbot-container fixed inset-0 left-1/2 top-20 z-50 w-screen max-w-3xl h-[80vh] -translate-x-1/2 translate-y-0 opacity-0 transform bg-base p-2 rounded-3xl text-text backdrop:backdrop-blur-xs backdrop:bg-base/50 backdrop-blur-lg transition-[overlay,display,opacity] duration-300 transition-discrete backdrop:transition-[overlay,display,opacity] backdrop:duration-300 backdrop:transition-discrete open:block open:opacity-100 open:starting:opacity-0 overflow-clip"
   >
     <div class="flex flex-col h-full w-full p-4 pb-1 bg-base">
       <div class="flex justify-between items-center py-2">
@@ -516,7 +526,7 @@
                   <div class="sm:hidden">
                     <PhGreaterThanBold
                       size={1}
-                      class={`${isProcessing ? "bg-[linear-gradient(90deg,#217BFE_0%,#078EFB_33%,#AC87EB_67%,#EE4D5D_100%)] text-transparent bg-clip-text animate-gradient bg-[length:200%_auto]" : ""} flex-shrink-0 text-text`}
+                      class={`${isProcessing ? "bg-[linear-gradient(90deg,#217BFE_0%,#078EFB_33%,#AC87EB_67%,#EE4D5D_100%)] text-transparent bg-clip-text animate-gradient bg-[length:200%_auto]" : ""} flex-shrink-0 text-base`}
                     />
                   </div>
                   {#if !isProcessing}

@@ -20,8 +20,8 @@
       <MaterialSymbolsBook2Outline class=" inline" size={1.8} />
       <div class="flex items-center w-full gap-2 md:gap-4 mx-2 md:mx-4">
         <h2 class="text-sm md:text-[16px] w-full">Thinking Interface</h2>
-        <div class="h-[0.8lh] w-[1px] bg-text-muted"></div>
-        <button
+        <!-- <div class="h-[0.8lh] w-[1px] bg-text-muted"></div> -->
+        <!-- <button
           popovertarget="thinking-model-popover"
           class="hover:bg-accent-light rounded-full w-full hover:cursor-pointer px-3 py-1 text-text-muted text-sm md:text-[16px]"
         >
@@ -30,7 +30,7 @@
             class="rotate-90 inline"
             size={1.4}
           />
-        </button>
+        </button> -->
         <button
           type="button"
           class="hover:opacity-90 hover:cursor-pointer hover:bg-accent rounded-full p-2 focus:outline-none -translate-y-1 translate-x-4 ml-auto"
@@ -48,26 +48,20 @@
       {#if thinkingMessages.length > 0}
         {#each thinkingMessages as message, i (message.id)}
           <div
-            class="p-4 pb-0 w-full min-w-32 max-w-lg animate-slidein opacity-0 flex flex-row gap-2 !mb-0"
+            class="p-4 pb-0 w-full min-w-32 animate-slidein opacity-0 flex flex-row gap-2 !mb-0"
           >
             <div class="flex flex-col items-center gap-3 w-8 flex-shrink-0">
-              {#if message.state === "agent_done"}
-                <SecGemWhite
-                  size={1.8}
-                  class="p-2 flex-shrink-0 bg-accent rounded-full aspect-square -mt-1"
-                />
-              {:else if message.state === "running_agent"}
-                <RiGeminiFill
-                  size={1.8}
-                  class="p-2 flex-shrink-0 bg-accent rounded-full aspect-square -mt-1"
-                />
-              {:else if message.state === "calling_tool"}
+              {#if message.state === "tool_result" || message.state === "calling_tool"}
                 <MaterialSymbolsBolt
                   size={1.8}
                   class="p-2 flex-shrink-0 bg-accent rounded-full aspect-square -mt-1"
                 />
+              {:else}
+                <SecGemWhite
+                  size={1.8}
+                  class="p-2 flex-shrink-0 bg-accent rounded-full aspect-square -mt-1"
+                />
               {/if}
-              <div class="h-full w-[1px] bg-text-muted mx-auto"></div>
             </div>
             <div class="flex flex-col">
               <p class="font-medium mb-1.5 italic">

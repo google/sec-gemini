@@ -251,7 +251,7 @@
             {:else}
               <button
                 onclick={() => handleLike(message.id)}
-                class="rounded-full hover:bg-accent p-2 hover:cursor-pointer"
+                class={`rounded-full hover:bg-accent text-text-muted p-2 ${feedbackExists(message.id).isDisliked ? "hover:bg-transparent pointer-events-none" : "hover:cursor-pointer"}`}
               >
                 <MaterialSymbolsThumbUpOutline size={1.25} />
               </button>
@@ -265,7 +265,7 @@
             {:else}
               <button
                 onclick={() => handleDislike(message.id)}
-                class="rounded-full hover:bg-accent p-2 hover:cursor-pointer"
+                class={`rounded-full hover:bg-accent text-text-muted p-2 ${feedbackExists(message.id).isLiked ? "hover:bg-transparent pointer-events-none" : "hover:cursor-pointer"}`}
               >
                 <MaterialSymbolsThumbDownOutline size={1.25} />
               </button>

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import MaterialSymbolsClose from "../icons/MaterialSymbolsClose.svelte";
   
     // Props
@@ -13,7 +13,7 @@
     } = $props();
   
     // State variables
-    let feedbackDialog;
+    let feedbackDialog: HTMLDialogElement;
     let feedbackText = $state("");
     let selectedCategory = $state("");
     let isLoading = $state(false);
@@ -31,7 +31,7 @@
           ]
     );
   
-    function saveFeedbackToStorage(feedbackData) {
+    function saveFeedbackToStorage(feedbackData: { messageId: string; type: string; }) {
       setFeedbackHistory([...feedbackHistory, feedbackData]);
       try {
         if (typeof localStorage === "undefined") {
@@ -45,7 +45,6 @@
         }
       } catch (error) {
         console.error("Error saving feedback to localStorage:", error);
-        toast.push("Failed to save feedback history.");
       }
     }
   
@@ -57,7 +56,6 @@
   
     async function handleSubmitFeedback() {
       if (!selectedCategory) {
-        // toast.push("Please select a category");
         return;
       }
   
@@ -94,7 +92,7 @@
       }
     }
   
-    function handleClickOutside(event) {
+    function handleClickOutside(event: Event) {
       if (feedbackDialog && event.target === feedbackDialog) {
         closeModal();
       }

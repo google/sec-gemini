@@ -47,7 +47,7 @@
 @theme {
     --tw-border-style: 1px;
     --breakpoint-md: 990px;
-   --font-base: Noto Sans, Helvetica Neue, sans-serif;
+    --font-base: Noto Sans, Helvetica Neue, sans-serif;
     --font-mono: Noto Sans Mono, monospace;
     --font-code: Fira Code, monospace;
     /* Light Mode Colors (using a prefix to avoid naming conflicts) */
@@ -393,4 +393,9 @@
     .token.inserted {
         color: green;
     }
+
+}
+
+.open\:opacity-100 {
+    opacity: 1;
 }
