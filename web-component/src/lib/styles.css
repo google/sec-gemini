@@ -171,12 +171,6 @@
         }
     }
 
-    @keyframes border {
-        to: {
-            '--border-angle': '360deg'
-        }
-    }
-
     @keyframes indeterminateAnimation {
         0% {
             transform: translateX(0) scaleX(0);
@@ -398,4 +392,12 @@
 
 .open\:opacity-100 {
     opacity: 1;
+}
+
+.placeholder\:text-text-muted {
+    color: var(--color-text-muted);
+}
+
+.focus\:outline-none {
+    outline: none;
 }
