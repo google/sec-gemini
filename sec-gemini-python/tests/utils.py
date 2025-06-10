@@ -38,6 +38,8 @@ def parse_secgemini_response(content: str) -> str:
     """
 
     if content.rstrip().endswith("|"):
-        return content.rstrip(string.whitespace + "|").rsplit("|", 1)[-1].strip()
+        return (
+            content.rstrip(string.whitespace + "|").rsplit("|", 1)[-1].strip().lower()
+        )
     else:
-        return content
+        return content.lower()
