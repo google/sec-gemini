@@ -16,6 +16,7 @@ use clap::Parser;
 
 mod completion;
 mod interact;
+mod markdown;
 mod update;
 
 /// Sec-Gemini swiss-army knife.
@@ -62,6 +63,10 @@ enum Command {
     /// Generates a shell completion file.
     #[command(name = "--generate-completion", visible_alias = "--completion")]
     Completion(completion::Action),
+
+    /// Renders a markdown input as if it was a Sec-Gemini output.
+    #[command(hide = true, name = "--render-markdown")]
+    RenderMarkdown(markdown::Action),
 }
 
 impl Action {
@@ -86,6 +91,7 @@ impl Command {
             }
             Command::CheckUpdate(x) => x.run().await,
             Command::Completion(x) => x.run().await,
+            Command::RenderMarkdown(x) => x.run(),
         }
     }
 }

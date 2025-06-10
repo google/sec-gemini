@@ -120,6 +120,7 @@ api! {
         pub version: String,
         pub use_experimental: bool = false,
         pub model_string: String,
+        pub description: Option<String> = Some("".to_string()),
         pub toolsets: Vec<OptionalToolSet> = Vec::new(),
     }
 }
@@ -148,8 +149,8 @@ api! {
         pub turns: u64 = 0,
         pub name: String,
         pub description: String,
-        pub create_time: u64 = now(),
-        pub update_time: u64 = now(),
+        pub create_time: f64 = now() as f64,
+        pub update_time: f64 = now() as f64,
         pub num_messages: u64 = 0,
         pub messages: Vec<Message> = Vec::new(),
         pub usage: Usage = UsageBuilder::new().build(),

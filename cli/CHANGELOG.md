@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add markdown rendering support
 - Use more colors in interactive session
 - Add `sec-gemini --completion` to generate shell completion files
 - Add icons when bundling packages

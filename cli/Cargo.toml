@@ -28,6 +28,7 @@ futures-util = "0.3.31"
 indicatif = "0.17.11"
 linefeed = "0.6.0"
 log = "0.4.27"
+markdown = "1.0.0"
 opener = "0.7.2"
 reqwest = { version = "0.12.15", features = ["json"] }
 semver = "1.0.26"

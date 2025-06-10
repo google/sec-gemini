@@ -23,6 +23,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use url::Url;
 use uuid::Uuid;
 
+use crate::cli::markdown::try_render_markdown;
 use crate::config::Config;
 use crate::or_fail;
 use crate::sdk::types::{Message, MessageType, PublicSession};
@@ -96,7 +97,7 @@ impl Options {
             match message.message_type {
                 MessageType::Result => {
                     progress.finish_and_clear();
-                    println!("{}", content.trim_end());
+                    println!("{}", try_render_markdown(&content).trim_end());
                     break;
                 }
                 MessageType::Info => set_message(&progress, &content),
