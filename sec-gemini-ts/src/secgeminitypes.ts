@@ -29,9 +29,9 @@ export type Attachment = {
    */
   filename: string;
   /**
-   * The mime type of the file.
+   * The mime type of the file. This is used as a hint, and it may be ignored.
    */
-  mime_type?: MimeType;
+  mime_type?: string;
   /**
    * The content of the file as string. Always base64 encoded.
    */

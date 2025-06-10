@@ -194,7 +194,9 @@ class InteractiveSession:
 
         return self.attach_file(fpath.name, content)
 
-    def attach_file(self, filename: str, content: bytes) -> Optional[PublicSessionFile]:
+    def attach_file(
+        self, filename: str, content: bytes, mime_type_hint: Optional[str] = None
+    ) -> Optional[PublicSessionFile]:
         """Attach a file to the session. Returns a PublicSessionFile with the
         information, or None in case of errors.
         """
@@ -207,6 +209,7 @@ class InteractiveSession:
         attachment = Attachment(
             session_id=self._session.id,
             filename=filename,
+            mime_type=mime_type_hint,
             content=encoded_content,
         )
 

@@ -17,8 +17,6 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from .enums import MimeType
-
 
 class Attachment(BaseModel):
     """Represents a file upload to the session."""
@@ -34,12 +32,10 @@ class Attachment(BaseModel):
         title="Filename",
         description="The name of the file.",
     )
-
-    # TODO: remove this field after the SDK stops using it.
-    mime_type: Optional[MimeType] = Field(
+    mime_type: Optional[str] = Field(
         None,
         title="Mime Type",
-        description="The mime type of the file.",
+        description="The mime type of the file. This is used as a hint, and it may be ignored.",
         deprecated=True,
     )
 
