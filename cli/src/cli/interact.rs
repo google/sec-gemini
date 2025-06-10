@@ -57,14 +57,17 @@ impl Options {
         let name = Uuid::new_v4().to_string();
         let session = Session::new(Arc::new(sdk), name, send).await;
         let interface = Arc::new(or_fail(Interface::new("sec-gemini")));
-        or_fail(interface.set_prompt("\x1b[0m> \x1b[1m"));
+        let style = "\0".bold().blue().to_string();
+        let (start, clear) = style.split_once('\0').unwrap();
+        or_fail(interface.set_prompt(&format!("{clear}> {start}")));
         loop {
-            let query = match or_fail(interface.read_line()) {
+            let line = or_fail(interface.read_line());
+            or_fail(write!(interface, "{clear}"));
+            let query = match line {
                 ReadResult::Eof => break,
                 ReadResult::Input(x) => x,
                 ReadResult::Signal(x) => unreachable!("{x:?}"),
             };
-            or_fail(write!(interface, "\x1b[0m"));
             if query.trim().is_empty() {
                 continue;
             }
@@ -84,10 +87,10 @@ impl Options {
 
     async fn execute(&self, query: &str, recv: &mut UnboundedReceiver<Message>, session: &Session) {
         let progress = ProgressBar::new_spinner();
-        progress.set_message("Sending request");
+        set_message(&progress, "Sending request");
         progress.enable_steady_tick(Duration::from_millis(200));
         session.send(query);
-        progress.set_message("Waiting response");
+        set_message(&progress, "Waiting response");
         while let Some(message) = recv.recv().await {
             let content = message.content.unwrap_or_default();
             match message.message_type {
@@ -96,7 +99,7 @@ impl Options {
                     println!("{}", content.trim_end());
                     break;
                 }
-                MessageType::Info => progress.set_message(content),
+                MessageType::Info => set_message(&progress, &content),
                 MessageType::Thinking if self.show_thinking => {
                     let mut thinking = String::new();
                     thinking.push_str(&"Thinking".bold().yellow().to_string());
@@ -137,4 +140,8 @@ async fn get_session(
         log::info!("Creating new CLI session.");
         Session::new(sdk, SESSION_NAME.to_string(), send).await
     }
+}
+
+fn set_message(progress: &ProgressBar, message: &str) {
+    progress.set_message(message.bold().cyan().to_string());
 }
