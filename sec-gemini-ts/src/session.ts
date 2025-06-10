@@ -541,21 +541,16 @@ class InteractiveSession {
    * Attaches a file (from memory) to the session.
    *
    * @param filename - The desired filename for the attachment.
-   * @param mimeType - The MIME type of the file (must be a supported value).
    * @param content - The file content as a string or ArrayBuffer/Uint8Array.
+   * @param mimeTypeHint - Hint for the MIME type of the file (may be ignored by the backend).
    * @throws Error if session not initialized, MIME type invalid, encoding fails, or API fails.
    */
   public async attachFile(
     filename: string,
-    mimeType: MimeTypeEnum | MimeType, // Allow enum or string literal
-    content: string | ArrayBuffer | Uint8Array
-  ): Promise<void> {
+    content: string | ArrayBuffer | Uint8Array,
+    mimeTypeHint?: string,
+  ): Promise<PublicSessionFile> {
     this._ensureInitialized();
-
-    // Validate MimeType Enum value if provided
-    if (typeof mimeType === 'string' && !(Object.values(MimeTypeEnum) as string[]).includes(mimeType)) {
-      console.warn(`Provided MIME type string "${mimeType}" is not in MimeTypeEnum. Ensure it's supported by the API.`);
-    }
 
     let bytes: Uint8Array;
     if (typeof content === 'string') {
@@ -579,7 +574,7 @@ class InteractiveSession {
     const attachment: Attachment = {
       session_id: this.id,
       filename: filename,
-      mime_type: mimeType as MimeType, // Cast Enum/string to MimeType union
+      mime_type: mimeTypeHint,
       content: encoded_content,
     };
 
@@ -594,16 +589,20 @@ class InteractiveSession {
     }
 
     // --- Handle Response ---
-    if (!resp || !resp.ok || resp.status_code !== ResponseStatusEnum.OK) {
+    if (!resp || !resp.ok || resp.data === undefined || resp.status_code !== ResponseStatusEnum.OK) {
       const errorMsg = `Attaching file failed: ${resp?.status_message || 'Unknown API error'} (Status: ${resp?.status_code})`;
       console.error(`[Session][Attachment][API]: ${errorMsg}`);
       throw new Error(errorMsg);
     }
 
+    const publicSessionFile: PublicSessionFile = resp.data as PublicSessionFile;
+
     console.info(`[Session][Attachment][API]: File ${filename} attached to session ${this.id}.`);
 
     // Refreshing cached PublicSession
     await this.fetchSession();
+
+    return publicSessionFile;
   }
 
   /**

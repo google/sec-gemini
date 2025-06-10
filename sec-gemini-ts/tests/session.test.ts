@@ -17,7 +17,7 @@
 import InteractiveSession from '../src/session';
 import { MessageTypeEnum } from '../src/secgeminienums';
 import { getMockSocket, CloseEvent as SocketCloseEvent } from './mock_socket';
-import { PublicUser } from '../src/secgeminitypes';
+import { PublicSessionFile, PublicUser } from '../src/secgeminitypes';
 import HttpClient from '../src/http';
 
 // Method to create a response message that should be returned on the web socket. This can be spied on.
@@ -329,7 +329,15 @@ describe('Session', () => {
       _checkHeaders(init!);
       if (input === 'http://google.com/v1/session/attach_file' && init!.method === 'POST') {
         attachFileReq = init!.body! as string;
-        return new Response(JSON.stringify({ ok: true, status_code: 200 }));
+        return new Response(JSON.stringify({ ok: true, status_code: 200,
+          data: {
+            name: 'filename1',
+            size: 18,
+            sha256: 'eb2eb8f9bbe4c506bd67c2a8b8f76badb0ab870b7c272fc273cd2b849281d4b9',
+            mime_type: 'text/plain',
+            content_type_label: 'txt',
+          }
+         }));
       }
       if (input === 'http://google.com/v1/session/get?session_id=a-b-c-d-e' && init!.method === 'GET') {
         if (detachFileRequest === undefined) {
@@ -355,17 +363,22 @@ describe('Session', () => {
       .mockImplementationOnce(mockFetchImplementation);
     // Send request and expect response.
 
-    let respPromise = session.attachFile('filename1', 'text/plain', 'filename1 contents');
-    expect(respPromise).resolves.not.toThrow();
-    await respPromise;
+    let attachRespPromise = session.attachFile('filename1', 'filename1 contents');
+    expect(attachRespPromise).resolves.not.toThrow();
+    let attachedSessionFile: PublicSessionFile = await attachRespPromise;
     expect(JSON.parse(attachFileReq!)).toEqual({
       session_id: 'a-b-c-d-e',
       filename: 'filename1',
-      mime_type: 'text/plain',
       content: 'ZmlsZW5hbWUxIGNvbnRlbnRz',
     });
     expect(detachFileRequest).not.toBeDefined();
     expect(session.files.length).toEqual(1);
+    // TODO add more fields
+    expect(attachedSessionFile.name === 'filename1')
+    expect(attachedSessionFile.size === 18)
+    expect(attachedSessionFile.sha256 === 'eb2eb8f9bbe4c506bd67c2a8b8f76badb0ab870b7c272fc273cd2b849281d4b9')
+    expect(attachedSessionFile.mime_type === 'text/plain')
+    expect(attachedSessionFile.content_type_label === 'txt')
 
     // Check that the session is being updated
     let fetchSessionPromise = session.fetchSession();
@@ -375,9 +388,9 @@ describe('Session', () => {
     expect(session.files.length).toEqual(1);
 
     // // Test file detachment
-    respPromise = session.detachFile(0);
-    expect(respPromise).resolves.not.toThrow();
-    await respPromise;
+    let detachRespPromise = session.detachFile(0);
+    expect(detachRespPromise).resolves.not.toThrow();
+    await detachRespPromise;
     expect(JSON.parse(detachFileRequest!)).toEqual({
       session_id: 'a-b-c-d-e',
       file_idx: 0,
