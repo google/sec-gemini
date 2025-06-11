@@ -21,13 +21,15 @@ use indicatif::ProgressBar;
 use linefeed::{Interface, ReadResult};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use url::Url;
-use uuid::Uuid;
 
 use crate::cli::markdown::try_render_markdown;
 use crate::config::Config;
 use crate::or_fail;
 use crate::sdk::types::{Message, MessageType, PublicSession};
 use crate::sdk::{Sdk, Session};
+use crate::util::choose;
+
+mod name;
 
 #[derive(clap::Args)]
 pub struct Options {
@@ -55,7 +57,8 @@ impl Options {
     pub async fn session(self) {
         let (sdk, _) = Sdk::new(self.sdk_options(true)).await;
         let (send, mut recv) = unbounded_channel::<Message>();
-        let name = Uuid::new_v4().to_string();
+        let name = format!("{}-{}", choose(name::ADJS), choose(name::TERMS));
+        println!("Session: {}", name.cyan());
         let session = Session::new(Arc::new(sdk), name, send).await;
         let interface = Arc::new(or_fail(Interface::new("sec-gemini")));
         let style = "\0".bold().blue().to_string();

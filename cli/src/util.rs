@@ -12,10 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use rand::Rng;
 use reqwest::header::{HeaderMap, HeaderValue, IntoHeaderName};
 
 pub const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 pub fn insert_static(headers: &mut HeaderMap, key: impl IntoHeaderName, value: &'static str) {
     assert!(headers.insert(key, HeaderValue::from_static(value)).is_none());
+}
+
+pub fn choose<T>(xs: &[T]) -> &T {
+    &xs[rand::rng().random_range(0 .. xs.len())]
 }
