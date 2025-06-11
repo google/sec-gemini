@@ -14,8 +14,8 @@
 
 import copy
 import hashlib
+import ipaddress
 import json
-import re
 
 import pytest
 from conftest import MOCK_SEC_GEMINI_API_HOST
@@ -171,11 +171,19 @@ def test_query_get_ips(secgemini_client: SecGemini):
     content = parse_secgemini_response(content)
     print(f"Parsed response: {content}")
 
+    def is_valid_ip(ip_str: str) -> bool:
+        # This supports both ipv4 and ipv6
+        try:
+            ipaddress.ip_address(ip_str)
+            return True
+        except ValueError:
+            return False
+
     info = json.loads(content)
     assert "ips" in info.keys()
     assert len(info["ips"]) > 0
     for ip in info["ips"]:
-        assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", ip)
+        assert is_valid_ip(ip)
     print("Answer passed all checks.")
 
 
