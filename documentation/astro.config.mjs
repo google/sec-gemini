@@ -17,7 +17,10 @@ export default defineConfig({
       sidebar: [
         {
           label: "Guides",
-          items: [{ label: "Typescript Example", slug: "guides/typescript" }],
+          items: [
+            { label: "Vanilla JS Example", slug: "guides/vanilla" },
+            { label: "Webcomponent Example", slug: "guides/webcomponent" },
+          ],
         },
         {
           label: "Reference",

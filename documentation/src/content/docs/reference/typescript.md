@@ -125,12 +125,12 @@ const session = await SecGemini.resumeSession("1473-3434-3434-3433");
 - Purpose: Attaches a file to the current session. This allows for uploading files to be used within the session's context.
 - Parameters:
   - `fileName` (string): The name of the file to be attached.
-  - `mimeType` (MimeType): The MIME type of the file.
-  - `fileContent` (string): The content of the file, potentially base64 encoded.
+  - `fileContent` (string | ArrayBuffer | Uint8Array): The content of the file, potentially base64 encoded.
+  - `mimeTypeHint` (MimeType, optional): The MIME type of the file, to hint.
 - Return Value: `Promise<void>` - A promise that resolves when the file is successfully attached to the session.
 
   ```typescript
-  await session.attachFile("myFile.txt", "image/jpeg", base64fileContent);
+  await session.attachFile("myFile.txt", base64fileContent);
   ```
 
 ### Accessing User Information
