@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Generate interactive session name like the Python SDK
 - Add markdown rendering support
 - Use more colors in interactive session
 - Add `sec-gemini --completion` to generate shell completion files

@@ -28,6 +28,9 @@ git diff --quiet ${ref:-origin/main} -- Cargo.* src || error "CHANGELOG.md is no
 info "Running unit tests"
 ./test.sh
 
+info "Syncing generated files"
+./sync.sh
+
 info "Updating CLI output in README.md"
 unset SEC_GEMINI_SHOW_THINKING
 unset SEC_GEMINI_API_KEY
