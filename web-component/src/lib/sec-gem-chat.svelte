@@ -17,12 +17,15 @@
   import MdiIncognito from "../icons/MdiIncognito.svelte";
 
   const {
-    resumeSession,
+    'session-id': resumeSession,
     theme = "light",
-    incognito = true,
-    sessionDescription,
-    sessionName,
+    incognito = false,
+    'api-key': apiKey = "",
+    'session-description': sessionDescription,
+    'session-name': sessionName,
+    "session-prompt": initialPrompt = "",
   } = $props();
+
 
   let compiledGlobStyles = $state("");
   let sanitizedStyleContent = $state("");
@@ -46,9 +49,9 @@
     streaming?: boolean;
   }
 
-  let apiKey = $state(localStorage.getItem("p9_api_key") || "");
+  let currentApiKey = $state(apiKey || localStorage.getItem("p9_api_key") || "");
   let inputApiKey = $state(localStorage.getItem("p9_api_key") || "");
-  let isKeySet = $derived(!!apiKey);
+  let isKeySet = $derived(!!currentApiKey);
   let isLoading = $state(false);
   let isLoggingIn = $state(false);
   let errorMessage = $state("");
@@ -210,7 +213,7 @@
       }
 
       localStorage.setItem("p9_api_key", inputApiKey);
-      apiKey = inputApiKey;
+      currentApiKey = inputApiKey;
       isKeySet = true;
       if (dialog) {
         dialog.showModal();
@@ -228,7 +231,7 @@
 
   function clearApiKey() {
     localStorage.removeItem("p9_api_key");
-    apiKey = "";
+    currentApiKey = "";
     isKeySet = false;
     messages = [
       {
@@ -245,7 +248,7 @@
   async function initializeSDK() {
     try {
       isLoading = true;
-      secGemSDK = await SecGemini.create(apiKey);
+      secGemSDK = await SecGemini.create(currentApiKey);
       if (resumeSession) {
         session = await secGemSDK.resumeSession(resumeSession);
         isSessionLogging = session._session.can_log;
@@ -320,7 +323,7 @@
   }
 
   onMount(async () => {
-    if (apiKey) {
+    if (currentApiKey) {
       initializeSDK();
     }
     const fontFaces = `@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&family=Noto+Sans+Mono:wght@100..900&family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');`;

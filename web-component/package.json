@@ -1,7 +1,7 @@
 {
   "name": "sec-gemini-web-component",
   "description": "A web component for Sec Gemini",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "type": "module",
   "license": "Apache-2.0",
   "files": [
