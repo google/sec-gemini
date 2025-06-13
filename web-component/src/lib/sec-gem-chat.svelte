@@ -17,15 +17,14 @@
   import MdiIncognito from "../icons/MdiIncognito.svelte";
 
   const {
-    'session-id': resumeSession,
+    "session-id": resumeSession,
     theme = "light",
     incognito = false,
-    'api-key': apiKey = "",
-    'session-description': sessionDescription,
-    'session-name': sessionName,
+    "api-key": apiKey = "",
+    "session-description": sessionDescription,
+    "session-name": sessionName,
     "session-prompt": initialPrompt = "",
   } = $props();
-
 
   let compiledGlobStyles = $state("");
   let sanitizedStyleContent = $state("");
@@ -49,7 +48,9 @@
     streaming?: boolean;
   }
 
-  let currentApiKey = $state(apiKey || localStorage.getItem("p9_api_key") || "");
+  let currentApiKey = $state(
+    apiKey || localStorage.getItem("p9_api_key") || "",
+  );
   let inputApiKey = $state(localStorage.getItem("p9_api_key") || "");
   let isKeySet = $derived(!!currentApiKey);
   let isLoading = $state(false);
@@ -74,7 +75,7 @@
     isProcessing = messages.some(
       (msg) =>
         (msg.role === "agent" && msg.message_type === MessageTypeEnum.INFO) ||
-        (msg.role === "system" && msg.content === "working")
+        (msg.role === "system" && msg.content === "working"),
     );
   });
 
@@ -132,7 +133,7 @@
     switch (message.message_type) {
       case MessageTypeEnum.RESULT:
         messages = [...messages, { ...message, streaming: true }].filter(
-          (msg) => msg.role !== "system"
+          (msg) => msg.role !== "system",
         );
         break;
       case MessageTypeEnum.INFO:
@@ -146,7 +147,7 @@
         break;
       case MessageTypeEnum.ERROR:
         messages = [...messages, message].filter(
-          (msg) => msg.role !== "system"
+          (msg) => msg.role !== "system",
         );
         errorMessage = message.content ?? "";
         break;
@@ -174,7 +175,7 @@
         id: crypto.randomUUID(),
         timestamp: Date.now() / 1000,
         message_type: "query",
-        role: "user",
+        role: "system",
         content: input_field,
         mime_type: "text/plain",
       };
@@ -248,16 +249,31 @@
   async function initializeSDK() {
     try {
       isLoading = true;
+      let isResumedSession = false;
       secGemSDK = await SecGemini.create(currentApiKey);
       if (resumeSession) {
-        session = await secGemSDK.resumeSession(resumeSession);
+        try {
+          session = await secGemSDK.resumeSession(resumeSession);
+          // Skip the initial prompt if resuming.
+          isResumedSession = true;
+        } catch (error) {
+          console.log("Failed to resume session, creating it.");
+          session = await secGemSDK.createSession({
+            id: resumeSession,
+            name: sessionName,
+            description: sessionDescription,
+            logSession: Boolean(!incognito),
+            model: "stable",
+            language: "en-US",
+          });
+        }
         isSessionLogging = session._session.can_log;
         // logging = session.
         session._session.messages.length > 0 &&
           (messages = session._session.messages.filter(
             (message: { message_type: string }) =>
               message.message_type === "result" ||
-              message.message_type === "query"
+              message.message_type === "query",
           ));
       } else {
         session = await secGemSDK.createSession({
@@ -270,7 +286,22 @@
         isSessionLogging = session._session.can_log;
       }
       console.log("incognito", !isSessionLogging);
+
       currentStreamer = await session.streamer(onmessage as any);
+
+      if (initialPrompt && !isResumedSession) {
+        console.log("Sending initial prompt:", initialPrompt);
+        const initialMessage: Message = {
+          id: crypto.randomUUID(),
+          timestamp: Date.now() / 1000,
+          message_type: "query",
+          role: "system",
+          content: initialPrompt,
+          mime_type: "text/plain",
+        };
+        messages = [...messages, initialMessage];
+        currentStreamer!.send(initialPrompt);
+      }
       isLoading = false;
     } catch (error) {
       console.error("Failed to initialize SDK:", error);
@@ -408,7 +439,7 @@
             setShowThinking={() => (showThinking = !showThinking)}
             {showThinking}
             thinkingMessages={thinkingMessages.filter(
-              (msg) => msg.message_type === "thinking"
+              (msg) => msg.message_type === "thinking",
             )}
           />
         {/if}
@@ -703,7 +734,8 @@
     @layer theme {
       :root,
       :host {
-        --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+        --font-sans:
+          ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
           "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
         --font-mono: Noto Sans Mono, monospace;
         --color-red-100: oklch(93.6% 0.032 17.717);
@@ -2633,16 +2665,20 @@
       }
 
       .shadow-md {
-        --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1)),
+        --tw-shadow:
+          0 4px 6px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1)),
           0 2px 4px -2px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
-        box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+        box-shadow:
+          var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
           var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
       }
 
       .shadow-sm {
-        --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)),
+        --tw-shadow:
+          0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)),
           0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
-        box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+        box-shadow:
+          var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
           var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
       }
 
@@ -2733,8 +2769,9 @@
       }
 
       .transition-colors {
-        transition-property: color, background-color, border-color,
-          outline-color, text-decoration-color, fill, stroke, --tw-gradient-from,
+        transition-property:
+          color, background-color, border-color, outline-color,
+          text-decoration-color, fill, stroke, --tw-gradient-from,
           --tw-gradient-via, --tw-gradient-to;
         transition-timing-function: var(
           --tw-ease,
@@ -3001,7 +3038,8 @@
           --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0
             calc(1px + var(--tw-ring-offset-width))
             var(--tw-ring-color, currentcolor);
-          box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+          box-shadow:
+            var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
             var(--tw-ring-offset-shadow), var(--tw-ring-shadow),
             var(--tw-shadow);
         }
@@ -3012,7 +3050,8 @@
           --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0
             calc(2px + var(--tw-ring-offset-width))
             var(--tw-ring-color, currentcolor);
-          box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+          box-shadow:
+            var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
             var(--tw-ring-offset-shadow), var(--tw-ring-shadow),
             var(--tw-shadow);
         }
