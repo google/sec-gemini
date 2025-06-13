@@ -234,6 +234,7 @@ class InteractiveSession {
     name?: string;
     description?: string;
     language?: string;
+    id?: string ; // Optional ID for creating named sessions.
   }): Promise<void> {
     const {
       ttl,
@@ -241,6 +242,7 @@ class InteractiveSession {
       name = '',
       description = '',
       language = 'en',
+      id = '', // Optional ID, can be empty for auto-generated
     } = options;
 
     // --- Validation ---
@@ -263,7 +265,7 @@ class InteractiveSession {
     }
 
     // --- Prepare Payload ---
-    const sessionId = randomUUID(); // Generate ID locally for the request
+    const sessionId = id || randomUUID(); // Generate ID locally for the request
     const sessionName = name || generateSessionName(); // Use generator if no name provided
 
     const registerPayload: PublicSessionInput = {
