@@ -127,7 +127,13 @@ pub async fn execute_command(query: &str, sdk: &Arc<Sdk>, session: &mut Session)
     let mut help = match query.first() {
         Some(x) if x == "help" => {
             query = &query[1 ..];
-            Some(Vec::new())
+            Some(
+                "Provides help about the available commands.\n
+Examples:
+  /help
+  /help session
+  /help session list",
+            )
         }
         _ => None,
     };
@@ -153,7 +159,7 @@ pub async fn execute_command(query: &str, sdk: &Arc<Sdk>, session: &mut Session)
     let (exec, arguments) = loop {
         match query.split_first() {
             None if help.is_some() => {
-                print_help(&help.unwrap());
+                println!("{}", help.unwrap());
                 println!("\nCommands:");
                 for command in commands {
                     let mut cmd = "/".to_string();
@@ -186,7 +192,7 @@ pub async fn execute_command(query: &str, sdk: &Arc<Sdk>, session: &mut Session)
                     }
                 };
                 if let Some(help) = &mut help {
-                    help.push(name);
+                    *help = command.help;
                 }
                 query = rest;
                 match command.data {
@@ -203,7 +209,7 @@ pub async fn execute_command(query: &str, sdk: &Arc<Sdk>, session: &mut Session)
                 partial_query(&full_query, query)
             );
         }
-        print_help(&help);
+        println!("{help}");
         if arguments.is_empty() {
             return;
         }
@@ -377,36 +383,10 @@ fn parse_quoted(input: &str) -> impl Iterator<Item = (usize, bool, char)> {
     })
 }
 
-fn print_help(query: &[&str]) {
-    match query {
-        [] => println!(
-            "Provides help about the available commands.
-
-Examples:
-  /help
-  /help session
-  /help session list"
-        ),
-        ["session"] => println!("Provides operations on sessions."),
-        ["session", "list"] => println!("Lists the user sessions."),
-        ["session", "create"] => println!(
-            "Creates a new session.
-
-If the --name argument is an empty string (the default), a name is generated."
-        ),
-        ["session", "resume"] => println!("Resumes an existing session."),
-        ["session", "delete"] => println!(
-            "Deletes an existing session.
-
-The current session cannot be deleted."
-        ),
-        _ => println!("Help is missing for {query:?}, please report a bug."),
-    }
-}
-
 #[derive(Debug)]
 struct Command {
     name: &'static str,
+    help: &'static str,
     data: CommandData,
 }
 
@@ -502,36 +482,39 @@ fn compl_session_name(completer: &Completer) -> Vec<String> {
     })
 }
 
-// TODO: Use macro to generate this.
-
-const COMMANDS: &[Command] =
-    &[Command { name: "session", data: CommandData::Node { cmds: CMD_SESSION } }];
-
-const CMD_SESSION: &[Command] = &[
-    Command {
-        name: "list",
-        data: CommandData::Leaf { exec: exec_session_list, args: &[arg_bool("refresh")] },
-    },
-    Command {
-        name: "create",
-        data: CommandData::Leaf {
-            exec: exec_session_create,
-            args: &[Argument { name: "name", default: Some(""), data: ArgumentData::Value }],
-        },
-    },
-    Command {
-        name: "resume",
-        data: CommandData::Leaf { exec: exec_session_resume, args: &[ARG_SESSION_NAME] },
-    },
-    Command {
-        name: "delete",
-        data: CommandData::Leaf { exec: exec_session_delete, args: &[ARG_SESSION_NAME] },
-    },
-];
-
-const ARG_SESSION_NAME: Argument =
-    Argument { name: "name", default: None, data: ArgumentData::Custom(compl_session_name) };
-
-const fn arg_bool(name: &'static str) -> Argument {
-    Argument { name, default: Some("false"), data: ArgumentData::Enum { opts: &["true", "false"] } }
+macro_rules! make {
+    (cmds $($cmd:tt)*) => (&[$(make!(cmd $cmd)),*]);
+    (cmd [ $name:literal $help:literal $($cmd:tt)* ]) => {
+        Command { name: $name, help: $help, data: CommandData::Node { cmds: make!(cmds $($cmd)*) } }
+    };
+    (cmd { $name:literal $help:literal $exec:ident$($arg:tt)* }) => {
+        Command { name: $name, help: $help, data: CommandData::Leaf {
+            exec: $exec, args: &[$(make!(arg $arg)),*] } }
+    };
+    (arg ( $name:literal $(= $default:literal)? : $($data:tt)* )) => {
+        Argument { name: $name, default: make!(opt $($default)?), data: make!(data $($data)*) }
+    };
+    (data *) => (ArgumentData::Value);
+    (data $($option:literal)+) => (ArgumentData::Enum { opts: &[$($option),+]});
+    (data $compl:ident) => (ArgumentData::Custom($compl));
+    (opt) => (None);
+    (opt $val:literal) => (Some($val));
 }
+
+macro_rules! make_commands {
+    ($($cmd:tt)*) => (make!(cmds $($cmd)*));
+}
+
+const COMMANDS: &[Command] = make_commands! {
+    [ "session" "Provides operations on sessions."
+       { "list" "Lists the user sessions."
+          exec_session_list ( "refresh" = "false" : "true" "false" )  }
+       { "create" "Creates a new session.\n
+If the --name argument is an empty string (the default), a name is generated."
+          exec_session_create ( "name" = "" : * ) }
+       { "resume" "Resumes an existing session."
+          exec_session_resume ( "name" : compl_session_name ) }
+       { "delete" "Deletes an existing session.\n
+The current session cannot be deleted."
+          exec_session_delete ( "name" : compl_session_name ) } ]
+};
