@@ -17,7 +17,7 @@ set -e
 . ./color.sh
 
 PYTHON=../sec-gemini-python/sec_gemini/session.py
-RUST=src/cli/interact/name.rs
+RUST=src/sdk/name.rs
 
 match() { echo '/^ *'$1' = \[/,/^ *\]/p'; }
 subst() { echo 's/'$1' = /pub const '$2': \&[\&str] = \&/'; }
@@ -27,7 +27,7 @@ extract() {
   echo ';' >> $RUST
 }
 
-sed -n '1,/^$/p' src/cli/interact.rs > $RUST
+sed -n '1,/^$/p' src/sdk.rs > $RUST
 extract adjs ADJS
 extract terms TERMS
 rustfmt $RUST

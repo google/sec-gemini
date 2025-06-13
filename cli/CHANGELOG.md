@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add interactive commands with help and completion
 - Generate interactive session name like the Python SDK
 - Add markdown rendering support
 - Use more colors in interactive session
