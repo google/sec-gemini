@@ -42,6 +42,8 @@ url = "2.5.4"
 uuid = { version = "1.16.0", features = ["v4"] }
 
 [lints]
+# TODO(https://github.com/rust-lang/rust/issues/53667): Remove when stable.
+clippy.collapsible-if = "allow"
 clippy.mod-module-files = "warn"
 clippy.unit-arg = "allow"
 rust.elided-lifetimes-in-paths = "warn"

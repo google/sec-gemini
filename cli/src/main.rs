@@ -48,6 +48,13 @@ macro_rules! try_to {
     };
 }
 
+macro_rules! user_error {
+    ($($fmt:tt)*) => {{
+        print!("{}: ", "Error".red());
+        println!($($fmt)*);
+    }};
+}
+
 mod cli;
 mod config;
 mod sdk;

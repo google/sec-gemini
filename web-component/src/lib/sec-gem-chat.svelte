@@ -22,11 +22,13 @@
   import MaterialSymbolsDeleteOutline from "../icons/MaterialSymbolsDeleteOutline.svelte";
 
   const {
-    sessionId,
+    "session-id": sessionId,
     theme = "light",
-    incognito = true,
-    sessionDescription,
-    sessionName,
+    incognito = false,
+    "api-key": apiKey,
+    "session-description": sessionDescription,
+    "session-name": sessionName,
+    "session-prompt": initialPrompt,
   } = $props();
 
   let isOpen = $state(true);
@@ -55,9 +57,9 @@
     streaming?: boolean;
   }
 
-  let apiKey = $state(localStorage.getItem("p9_api_key") || "");
-  let inputApiKey = $state(localStorage.getItem("p9_api_key") || "");
-  let isKeySet = $derived(!!apiKey);
+  let currentApiKey = $state(apiKey || localStorage.getItem("p9_api_key"));
+  let inputApiKey = $state("");
+  let isKeySet = $derived(!!currentApiKey);
   let isLoading = $state(false);
   let isLoggingIn = $state(false);
   let errorMessage = $state("");
@@ -202,7 +204,7 @@
         id: crypto.randomUUID(),
         timestamp: Date.now() / 1000,
         message_type: "query",
-        role: "user",
+        role: "system",
         content: input_field,
         mime_type: "text/plain",
       };
@@ -241,7 +243,7 @@
       }
 
       localStorage.setItem("p9_api_key", inputApiKey);
-      apiKey = inputApiKey;
+      currentApiKey = inputApiKey;
       isKeySet = true;
       if (dialog) {
         dialog.showModal();
@@ -259,7 +261,7 @@
 
   function clearApiKey() {
     localStorage.removeItem("p9_api_key");
-    apiKey = "";
+    currentApiKey = "";
     isKeySet = false;
     messages = [
       {
@@ -274,12 +276,15 @@
   }
 
   async function initializeSDK() {
+    let isResumedSession = false;
     try {
       isLoading = true;
-      secGemSDK = await SecGemini.create(apiKey);
+      localStorage.setItem("p9_api_key", currentApiKey);
+      secGemSDK = await SecGemini.create(currentApiKey);
       if (sessionId) {
         session = await secGemSDK.resumeSession(sessionId);
         console.log(session);
+        isResumedSession = true;
         //@ts-ignore
         isSessionLogging = session._session.can_log;
         //@ts-ignore
@@ -305,7 +310,22 @@
         isSessionLogging = session._session.can_log;
       }
       console.log("incognito", !isSessionLogging);
+
       currentStreamer = await session.streamer(onmessage as any);
+
+      if (initialPrompt && !isResumedSession) {
+        console.log("Sending initial prompt:", initialPrompt);
+        const initialMessage: Message = {
+          id: crypto.randomUUID(),
+          timestamp: Date.now() / 1000,
+          message_type: "query",
+          role: "system",
+          content: initialPrompt,
+          mime_type: "text/plain",
+        };
+        messages = [...messages, initialMessage];
+        currentStreamer!.send(initialPrompt);
+      }
       isLoading = false;
     } catch (error) {
       console.error("Failed to initialize SDK:", error);
@@ -358,7 +378,7 @@
   }
 
   onMount(async () => {
-    if (apiKey) {
+    if (currentApiKey) {
       initializeSDK();
     }
     const fontFaces = `@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&family=Noto+Sans+Mono:wght@100..900&family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');`;
@@ -1039,7 +1059,6 @@
       embed,
       object {
         display: block;
-        vertical-align: middle;
       }
       img,
       video {

@@ -27,14 +27,17 @@ This is the quickest way to get started. Include the provided script in your HTM
 Once the component is installed (either via CDN or npm), you can use the `<sec-gem-chat>` tag in your HTML. Customize its behavior by setting the following attributes:
 
 ```html
+
+
 <sec-gem-chat
-  incognito="true"
-  sessionId=""
-  sessionName="My Session"
-  sessionDescription="My description"
-  sessionPrompt="You are a senior cybersecurity threat intelligence analyst"
-  theme="dark"
->
+      incognito="true"
+      session-id=""
+      session-name="TestName"
+      session-description="TestDescription"
+      session-prompt="You are a senior cybersecurity threat intelligence analyst..."
+      theme="dark"
+      api-key="..."
+    >
 </sec-gem-chat>
 ```
 

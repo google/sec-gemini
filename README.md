@@ -13,11 +13,12 @@ We also have a web component to ease integration on your website. Here's how to 
 ```html
 <sec-gem-chat
       incognito="true"
-      sessionId=""
-      sessionName="TestName"
-      sessionDescription="TestDescription"
-      sessionPrompt=""
+      session-id=""
+      session-name="TestName"
+      session-description="TestDescription"
+      session-prompt=""
       theme="dark"
+      api-key="..."
     >
     </sec-gem-chat>
 <script src='https://cdn.jsdelivr.net/npm/sec-gemini-web-component/dist/swc.iife.js'>
