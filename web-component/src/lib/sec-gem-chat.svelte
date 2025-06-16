@@ -70,6 +70,8 @@
   let messageInput: null | HTMLTextAreaElement = $state(null);
   let isSessionLogging: boolean = $state(true);
   let showThinking: boolean = $state(false);
+  let systemPrompt: string | undefined = $state(initialPrompt);
+  let showPrompt: boolean = $state(false);
 
   let secGemSDK: SecGemini;
   let session: InteractiveSession | null = $state(null);
@@ -86,6 +88,8 @@
         (msg.role === "system" && msg.content === "working")
     );
   });
+
+  function handlePromptChange() {}
 
   function setPrompt(prompt: string) {
     input_field = prompt;
@@ -155,6 +159,7 @@
   }
 
   function onmessage(message: Message) {
+    console.log(message);
     let now = Date.now();
     if (message.message_type === "thinking") {
       thinkingMessages.push(message);
@@ -199,13 +204,14 @@
 
   function handleSend(e: Event) {
     e.preventDefault();
+    showPrompt = false;
     if (input_field.trim().length >= 3) {
       const userMessage: Message = {
         id: crypto.randomUUID(),
         timestamp: Date.now() / 1000,
         message_type: "query",
-        role: "system",
-        content: input_field,
+        role: "user",
+        content: input_field + " " + systemPrompt,
         mime_type: "text/plain",
       };
       const placeHolderMessage: MessageWithStreaming = {
@@ -222,7 +228,7 @@
 
       setTimeout(scrollToTop, 100);
 
-      currentStreamer!.send(input_field);
+      currentStreamer!.send(input_field + " " + systemPrompt);
       input_field = "";
     }
   }
@@ -298,6 +304,7 @@
         //@ts-ignore
         files = session._session.files;
       } else {
+        isLoading = true;
         session = await secGemSDK.createSession({
           name: sessionName,
           description: sessionDescription,
@@ -312,20 +319,31 @@
       console.log("incognito", !isSessionLogging);
 
       currentStreamer = await session.streamer(onmessage as any);
-
-      if (initialPrompt && !isResumedSession) {
-        console.log("Sending initial prompt:", initialPrompt);
-        const initialMessage: Message = {
-          id: crypto.randomUUID(),
-          timestamp: Date.now() / 1000,
-          message_type: "query",
-          role: "system",
-          content: initialPrompt,
-          mime_type: "text/plain",
-        };
-        messages = [...messages, initialMessage];
-        currentStreamer!.send(initialPrompt);
-      }
+      isLoading = false;
+    } catch (error) {
+      console.error("Failed to initialize SDK:", error);
+      errorMessage =
+        "Failed to initialize chat. Please check your API key and try again.";
+      isLoading = false;
+      isKeySet = false;
+    }
+  }
+  async function resetSession() {
+    try {
+      isLoading = true;
+      session = await secGemSDK.createSession({
+        name: sessionName,
+        description: sessionDescription,
+        logSession: Boolean(!incognito),
+        model: "stable",
+        language: "en-US",
+      });
+      console.log(session);
+      //@ts-ignore
+      isSessionLogging = session._session.can_log;
+      console.log("incognito", !isSessionLogging);
+      currentStreamer = await session.streamer(onmessage as any);
+      messages = [];
       isLoading = false;
     } catch (error) {
       console.error("Failed to initialize SDK:", error);
@@ -410,7 +428,43 @@
           Sec-Gemini
         </h2>
         {#if isKeySet}
-          <div class="flex gap-2">
+          <div class="flex gap-2 relative">
+            {#if !sessionId}
+              <button
+                class="p-2 my-auto text-sm ml-auto mr-2 h-auto w-auto flex sm:min-w-32 items-center justify-center gap-1 rounded-full bg-base border border-text/50 hover:bg-accent disabled:pointer-events-none disabled:hover:bg-transparent hover:cursor-pointer"
+                onclick={async () => await resetSession()}
+              >
+                <span class="hidden md:inline">New Session</span>
+                <span class="inline md:hidden">New</span>
+              </button>
+            {/if}
+            {#if systemPrompt}
+              <button
+                class="p-2 my-auto text-sm ml-auto mr-2 h-auto w-auto flex sm:min-w-32 items-center justify-center gap-1 rounded-full bg-base border border-text/50 hover:bg-accent disabled:pointer-events-none disabled:hover:bg-transparent hover:cursor-pointer"
+                onclick={() => (showPrompt = !showPrompt)}
+              >
+                <span class="hidden md:inline">System Prompt</span>
+                <span class="inline md:hidden">Prompt</span>
+              </button>
+              {#if showPrompt}
+                <div
+                  class="absolute top-14 left-0 mt-2 flex bg-accent rounded-xl p-2 z-50 border-base border"
+                >
+                  <textarea
+                    class="sm:w-72 h-full max-h-[4lh] bg-accent"
+                    bind:value={systemPrompt}
+                    oninput={() => handlePromptChange}
+                  ></textarea>
+                  <div class="flex flex-col">
+                    <button
+                      class="hover:cursor-pointer"
+                      onclick={() => (showPrompt = !showPrompt)}
+                      ><MaterialSymbolsClose size={1.5} /></button
+                    >
+                  </div>
+                </div>
+              {/if}
+            {/if}
             <button
               class="p-2 my-auto text-sm ml-auto mr-2 h-auto w-auto flex sm:min-w-32 items-center justify-center gap-1 rounded-full bg-base border border-text/50 hover:bg-accent disabled:pointer-events-none disabled:hover:bg-transparent hover:cursor-pointer"
               onclick={() => (showThinking = !showThinking)}
@@ -506,7 +560,7 @@
             </div>
           </div>
         {:else}
-          <MessageList {messages} {session} {isSessionLogging} />
+          <MessageList {messages} {session} {isSessionLogging} {systemPrompt} />
         {/if}
         <div class="flex mt-auto">
           {#if session && (files.length > 0 || isUploading)}
@@ -709,7 +763,7 @@
           class="text-center text-xs px-2 pb-0 pt-2 line-clamp-1 text-text-muted"
         >
           Prompts and responses will be used to improve Sec-Gemini. It can make
-          mistakes, so please double check everything. v0.6
+          mistakes, so please double check everything. v0.61
         </p>
         {#if errorMessage}
           <div class="p-3 bg-red-100 text-red-700 rounded-md mt-2">
@@ -1059,6 +1113,7 @@
       embed,
       object {
         display: block;
+        vertical-align: middle;
       }
       img,
       video {
@@ -1180,6 +1235,12 @@
       }
       .top-4 {
         top: calc(var(--spacing) * 4);
+      }
+      .top-14 {
+        top: calc(var(--spacing) * 14);
+      }
+      .top-16 {
+        top: calc(var(--spacing) * 16);
       }
       .top-20 {
         top: calc(var(--spacing) * 20);
@@ -1861,21 +1922,18 @@
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 1;
-        line-clamp: 1;
       }
       .line-clamp-3 {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 3;
-        line-clamp: 1;
       }
       .line-clamp-4 {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 4;
-        line-clamp: 1;
       }
       .block {
         display: block;
@@ -1933,6 +1991,9 @@
       }
       .h-full {
         height: 100%;
+      }
+      .max-h-\[4lh\] {
+        max-height: 4lh;
       }
       .max-h-\[130px\] {
         max-height: 130px;
@@ -3068,6 +3129,11 @@
       .sm\:h-auto {
         @media (width >= 40rem) {
           height: auto;
+        }
+      }
+      .sm\:w-72 {
+        @media (width >= 40rem) {
+          width: calc(var(--spacing) * 72);
         }
       }
       .sm\:w-auto {

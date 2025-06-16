@@ -20,7 +20,7 @@
     Array<{ messageId: any; type: "like" | "dislike" }>
   >([]);
 
-  let { messages, session, isSessionLogging } = $props();
+  let { messages, session, isSessionLogging, systemPrompt } = $props();
 
   const setFeedbackHistory = (
     newFeedbackHistory: {
@@ -197,7 +197,7 @@
       <div
         class="bg-accent p-4 rounded-tr-none rounded-3xl w-fit ml-auto min-w-32 max-w-lg animate-slidein opacity-0"
       >
-        {#if message.content.length > 170}
+        {#if message.content.replace(systemPrompt, "").length > 170}
           <button
             onclick={toggleHeight}
             class="rounded-full hover:bg-accent-light p-2 hover:cursor-pointer float-right rotate-90"
@@ -209,20 +209,23 @@
           </button>
         {/if}
         <div class="line-clamp-3 overflow-clip">
-          {message.content}
+          {message.content.replace(systemPrompt, "")}
         </div>
       </div>
     {:else if message.role === "agent" || message.role === "system"}
       <div class="flex gap-2 chat group">
         {#if message.message_type === MessageTypeEnum.ERROR}
           <div class="rounded-full flex h-full items-center">
-            <MaterialSymbolsErrorOutlineRounded class="text-red-500" size={2} />
+            <MaterialSymbolsErrorOutlineRounded
+              class="text-red-500 flex-shrink-0"
+              size={2}
+            />
             <span class="ml-2 md:ml-4 text-red-500">{message.content}</span>
           </div>
         {:else}
           <div class="rounded-full flex h-full items-center">
             <SecGeminiLogoDuel
-              class="mt-1.5"
+              class="mt-1.5 flex-shrink-0"
               animate={message.message_type === MessageTypeEnum.INFO}
               incognito={!isSessionLogging}
               size={2}
