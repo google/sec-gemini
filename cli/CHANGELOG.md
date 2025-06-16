@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add shell command execution (requires `sh`)
 - Add interactive commands with help and completion
 - Generate interactive session name like the Python SDK
 - Add markdown rendering support

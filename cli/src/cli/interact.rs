@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::borrow::Cow;
 use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
 
 use colored::Colorize;
+use dialoguer::Input;
 use indicatif::ProgressBar;
+use tokio::process::Command;
 use tokio::task::spawn_blocking;
 use url::Url;
 
@@ -42,34 +45,38 @@ pub struct Options {
     /// Sec-Gemini base URL.
     #[arg(hide = true, long, default_value = "https://api.secgemini.google")]
     base_url: Url,
+
+    #[arg(skip)]
+    shell_authorized: bool,
 }
 
 impl Options {
-    pub async fn query(self, query: &str) {
+    pub async fn query(mut self, query: &str) {
+        self.resolve().await;
         let sdk = Arc::new(Sdk::new(self.sdk_options(false)).await);
         let mut session = get_session(sdk.clone(), &sdk.cached_sessions().await).await;
         self.execute(query, &mut session).await
     }
 
-    pub async fn session(self) {
+    pub async fn session(mut self) {
+        self.resolve().await;
         let sdk = Sdk::new(self.sdk_options(true)).await;
         let sdk = Arc::new(sdk);
         let mut session = Session::new(sdk.clone(), String::new()).await;
-        let mut interface = Arc::new(or_fail(linefeed::Interface::new("sec-gemini")));
+        let interface = Arc::new(or_fail(linefeed::Interface::new("sec-gemini")));
         let style = "\0".bold().blue().to_string();
         let (start, clear) = style.split_once('\0').unwrap();
         or_fail(interface.set_prompt(&format!("{clear}> {start}")));
         let _ = interface.set_completer(Arc::new(cmds::Completer::new(sdk.clone())));
         loop {
-            let (iface, line) = try_to!(
+            let line = try_to!(
                 "read line",
-                spawn_blocking(move || {
-                    let line = or_fail(interface.read_line());
-                    (interface, line)
+                spawn_blocking({
+                    let interface = interface.clone();
+                    move || or_fail(interface.read_line())
                 })
                 .await
             );
-            interface = iface;
             or_fail(write!(interface, "{clear}"));
             let query = match line {
                 linefeed::ReadResult::Eof => break,
@@ -88,6 +95,13 @@ impl Options {
         }
     }
 
+    async fn resolve(&mut self) {
+        if console::user_attended() {
+            // TODO: Make this configurable (with an option to ask the user each time).
+            self.shell_authorized = true;
+        }
+    }
+
     fn sdk_options(&self, interactive: bool) -> crate::sdk::Options {
         let api_key = match &self.api_key {
             Some(x) => Config::frozen(x.clone()),
@@ -98,30 +112,51 @@ impl Options {
     }
 
     async fn execute(&self, query: &str, session: &mut Session) {
-        let progress = ProgressBar::new_spinner();
-        set_message(&progress, "Sending request");
-        progress.enable_steady_tick(Duration::from_millis(200));
-        session.send(query);
+        let mut progress = new_progress();
+        let query: Cow<'_, str> = if self.shell_authorized {
+            format!(
+                "{query}\n
+If you need to run a command on my machine, use the following format. I will pass <command> to `sh
+-c` in my shell and send you the exit status, standard output, and standard error (truncated to a
+couple hundred bytes each). End your message immediately after <command>, don't add any more text.
+If you need any information retrievable by running a command (like my system), run the command to
+get the information instead of asking me for the information. The format is:
+{EXEC_SHELL_CMD}<command>"
+            )
+            .into()
+        } else {
+            query.into()
+        };
+        session.send(&query);
         set_message(&progress, "Waiting response");
         while let Some(message) = session.recv().await {
             let content = message.content.unwrap_or_default();
             match message.message_type {
                 MessageType::Result => {
                     progress.finish_and_clear();
+                    if let Some((prefix, command)) = content.split_once(EXEC_SHELL_CMD) {
+                        if !prefix.is_empty() {
+                            println!("{}", try_render_markdown(prefix).trim_end());
+                        }
+                        println!("{}", "=== Enter shell command execution flow".bold().purple());
+                        let response = execute_shell_command(command).await;
+                        println!("{}", "=== Exit shell command execution flow".bold().purple());
+                        progress = new_progress();
+                        session.send(&response);
+                        continue;
+                    }
                     println!("{}", try_render_markdown(&content).trim_end());
                     break;
                 }
                 MessageType::Info => set_message(&progress, &content),
                 MessageType::Thinking if self.show_thinking => {
                     let mut thinking = String::new();
-                    thinking.push_str(&"Thinking".bold().yellow().to_string());
-                    thinking.push('(');
-                    thinking.push_str(&message.actor);
-                    thinking.push_str("): ");
+                    write!(thinking, "{}", "Thinking".bold().yellow()).unwrap();
+                    write!(thinking, "({}): ", message.actor).unwrap();
                     if let Some(subtype) = message.message_sub_type {
                         write!(thinking, "[{subtype}] ").unwrap();
                     }
-                    thinking.push_str(&content);
+                    write!(thinking, "{}", content.yellow()).unwrap();
                     progress.println(thinking);
                 }
                 MessageType::Error => fail!("{content}"),
@@ -154,4 +189,78 @@ async fn get_session(sdk: Arc<Sdk>, sessions: &[PublicSession]) -> Session {
 
 fn set_message(progress: &ProgressBar, message: &str) {
     progress.set_message(message.bold().cyan().to_string());
+}
+
+const EXEC_SHELL_CMD: &str = "Execute shell command: ";
+
+async fn execute_shell_command(command: &str) -> String {
+    println!(
+        "Sec-Gemini wants to execute the following command on your machine:\n{}",
+        command.yellow()
+    );
+    if let Some(error) = authorize() {
+        return error;
+    }
+    let output =
+        try_to!("execute shell command", Command::new("sh").arg("-c").arg(command).output().await);
+    let outcome: Cow<'_, str> = match output.status.code() {
+        None => if output.status.success() { "succeeded" } else { "failed" }.into(),
+        Some(0) => "succeeded".into(),
+        Some(code) => format!("failed with exit code {code}").into(),
+    };
+    let mut response = format!("The command {outcome}. ");
+    if output.stdout.is_empty() {
+        writeln!(response, "There is no standard output.").unwrap();
+    } else {
+        extract(&mut response, "standard output", output.stdout);
+    }
+    if !output.stderr.is_empty() {
+        extract(&mut response, "standard error", output.stderr);
+    }
+    print!("The result of the execution is:\n{}", response.blue());
+    println!("Do you authorize sending this result to Sec-Gemini?");
+    if let Some(error) = authorize() {
+        return error;
+    }
+    response
+}
+
+fn extract(resp: &mut String, name: &str, src: Vec<u8>) {
+    let Ok(src) = String::from_utf8(src) else {
+        return writeln!(resp, "The {name} was not UTF-8 and has been discarded.").unwrap();
+    };
+    let indices = src.char_indices().map(|(i, _)| i).chain(std::iter::once(src.len()));
+    #[allow(clippy::double_ended_iterator_last)]
+    let len = indices.filter(|&i| i <= 200).last().unwrap();
+    if len < src.len() {
+        write!(resp, "The {name} was {} bytes long. ", src.len()).unwrap();
+        writeln!(resp, "The first {len} bytes are:\n{}", &src[.. len]).unwrap();
+    } else {
+        writeln!(resp, "The {name} is:\n{src}").unwrap();
+    }
+    if resp.ends_with("\n\n") {
+        let _ = resp.pop();
+    }
+}
+
+fn authorize() -> Option<String> {
+    let prompt =
+        format!("Type {} to authorize ({} or anything else to deny)", "yes".green(), "no".red());
+    let value: String = try_to!(
+        "read authorization from terminal",
+        Input::new().with_prompt(prompt).interact_text(),
+    );
+    if value == "yes" {
+        None
+    } else {
+        println!("Authorization was {}.", "denied".red());
+        Some("You are not allowed to execute this shell command.".to_string())
+    }
+}
+
+fn new_progress() -> ProgressBar {
+    let progress = ProgressBar::new_spinner();
+    set_message(&progress, "Sending request");
+    progress.enable_steady_tick(Duration::from_millis(200));
+    progress
 }
