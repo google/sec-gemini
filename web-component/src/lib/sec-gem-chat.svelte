@@ -95,7 +95,6 @@
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.multiple = false;
-    fileInput.accept = Object.values(MimeTypeEnum).join(",");
     fileInput.onchange = async (event) => {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
