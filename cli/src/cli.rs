@@ -15,6 +15,7 @@
 use clap::Parser;
 
 mod completion;
+mod config;
 mod interact;
 mod markdown;
 mod update;
@@ -50,6 +51,10 @@ pub struct Action {
 #[command(args_conflicts_with_subcommands = true)]
 #[command(disable_help_subcommand = true)]
 enum Command {
+    /// Reads, writes, or deletes configuration files.
+    #[command(name = "--config")]
+    Config(config::Action),
+
     /// Opens the Sec-Gemini web UI in a browser.
     #[command(name = "--open-ui", visible_alias = "--ui")]
     OpenUi,
@@ -86,6 +91,7 @@ impl Action {
 impl Command {
     async fn run(self) {
         match self {
+            Command::Config(x) => x.run().await,
             Command::OpenUi => {
                 try_to!("open browser", opener::open_browser("https://ui.secgemini.google/"))
             }

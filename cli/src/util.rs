@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io::ErrorKind;
+use std::path::Path;
+
 use rand::Rng;
 use reqwest::header::{HeaderMap, HeaderValue, IntoHeaderName};
 
@@ -23,4 +26,24 @@ pub fn insert_static(headers: &mut HeaderMap, key: impl IntoHeaderName, value: &
 
 pub fn choose<T>(xs: &[T]) -> &T {
     &xs[rand::rng().random_range(0 .. xs.len())]
+}
+
+pub async fn read_file(path: impl AsRef<Path>) -> std::io::Result<Option<Vec<u8>>> {
+    let path = path.as_ref();
+    log::debug!("Reading {}", path.display());
+    match tokio::fs::read(path).await {
+        Ok(x) => Ok(Some(x)),
+        Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+pub async fn remove_file(path: impl AsRef<Path>) -> std::io::Result<()> {
+    let path = path.as_ref();
+    log::debug!("Deleting {}", path.display());
+    match tokio::fs::remove_file(path).await {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e),
+    }
 }

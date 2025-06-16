@@ -22,6 +22,7 @@ use colored::Colorize;
 use indicatif::HumanDuration;
 use tokio::runtime::Handle;
 
+use crate::config::{self, DynConfig};
 use crate::sdk::types::now;
 use crate::sdk::{Sdk, Session};
 
@@ -418,6 +419,57 @@ enum ArgumentData {
     Custom(fn(&Completer) -> Vec<String>),
 }
 
+fn exec_config(mut input: CommandInput<'_>) -> CommandOutput<'_> {
+    Box::pin(async move {
+        let name = &input.args["name"];
+        if name.is_empty() {
+            let width = config::list().map(|x| x.name().len()).max().unwrap();
+            for config in config::list() {
+                print_config(Some(width), config).await;
+            }
+            return;
+        }
+        let Some(config) = config::list().find(|x| x.name() == name) else {
+            return user_error!("unknown --name={name}");
+        };
+        match input.args["action"].as_str() {
+            "get" => (),
+            "set" => {
+                let value = input.args.remove("value").unwrap();
+                if let Some(error) = config.validate(&value) {
+                    return user_error!("invalid value: {error}");
+                }
+                DynConfig::set_user(config, value);
+            }
+            "unset" => config.unset(),
+            "save" => {
+                let (value, source) = config.get().await;
+                match source {
+                    config::Source::File => println!("Already saved."),
+                    _ => config.write(value).await,
+                }
+            }
+            "reset" => config.delete().await,
+            x => user_error!("unknown --action={x}"),
+        }
+        print_config(None, config).await;
+    })
+}
+
+async fn print_config(width: Option<usize>, config: &DynConfig) {
+    let width = width.unwrap_or(config.name().len());
+    print!("{:>width$}: ", config.name().purple());
+    let (value, source) = config.get().await;
+    match source {
+        config::Source::File => return println!("{} (saved)", value.green()),
+        _ => print!("{} (not saved, ", value.yellow()),
+    }
+    match config.get_file().await {
+        None => println!("no saved value)"),
+        Some(value) => println!("saved value is {})", value.cyan()),
+    }
+}
+
 fn exec_session_list(input: CommandInput<'_>) -> CommandOutput<'_> {
     Box::pin(async move {
         match input.args["refresh"].as_str() {
@@ -482,6 +534,10 @@ fn compl_session_name(completer: &Completer) -> Vec<String> {
     })
 }
 
+fn compl_config_name(_: &Completer) -> Vec<String> {
+    config::list().map(|x| x.name().to_string()).collect()
+}
+
 macro_rules! make {
     (cmds $($cmd:tt)*) => (&[$(make!(cmd $cmd)),*]);
     (cmd [ $name:literal $help:literal $($cmd:tt)* ]) => {
@@ -506,6 +562,19 @@ macro_rules! make_commands {
 }
 
 const COMMANDS: &[Command] = make_commands! {
+    { "config" "Reads, writes, or deletes configuration values.\n
+If --name is empty (the default), all configuration values are printed.\n
+The --action argument controls the operation (ignored if --name is empty):
+  - get: prints the current and config file value
+  - set: updates the current value (for the current execution)
+  - unset: resets the current value to the config file (if any)
+  - save: saves the current value to the config file
+  - reset: deletes the config file\n
+The --value argument is only used by write operations."
+       exec_config
+       ( "name" = "" : compl_config_name )
+       ( "action" = "get" : "get" "set" "unset" "save" "reset" )
+       ( "value" = "" : * ) }
     [ "session" "Provides operations on sessions."
        { "list" "Lists the user sessions."
           exec_session_list ( "refresh" = "false" : "true" "false" )  }

@@ -12,165 +12,267 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::ErrorKind;
+use std::error::Error;
+use std::fmt::Display;
+use std::marker::PhantomData;
 use std::ops::Deref;
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
+use clap::ValueEnum;
 use dialoguer::Input;
 use directories::ProjectDirs;
+use url::Url;
 
-use crate::fail;
+use crate::util::{read_file, remove_file};
 
-/// A configurable value.
-pub struct Config(ConfigImpl);
+static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    let dirs =
+        try_to!("find Sec-Gemini config directory", ProjectDirs::from("", "Google", "Sec-Gemini"));
+    dirs.config_dir().to_path_buf()
+});
 
-pub struct Desc {
+pub static API_KEY: Config<String> = Config::new(DynConfig {
+    name: "api-key",
+    fallback: Fallback::Prompt("Sec-Gemini API key"),
+    flag: "--api-key",
+    env: "SEC_GEMINI_API_KEY",
+    value: Mutex::new(None),
+    validate: no_validation,
+});
+
+pub static BASE_URL: Config<Url> = Config::new(DynConfig {
+    name: "base-url",
+    fallback: Fallback::Default("https://api.secgemini.google"),
+    flag: "--base-url",
+    env: "SEC_GEMINI_BASE_URL",
+    value: Mutex::new(None),
+    validate: no_validation,
+});
+
+pub static SHOW_THINKING: Config<bool> = Config::new(DynConfig {
+    name: "show-thinking",
+    fallback: Fallback::Default("false"),
+    flag: "--show-thinking",
+    env: "SEC_GEMINI_SHOW_THINKING",
+    value: Mutex::new(None),
+    validate: no_validation,
+});
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum Name {
+    ApiKey,
+    ShowThinking,
+}
+
+impl Name {
+    pub fn config(self) -> &'static DynConfig {
+        match self {
+            Name::ApiKey => &API_KEY.config,
+            Name::ShowThinking => &SHOW_THINKING.config,
+        }
+    }
+}
+
+#[test]
+fn name_config_ok() {
+    for name in Name::value_variants() {
+        let config = name.config();
+        assert_eq!(name.to_possible_value().unwrap().get_name(), config.name());
+    }
+}
+
+pub fn list() -> impl Iterator<Item = &'static DynConfig> {
+    Name::value_variants().iter().map(|x| x.config())
+}
+
+/// A typed configurable global value.
+pub struct Config<T> {
+    config: DynConfig,
+    type_: PhantomData<T>,
+}
+
+/// A untyped configurable global value.
+pub struct DynConfig {
     /// The name of the config file.
-    config: &'static str,
-    /// The name to use in the terminal prompt.
-    prompt: &'static str,
+    name: &'static str,
+    /// The fallback when the config file does not exist.
+    fallback: Fallback,
     /// The name of the flag.
     flag: &'static str,
-    /// The name of the environment variable (if any).
-    env: Option<&'static str>,
+    /// The name of the environment variable.
+    env: &'static str,
+    /// The current value.
+    value: Mutex<Value>,
+    /// Validates a value.
+    validate: fn(&str) -> Option<String>,
 }
 
-pub static API_KEY: Desc = Desc {
-    config: "api-key",
-    prompt: "API key",
-    flag: "--api-key",
-    env: Some("SEC_GEMINI_API_KEY"),
-};
+enum Fallback {
+    Prompt(&'static str),
+    Default(&'static str),
+}
 
-impl Deref for Config {
-    type Target = str;
+type Value = Option<(String, Source)>;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Source {
+    /// The value was set by reading the config file.
+    File,
+    /// The value was set by asking the user interactively in the terminal.
+    Term,
+    /// The value was set by the user interactively.
+    User,
+}
+
+impl<T> Deref for Config<T> {
+    type Target = DynConfig;
 
     fn deref(&self) -> &Self::Target {
-        match &self.0 {
-            ConfigImpl::Unknown { .. } => unreachable!(),
-            ConfigImpl::Known { value, .. } => value,
-            ConfigImpl::Frozen { value } => value,
-        }
+        &self.config
     }
 }
 
-impl Config {
-    /// Creates an unknown value (must be forced before deref).
-    pub const fn unknown(desc: &'static Desc) -> Self {
-        Config(ConfigImpl::Unknown { desc })
-    }
-
-    /// Creates a frozen value (persist is ignored).
-    pub fn frozen(value: String) -> Self {
-        Config(ConfigImpl::Frozen { value })
-    }
-
-    /// Makes sure the value exists (reading from config or terminal if needed).
-    ///
-    /// The config file is ignored with `bypass` and the value is read from the terminal.
-    pub fn force(&mut self, bypass: bool) {
-        if let ConfigImpl::Unknown { desc } = self.0 {
-            self.0 = read_value(desc, bypass);
+impl<T: Clone + FromStr + Display> Config<T>
+where <T as FromStr>::Err: Error
+{
+    const fn new(mut config: DynConfig) -> Self {
+        fn validate<T: FromStr>(input: &str) -> Option<String>
+        where <T as FromStr>::Err: Display {
+            match input.parse::<T>() {
+                Ok(_) => None,
+                Err(e) => Some(format!("{e}")),
+            }
         }
+        config.validate = validate::<T>;
+        Config { config, type_: PhantomData }
     }
 
-    /// Resets the value to unknown if read from config (does nothing otherwise).
-    ///
-    /// Returns whether the value was reset.
-    pub fn reset(&mut self) -> bool {
-        if let ConfigImpl::Known { config: true, desc, .. } = &self.0 {
-            self.0 = ConfigImpl::Unknown { desc };
-            true
-        } else {
-            false
-        }
+    pub async fn get(&self) -> (T, Source) {
+        let name = self.config.name;
+        let (value, source) = self.config.get().await;
+        (try_to!("parse {name} config", value.parse()), source)
     }
 
-    /// Persists the config of a known value read from terminal (does nothing otherwise).
-    pub fn persist(&self) {
-        if let ConfigImpl::Known { value, path, config: false, desc } = &self.0 {
-            let prompt = desc.prompt;
-            log::info!("Writing {prompt} config file.");
-            let config_dir = path.parent().unwrap();
-            try_to!("create Sec-Gemini config directory", std::fs::create_dir_all(config_dir));
-            try_to!("write {prompt} config file", std::fs::write(path, value.as_bytes()));
-        }
+    pub fn set_user(&self, value: T) {
+        self.config.set_user(format!("{value}"));
     }
 }
 
-enum ConfigImpl {
-    /// The value is unknown.
-    Unknown {
-        /// The description of the value.
-        desc: &'static Desc,
-    },
-    /// The value is known.
-    Known {
-        /// The value read from the config file or from the terminal.
-        value: String,
-        /// The path of the config file.
-        path: PathBuf,
-        /// Whether the value was read from the config file.
-        config: bool,
-        /// The description of the value.
-        desc: &'static Desc,
-    },
-    /// The value is known and frozen.
-    ///
-    /// The config file can't be modified.
-    Frozen {
-        /// The value read from the command line or from the environment.
-        value: String,
-    },
+impl DynConfig {
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+
+    pub fn set_user(&self, value: String) {
+        *self.value() = Some((value, Source::User));
+    }
+
+    pub fn set_term(&self) {
+        let value = self.get_term();
+        *self.value() = Some((value, Source::Term));
+    }
+
+    pub fn unset(&self) {
+        *self.value() = None;
+    }
+
+    /// Returns the current value (reading from file and terminal if needed).
+    pub async fn get(&self) -> (String, Source) {
+        if let Some(ref x) = *self.value() {
+            return x.clone();
+        }
+        let (value, source) = match self.get_file().await {
+            None => (self.get_term(), Source::Term),
+            Some(value) => (value, Source::File),
+        };
+        let result = value.clone();
+        *self.value() = Some((value, source));
+        (result, source)
+    }
+
+    /// Reads from the config file.
+    pub async fn get_file(&self) -> Option<String> {
+        let name = self.name;
+        let path = CONFIG_DIR.join(name);
+        let content = try_to!("read {name} config file", read_file(&path).await)?;
+        match String::from_utf8(content) {
+            Ok(value) => Some(value),
+            Err(_) => {
+                log::warn!("{name} config file is not UTF-8 (deleting it)");
+                try_to!("delete {name} config file", remove_file(&path).await);
+                None
+            }
+        }
+    }
+
+    /// Reads from the terminal.
+    pub fn get_term(&self) -> String {
+        let name = self.name;
+        let instr = self.instr();
+        let prompt = match self.fallback {
+            Fallback::Prompt(x) => x,
+            Fallback::Default(x) => return x.to_string(),
+        };
+        try_to!("read {name} config from terminal", console::user_attended().then_some(()), &instr);
+        try_to!(
+            "read {name} config from terminal",
+            Input::new().with_prompt(format!("Enter your {prompt}")).interact_text(),
+            &instr
+        )
+    }
+
+    /// Persists the config if read from terminal (does nothing otherwise).
+    pub async fn persist(&self) {
+        let (value, source) = self.get().await;
+        if source != Source::Term {
+            return;
+        }
+        self.write(value).await;
+    }
+
+    /// Writes a value to the config file (and use that value).
+    pub async fn write(&self, value: String) {
+        let name = self.name;
+        let config_dir = &*CONFIG_DIR;
+        let path = config_dir.join(name);
+        log::info!("Writing {}", path.display());
+        try_to!("create Sec-Gemini config directory", tokio::fs::create_dir_all(config_dir).await);
+        try_to!("write {name} config file", tokio::fs::write(path, value.as_bytes()).await);
+        *self.value() = Some((value, Source::File));
+    }
+
+    /// Deletes the config file (and unset the value).
+    pub async fn delete(&self) {
+        let name = self.name;
+        let path = CONFIG_DIR.join(name);
+        try_to!("delete {name} config file", remove_file(path).await);
+        *self.value() = None;
+    }
+
+    pub fn validate(&self, value: &str) -> Option<String> {
+        (self.validate)(value)
+    }
+
+    fn value(&self) -> MutexGuard<'_, Value> {
+        let name = self.name;
+        try_to!("lock {name} config mutex", self.value.lock())
+    }
+
+    fn instr(&self) -> ConfigInstr<'_> {
+        ConfigInstr(self)
+    }
 }
 
-struct DescInstr(&'static Desc);
+struct ConfigInstr<'a>(&'a DynConfig);
 
-impl std::fmt::Display for DescInstr {
+impl<'a> std::fmt::Display for ConfigInstr<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Set the {} flag", self.0.flag)?;
-        match self.0.env {
-            Some(x) => write!(f, " or the {x} environment variable."),
-            None => write!(f, "."),
-        }
+        write!(f, "Set the {} flag or the {} environment variable.", self.0.flag, self.0.env)
     }
 }
 
-impl Desc {
-    fn instr(&'static self) -> DescInstr {
-        DescInstr(self)
-    }
-}
-
-fn read_value(desc: &'static Desc, bypass: bool) -> ConfigImpl {
-    let Desc { config, prompt, .. } = desc;
-    let instr = desc.instr();
-    let Some(dirs) = ProjectDirs::from("", "Google", "Sec-Gemini") else {
-        fail("failed to find Sec-Gemini config directiory", None, Some(&instr));
-    };
-    let config_dir = dirs.config_dir();
-    let path = config_dir.join(config);
-    if !bypass {
-        log::debug!("Reading {prompt} from {}.", path.display());
-        match std::fs::read(&path) {
-            Ok(x) => match String::from_utf8(x) {
-                Ok(value) => return ConfigImpl::Known { value, path, config: true, desc },
-                Err(_) => {
-                    log::warn!("{prompt} config file is not UTF-8. Removing it.");
-                    try_to!("remove {prompt} config file", std::fs::remove_file(&path));
-                }
-            },
-            Err(e) if e.kind() == ErrorKind::NotFound => (),
-            Err(e) => fail!("failed to read {prompt} config file", &e),
-        }
-    }
-    if !console::user_attended() {
-        fail(format_args!("Sec-Gemini {prompt} is not set"), None, Some(&instr));
-    }
-    log::debug!("Reading {prompt} from terminal.");
-    let value: String = try_to!(
-        "read {prompt} from terminal",
-        Input::new().with_prompt(format!("Enter your Sec-Gemini {prompt}")).interact_text(),
-    );
-    ConfigImpl::Known { value, path, config: false, desc }
+fn no_validation(_: &str) -> Option<String> {
+    None
 }
