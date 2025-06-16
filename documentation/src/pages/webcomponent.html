@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sample Site</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sec-gemini-web-component/dist/swc.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 50%, #0f1419 100%);
+      color: #e0e6ed;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Animated background particles */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        radial-gradient(2px 2px at 20px 30px, rgba(64, 224, 255, 0.3), transparent),
+        radial-gradient(2px 2px at 40px 70px, rgba(147, 51, 234, 0.2), transparent),
+        radial-gradient(1px 1px at 90px 40px, rgba(59, 130, 246, 0.3), transparent),
+        radial-gradient(1px 1px at 130px 80px, rgba(34, 197, 94, 0.2), transparent);
+      background-size: 200px 200px;
+      animation: particleFloat 20s linear infinite;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    @keyframes particleFloat {
+      0% {
+        transform: translate(0, 0);
+      }
+
+      100% {
+        transform: translate(-200px, -200px);
+      }
+    }
+
+    .hero {
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 40px;
+      max-width: 1400px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    @media screen and (max-width: 768px) {
+      .hero {
+        flex-direction: column;
+        height: auto;
+        padding: 20px;
+      }
+    }
+
+    .hero-image-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    .hero-image-placeholder {
+      width: 500px;
+      height: 500px;
+      background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #0f172a 100%);
+      border-radius: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.5em;
+      color: #64748b;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      box-shadow:
+        0 0 50px rgba(59, 130, 246, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .hero-image-placeholder::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg,
+          transparent,
+          rgba(59, 130, 246, 0.1),
+          transparent);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+      }
+
+      100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+      }
+    }
+
+    .hero-image-placeholder::after {
+      content: 'SEC-GEMINI';
+      position: absolute;
+      font-size: 0.9em;
+      font-weight: 500;
+      letter-spacing: 2px;
+      color: #3b82f6;
+      text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+    }
+
+    .hero-text {
+      flex: 1;
+      padding-left: 60px;
+      max-width: 600px;
+      position: relative;
+    }
+
+    @media screen and (max-width: 768px) {
+      .hero-text {
+        padding-left: 0;
+        padding-top: 40px;
+        text-align: center;
+      }
+    }
+
+    .hero-title {
+      font-size: 4em;
+      margin-bottom: 20px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #60a5fa 0%, #a855f7 50%, #34d399 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+      position: relative;
+    }
+
+    .hero-title::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 0;
+      width: 100px;
+      height: 3px;
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+      border-radius: 2px;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+    }
+
+    @media screen and (max-width: 768px) {
+      .hero-title {
+        font-size: 2.5em;
+      }
+
+      .hero-title::after {
+        left: 50%;
+        transform: translateX(-50%);
+      }
+    }
+
+    .hero-subtitle {
+      font-size: 1.3em;
+      color: #94a3b8;
+      margin-bottom: 30px;
+      line-height: 1.6;
+      font-weight: 400;
+    }
+
+    .hero button {
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      color: white !important;
+      padding: 18px 40px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow:
+        0 10px 25px rgba(59, 130, 246, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .hero button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .hero button:hover::before {
+      left: 100%;
+    }
+
+    .hero button:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 15px 35px rgba(59, 130, 246, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .hero button:active {
+      transform: translateY(0);
+    }
+
+    .hero button a {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* Floating elements */
+    .floating-element {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: #3b82f6;
+      border-radius: 50%;
+      opacity: 0.6;
+      animation: float 6s ease-in-out infinite;
+    }
+
+    .floating-element:nth-child(1) {
+      top: 20%;
+      left: 10%;
+      animation-delay: 0s;
+    }
+
+    .floating-element:nth-child(2) {
+      top: 60%;
+      right: 15%;
+      animation-delay: 2s;
+      background: #8b5cf6;
+    }
+
+    .floating-element:nth-child(3) {
+      bottom: 20%;
+      left: 20%;
+      animation-delay: 4s;
+      background: #34d399;
+    }
+
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translateY(0px) rotate(0deg);
+      }
+
+      50% {
+        transform: translateY(-20px) rotate(180deg);
+      }
+    }
+
+    /* Glowing grid overlay */
+    .grid-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+      pointer-events: none;
+      z-index: -1;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="grid-overlay"></div>
+  <div class="floating-element"></div>
+  <div class="floating-element"></div>
+  <div class="floating-element"></div>
+
+  <sec-gem-chat session-name="Bob" session-description="TestDescription" theme="dark"
+    session-prompt="You are a helpful assistant. Please answer the user's questions to the best of your ability.">
+  </sec-gem-chat>
+
+  <section class="hero">
+    <div class="hero-image-container">
+      <div class="hero-image-placeholder"></div>
+    </div>
+    <div class="hero-text">
+      <h1 class="hero-title">Web Component</h1>
+      <p class="hero-subtitle">
+        You can find a button on the bottom right that will initialize the webcomponent
+      </p>
+      <button><a href="/guides/webcomponent">Back to docs</a></button>
+    </div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/sec-gemini-web-component/dist/swc.iife.js"></script>
+</body>
+
+</html>

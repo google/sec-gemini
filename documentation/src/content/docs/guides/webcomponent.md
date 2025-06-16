@@ -55,25 +55,25 @@ Here's a detailed explanation of each attribute:
   - **Default:** `false`
   - When set to `"true"`, the chat session will operate in incognito mode, meaning the conversation history will not be saved.
 
-- **`sessionId`** (Optional)
+- **`session-id`** (Optional)
 
   - **Type:** `string`
   - **Default:** `""` (empty string)
   - If provided, the component will attempt to load an existing session with this ID. If no session is found, a new one will be created.
 
-- **`sessionName`** (Optional)
+- **`session-name`** (Optional)
 
   - **Type:** `string`
   - **Default:** `"New Session"`
   - Sets a display name for the chat session. This is particularly useful for identifying sessions in a user interface or management system.
 
-- **`sessionDescription`** (Optional)
+- **`session-description`** (Optional)
 
   - **Type:** `string`
   - **Default:** `""` (empty string)
   - Provides a brief description for the chat session, offering additional context.
 
-- **`sessionPrompt`** (Optional)
+- **`session-prompt`** (Optional)
 
   - **Type:** `string`
   - **Default:** `""` (empty string)
@@ -114,12 +114,13 @@ Integrating custom HTML and scripts into WordPress can be done in several ways. 
 
 ```html
 <sec-gem-chat
-  incognito="true"
-  sessionId=""
-  sessionName="My Name"
-  sessionDescription="My Description"
-  sessionPrompt="You are a senior cybersecurity threat intelligence analyst"
-  theme="dark"
+      incognito="true"
+      session-id=""
+      session-name="TestName"
+      session-description="TestDescription"
+      session-prompt="You are a senior cybersecurity threat intelligence analyst..."
+      theme="dark"
+      api-key="..."
 ></sec-gem-chat>
 
 <link
@@ -154,14 +155,14 @@ Astro components are designed for static site generation and allow you to direct
   </head>
   <body>
     <h1>Welcome to Astro with Sec-Gemini!</h1>
-
     <sec-gem-chat
       incognito="true"
-      sessionId=""
-      sessionName="My Name"
-      sessionDescription="My Description"
-      sessionPrompt="You are a senior cybersecurity threat intelligence analyst"
+      session-id=""
+      session-name="TestName"
+      session-description="TestDescription"
+      session-prompt="You are a senior cybersecurity threat intelligence analyst..."
       theme="dark"
+      api-key="..."
     ></sec-gem-chat>
 
     <script
@@ -222,11 +223,12 @@ export default function Home() {
       {/* Render the web component. React will treat it as a standard DOM element. */}
       <sec-gem-chat
         incognito="true"
-        sessionId=""
-        sessionName="My Name"
-        sessionDescription="My Description"
-        sessionPrompt="You are a senior cybersecurity threat intelligence analyst"
+        session-id=""
+        session-name="TestName"
+        session-description="TestDescription"
+        session-prompt="You are a senior cybersecurity threat intelligence analyst..."
         theme="dark"
+        api-key="..."
       ></sec-gem-chat>
     </div>
   );
@@ -287,11 +289,12 @@ function App() {
         <h1>React App with Sec-Gemini</h1>
         <sec-gem-chat
           incognito="true"
-          sessionId=""
-          sessionName="My Name"
-          sessionDescription="My Description"
-          sessionPrompt="You are a senior cybersecurity threat intelligence analyst"
+          session-id=""
+          session-name="TestName"
+          session-description="TestDescription"
+          session-prompt="You are a senior cybersecurity threat intelligence analyst..."
           theme="dark"
+          api-key="..."
         ></sec-gem-chat>
       </header>
     </div>
@@ -299,3 +302,7 @@ function App() {
 }
 export default App;
 ```
+
+## Demo
+
+[see the demo here](/webcomponent)
