@@ -14,6 +14,7 @@
   import WordAnimation from "./word-animation.svelte";
   import MaterialSymbolsChevronRightRounded from "../icons/MaterialSymbolsChevronRightRounded.svelte";
   import SecGeminiLogoDuel from "../icons/SecGeminiLogoDuel.svelte";
+  import MaterialSymbolsErrorOutlineRounded from "../icons/MaterialSymbolsErrorOutlineRounded.svelte";
 
   let feedbackHistory = $state<
     Array<{ messageId: any; type: "like" | "dislike" }>
@@ -213,21 +214,26 @@
       </div>
     {:else if message.role === "agent" || message.role === "system"}
       <div class="flex gap-2 chat group">
-        <div class="rounded-full flex h-full items-center">
-          <SecGeminiLogoDuel
-            class="mt-1.5"
-            animate={message.message_type === MessageTypeEnum.INFO}
-            incognito={!isSessionLogging}
-            size={2}
-          />
-        </div>
+        {#if message.message_type === MessageTypeEnum.ERROR}
+          <div class="rounded-full flex h-full items-center">
+            <MaterialSymbolsErrorOutlineRounded class="text-red-500" size={2} />
+            <span class="ml-2 md:ml-4 text-red-500">{message.content}</span>
+          </div>
+        {:else}
+          <div class="rounded-full flex h-full items-center">
+            <SecGeminiLogoDuel
+              class="mt-1.5"
+              animate={message.message_type === MessageTypeEnum.INFO}
+              incognito={!isSessionLogging}
+              size={2}
+            />
+          </div>
+        {/if}
         <div
           class="{message.streaming
             ? ''
             : 'animation-finished'} overflow-x-auto {message.message_type ===
-          MessageTypeEnum.ERROR
-            ? 'bg-accent'
-            : ''} {message.message_type === MessageTypeEnum.RESULT ||
+            MessageTypeEnum.RESULT ||
           message.message_type === MessageTypeEnum.INFO
             ? 'block min-h-20'
             : 'hidden'} "

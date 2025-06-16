@@ -1,9 +1,8 @@
 <script lang="ts">
   import MaterialSymbolsBolt from "../icons/MaterialSymbolsBolt.svelte";
   import MaterialSymbolsBook2Outline from "../icons/MaterialSymbolsBook2Outline.svelte";
-  import MaterialSymbolsChevronRightRounded from "../icons/MaterialSymbolsChevronRightRounded.svelte";
   import MaterialSymbolsClose from "../icons/MaterialSymbolsClose.svelte";
-  import RiGeminiFill from "../icons/RiGeminiFill.svelte";
+  import MaterialSymbolsErrorOutlineRounded from "../icons/MaterialSymbolsErrorOutlineRounded.svelte";
   import SecGemWhite from "../icons/Sparkle.svelte";
   let { showThinking, setShowThinking, thinkingMessages } = $props();
 </script>
@@ -56,6 +55,11 @@
                   size={1.8}
                   class="p-2 flex-shrink-0 bg-accent rounded-full aspect-square -mt-1"
                 />
+              {:else if message.message_type === "error"}
+                <MaterialSymbolsErrorOutlineRounded
+                  size={1.8}
+                  class="p-2 flex-shrink-0 bg-accent rounded-full aspect-square -mt-1 text-red-500"
+                />
               {:else}
                 <SecGemWhite
                   size={1.8}
@@ -64,10 +68,16 @@
               {/if}
             </div>
             <div class="flex flex-col">
-              <p class="font-medium mb-1.5 italic">
-                {message.message_sub_type}
+              <p
+                class={`${message.message_type === "error" ? "text-red-500" : ""} "italic mb-1.5 font-medium"`}
+              >
+                {message.message_type === "error"
+                  ? message.status_message || "Error"
+                  : message.message_sub_type}
               </p>
-              <p class="italic">
+              <p
+                class={`${message.message_type === "error" ? "text-red-500" : ""} "italic text-sm"`}
+              >
                 {message.content}
               </p>
             </div>

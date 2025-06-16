@@ -25,14 +25,14 @@
     "vite-plugin-watch-and-run": "^1.7.4"
   },
   "dependencies": {
-    "@tailwindcss/cli": "^4.1.6",
+    "@tailwindcss/cli": "^4.1.10",
     "@tailwindcss/typography": "^0.5.16",
     "@tailwindcss/vite": "^4.1.6",
     "dompurify": "^3.2.6",
     "markdown-it": "^14.1.0",
     "path": "^0.12.7",
     "prismjs": "^1.30.0",
-    "sec-gemini": "^0.0.5",
+    "sec-gemini": "file:C:\\Users\\asus\\OneDrive\\Desktop\\projects\\p9ui\\local_modules\\sec-gemini-1.1.2.tgz",
     "tailwindcss": "^4.1.6"
   }
 }
