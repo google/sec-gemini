@@ -14,7 +14,6 @@
   import PhGreaterThanBold from "../icons/PhGreaterThanBold.svelte";
   import SecGeminiLogo from "../icons/SecGeminiLogo.svelte";
   import MessageList from "./message-list.svelte";
-  import "./swc.css";
   import Thinking from "./thinking.svelte";
   import MaterialSymbolsClose from "../icons/MaterialSymbolsClose.svelte";
   import MdiIncognito from "../icons/MdiIncognito.svelte";
@@ -447,10 +446,10 @@
               </button>
               {#if showPrompt}
                 <div
-                  class="absolute top-14 left-0 mt-2 flex bg-accent rounded-xl p-2 z-50 border-base border"
+                  class="absolute top-14 left-0 flex bg-accent rounded-xl p-2 z-50 border-base border"
                 >
                   <textarea
-                    class="sm:w-72 h-full max-h-[4lh] bg-accent"
+                    class="sm:w-72 h-[4lh] bg-accent"
                     bind:value={systemPrompt}
                     oninput={() => handlePromptChange}
                   ></textarea>
@@ -1112,7 +1111,6 @@
       embed,
       object {
         display: block;
-        vertical-align: middle;
       }
       img,
       video {
@@ -1921,18 +1919,21 @@
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 1;
+        line-clamp: 1;
       }
       .line-clamp-3 {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 3;
+        line-clamp: 1;
       }
       .line-clamp-4 {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 4;
+        line-clamp: 1;
       }
       .block {
         display: block;
@@ -1982,6 +1983,9 @@
       .h-\[0\.8lh\] {
         height: 0.8lh;
       }
+      .h-\[4lh\] {
+        height: 4lh;
+      }
       .h-\[80vh\] {
         height: 80vh;
       }
@@ -1990,9 +1994,6 @@
       }
       .h-full {
         height: 100%;
-      }
-      .max-h-\[4lh\] {
-        max-height: 4lh;
       }
       .max-h-\[130px\] {
         max-height: 130px;
@@ -2304,6 +2305,9 @@
       }
       .border-accent-light {
         border-color: var(--color-accent-light);
+      }
+      .border-base {
+        border-color: var(--color-base);
       }
       .border-blue {
         border-color: var(--color-blue);
