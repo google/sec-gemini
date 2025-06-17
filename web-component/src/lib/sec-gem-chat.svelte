@@ -4,7 +4,6 @@
   import SecGemini, {
     InteractiveSession,
     MessageTypeEnum,
-    MimeTypeEnum,
     Streamer,
     type Message,
     type PublicSessionFile,
@@ -19,22 +18,29 @@
   import MdiIncognito from "../icons/MdiIncognito.svelte";
   import MaterialSymbolsChevronRightRounded from "../icons/MaterialSymbolsChevronRightRounded.svelte";
   import MaterialSymbolsDeleteOutline from "../icons/MaterialSymbolsDeleteOutline.svelte";
+  import MaterialSymbolsFullscreenExit from "../icons/MaterialSymbolsFullscreenExit.svelte";
+  import MaterialSymbolsFullscreen from "../icons/MaterialSymbolsFullscreen.svelte";
 
   const {
     "session-id": sessionId,
     theme = "light",
     incognito = false,
+    "is-fullscreen": isFullscreen,
     "api-key": apiKey,
     "session-description": sessionDescription,
     "session-name": sessionName,
     "session-prompt": initialPrompt,
   } = $props();
 
+  let isFull = $state(isFullscreen);
   let isOpen = $state(true);
   let isUploading = $state(false);
 
   function toggleOpen() {
     isOpen = !isOpen;
+  }
+  function toggleFullScreen() {
+    isFull = !isFull;
   }
 
   const securityTopics = [
@@ -416,10 +422,12 @@
   <dialog
     onmousedown={handleClickOutside}
     bind:this={dialog}
-    class="chatbot-container fixed inset-0 left-1/2 top-20 z-50 w-screen max-w-3xl h-[80vh] -translate-x-1/2 translate-y-0 opacity-0 transform bg-base p-2 rounded-3xl text-text backdrop:backdrop-blur-xs backdrop:bg-base/50 backdrop-blur-lg transition-[overlay,display,opacity] duration-300 transition-discrete backdrop:transition-[overlay,display,opacity] backdrop:duration-300 backdrop:transition-discrete open:block open:opacity-100 open:starting:opacity-0 overflow-clip"
+    class={`chatbot-container ${isFull ? "w-screen !h-screen m-auto" : "left-1/2 top-20 z-50 w-screen max-w-3xl h-[80vh] transform -translate-x-1/2 translate-y-0"} fixed inset-0 opacity-0 rounded-3xl bg-base p-2  text-text backdrop:backdrop-blur-xs backdrop:bg-base/50 backdrop-blur-lg transition-[overlay,display,opacity] duration-300 transition-discrete backdrop:transition-[overlay,display,opacity] backdrop:duration-300 backdrop:transition-discrete open:block open:opacity-100 open:starting:opacity-0 overflow-clip`}
   >
-    <div class="flex flex-col h-full w-full p-4 pb-1 bg-base">
-      <div class="flex justify-between items-center py-2">
+    <div class="flex flex-col h-full w-full p-4 pb-1 bg-base max-w-6xl mx-auto">
+      <div
+        class="flex flex-col md:flex-row justify-between items-center py-2 gap-4 md:gap-0"
+      >
         <h2
           class="text-center text-text text-xl md:text-2xl font-bold inline-block"
         >
@@ -469,6 +477,17 @@
             >
               <span class="hidden md:inline">Toggle Thinking</span>
               <span class="inline md:hidden">Thinking</span>
+            </button>
+            <button
+              class="bg-transparent border-none cursor-pointer p-2 flex items-center justify-center hover:bg-accent rounded-full"
+              onclick={toggleFullScreen}
+              aria-label="ToggleFullScreen"
+            >
+              {#if isFull}
+                <MaterialSymbolsFullscreen size={1.7} />
+              {:else}
+                <MaterialSymbolsFullscreenExit size={1.7} />
+              {/if}
             </button>
             <button
               class="bg-transparent border-none cursor-pointer p-2 flex items-center justify-center hover:bg-accent rounded-full"
@@ -937,6 +956,7 @@
         --container-md: 28rem;
         --container-lg: 32rem;
         --container-3xl: 48rem;
+        --container-6xl: 72rem;
         --text-xs: 0.75rem;
         --text-xs--line-height: calc(1 / 0.75);
         --text-sm: 0.875rem;
@@ -1111,6 +1131,7 @@
       embed,
       object {
         display: block;
+        vertical-align: middle;
       }
       img,
       video {
@@ -1296,8 +1317,14 @@
       .m-4 {
         margin: calc(var(--spacing) * 4);
       }
+      .m-auto {
+        margin: auto;
+      }
       .mx-2 {
         margin-inline: calc(var(--spacing) * 2);
+      }
+      .mx-auto {
+        margin-inline: auto;
       }
       .my-auto {
         margin-block: auto;
@@ -1919,21 +1946,18 @@
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 1;
-        line-clamp: 1;
       }
       .line-clamp-3 {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 3;
-        line-clamp: 1;
       }
       .line-clamp-4 {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 4;
-        line-clamp: 1;
       }
       .block {
         display: block;
@@ -1961,6 +1985,9 @@
       }
       .aspect-square {
         aspect-ratio: 1 / 1;
+      }
+      .\!h-screen {
+        height: 100vh !important;
       }
       .h-2 {
         height: calc(var(--spacing) * 2);
@@ -2057,6 +2084,9 @@
       }
       .max-w-3xl {
         max-width: var(--container-3xl);
+      }
+      .max-w-6xl {
+        max-width: var(--container-6xl);
       }
       .max-w-\[1000px\] {
         max-width: 1000px;
@@ -3079,6 +3109,16 @@
       .md\:max-w-\[1000px\] {
         @media (width >= 990px) {
           max-width: 1000px;
+        }
+      }
+      .md\:flex-row {
+        @media (width >= 990px) {
+          flex-direction: row;
+        }
+      }
+      .md\:gap-0 {
+        @media (width >= 990px) {
+          gap: calc(var(--spacing) * 0);
         }
       }
       .md\:gap-4 {
