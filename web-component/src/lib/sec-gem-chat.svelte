@@ -371,8 +371,10 @@
     messages = messages.map((msg) => ({ ...msg, streaming: false }));
     if (isChatExpanded) {
       dialog!.showModal();
+      document.body.style.overflowY = "hidden";
     } else {
       dialog!.close();
+      document.body.style.overflowY = "";
     }
 
     if (isChatExpanded && isKeySet) {
@@ -388,6 +390,7 @@
   function handleClickOutside(event: Event) {
     if (dialog && event.target === dialog) {
       dialog.close();
+      document.body.style.overflowY = "";
       isChatExpanded = false;
     }
   }
@@ -422,7 +425,7 @@
   <dialog
     onmousedown={handleClickOutside}
     bind:this={dialog}
-    class={`chatbot-container ${isFull ? "w-screen !h-screen m-auto" : "left-1/2 top-20 z-50 w-screen max-w-3xl h-[80vh] transform -translate-x-1/2 translate-y-0"} fixed inset-0 opacity-0 rounded-3xl bg-base p-2  text-text backdrop:backdrop-blur-xs backdrop:bg-base/50 backdrop-blur-lg transition-[overlay,display,opacity] duration-300 transition-discrete backdrop:transition-[overlay,display,opacity] backdrop:duration-300 backdrop:transition-discrete open:block open:opacity-100 open:starting:opacity-0 overflow-clip`}
+    class={`chatbot-container ${isFull ? "w-screen h-screen m-auto max-w-none" : "left-1/2 top-20 z-50 w-screen max-w-3xl h-[80vh] transform -translate-x-1/2 translate-y-0 rounded-3xl"}  max-h-none fixed inset-0 opacity-0 bg-base p-2  text-text backdrop:backdrop-blur-xs backdrop:bg-base/50 backdrop-blur-lg transition-[overlay,display,opacity] duration-300 transition-discrete backdrop:transition-[overlay,display,opacity] backdrop:duration-300 backdrop:transition-discrete open:block open:opacity-100 open:starting:opacity-0 overflow-clip`}
   >
     <div class="flex flex-col h-full w-full p-4 pb-1 bg-base max-w-6xl mx-auto">
       <div
@@ -1986,9 +1989,6 @@
       .aspect-square {
         aspect-ratio: 1 / 1;
       }
-      .\!h-screen {
-        height: 100vh !important;
-      }
       .h-2 {
         height: calc(var(--spacing) * 2);
       }
@@ -2022,8 +2022,14 @@
       .h-full {
         height: 100%;
       }
+      .h-screen {
+        height: 100vh;
+      }
       .max-h-\[130px\] {
         max-height: 130px;
+      }
+      .max-h-none {
+        max-height: none;
       }
       .min-h-10 {
         min-height: calc(var(--spacing) * 10);

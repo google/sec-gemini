@@ -846,9 +846,6 @@
   .aspect-square {
     aspect-ratio: 1 / 1;
   }
-  .\!h-screen {
-    height: 100vh !important;
-  }
   .h-2 {
     height: calc(var(--spacing) * 2);
   }
@@ -882,8 +879,14 @@
   .h-full {
     height: 100%;
   }
+  .h-screen {
+    height: 100vh;
+  }
   .max-h-\[130px\] {
     max-height: 130px;
+  }
+  .max-h-none {
+    max-height: none;
   }
   .min-h-10 {
     min-height: calc(var(--spacing) * 10);
