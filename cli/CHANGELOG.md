@@ -4,24 +4,21 @@
 
 ### Minor
 
-- Add `/multiline` command for multiline queries
-- Add `enable-shell`, `auto-exec`, and `auto-send` configuration for shell execution
 - Add `sec-gemini --config` to read, write, and delete configuration files
-- Add shell command execution (requires `sh`)
-- Add interactive commands with help and completion
+- Add `--enable-shell`, `--auto-exec`, and `--auto-send` for shell command execution (requires `sh`)
+- Add interactive commands with `/help` and completion
 - Generate interactive session name like the Python SDK
-- Add markdown rendering support
-- Use more colors in interactive session
+- Use more colors and render markdown
 - Add `sec-gemini --completion` to generate shell completion files
 - Add icons when bundling packages
-- Improve configuration file handling in case of errors
-- Print chain of error causes for failures
 - Match recent changes to Sec-Gemini API
 
 ### Patch
 
 - Add sysname and machine to the user agent for HTTP connections
 - Add 3 seconds timeout to all HTTP connections to avoid hanging effects
+- Improve configuration file handling in case of errors
+- Print chain of error causes for failures
 
 ## 0.0.1
 
