@@ -46,7 +46,7 @@ impl Action {
         insert_static(&mut headers, "x-github-api-version", "2022-11-28");
         let client = try_to!(
             "build HTTP client",
-            Client::builder().user_agent(USER_AGENT).default_headers(headers).build(),
+            Client::builder().user_agent(&*USER_AGENT).default_headers(headers).build(),
         );
         let mut next_page =
             Some("https://api.github.com/repos/google/sec-gemini/releases".to_string());

@@ -130,11 +130,14 @@ impl Options {
         let query: Cow<'_, str> = if enable_shell {
             format!(
                 "{query}\n
-If you need to run a command on my machine, use the following format. I will pass <command> to `sh
--c` in my shell and send you the exit status, standard output, and standard error (truncated to a
-couple hundred bytes each). End your message immediately after <command>, don't add any more text.
+If you need to run a command on my machine, use the format described at the end of my message.
+I will pass <command> to `sh -c` in my shell and send you the exit status, standard output, and
+standard error (truncated to a thousand bytes each).
+End your message immediately after <command>, don't add any more text.
+You can explain why you want to run that command and what it does before the format.
 If you need any information retrievable by running a command (like the system I'm running), run the
-command to retrieve the information instead of asking me for the information. The format is:
+command to retrieve the information instead of asking me for the information.
+The format is:
 {EXEC_SHELL_CMD}<command>"
             )
             .into()

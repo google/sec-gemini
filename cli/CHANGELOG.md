@@ -20,6 +20,7 @@
 
 ### Patch
 
+- Add sysname and machine to the user agent for HTTP connections
 - Add 3 seconds timeout to all HTTP connections to avoid hanging effects
 
 ## 0.0.1

@@ -14,11 +14,20 @@
 
 use std::io::ErrorKind;
 use std::path::Path;
+use std::sync::LazyLock;
 
+use platform_info::{PlatformInfoAPI, UNameAPI};
 use rand::Rng;
 use reqwest::header::{HeaderMap, HeaderValue, IntoHeaderName};
 
-pub const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+pub static USER_AGENT: LazyLock<String> = LazyLock::new(|| {
+    let name = env!("CARGO_PKG_NAME");
+    let version = env!("CARGO_PKG_VERSION");
+    let info = platform_info::PlatformInfo::new().unwrap();
+    let sysname = info.sysname().display();
+    let machine = info.machine().display();
+    format!("{name}/{version} ({sysname} {machine})")
+});
 
 pub fn insert_static(headers: &mut HeaderMap, key: impl IntoHeaderName, value: &'static str) {
     assert!(headers.insert(key, HeaderValue::from_static(value)).is_none());
