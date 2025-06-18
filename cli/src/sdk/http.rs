@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::time::Duration;
+
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -33,10 +35,10 @@ impl Client {
         insert_static(&mut headers, "x-sdk", "rust");
         insert_api_key(&mut headers, api_key);
         insert_static(&mut headers, reqwest::header::CONTENT_TYPE, "application/json");
-        let inner = try_to!(
-            "build HTTP client",
-            reqwest::Client::builder().user_agent(USER_AGENT).default_headers(headers).build(),
-        );
+        let mut builder = reqwest::Client::builder();
+        builder = builder.user_agent(USER_AGENT).default_headers(headers);
+        builder = builder.timeout(Duration::from_secs(3));
+        let inner = try_to!("build HTTP client", builder.build());
         Client { base_url, inner }
     }
 

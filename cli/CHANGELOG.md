@@ -16,6 +16,10 @@
 - Print chain of error causes for failures
 - Match recent changes to Sec-Gemini API
 
+### Patch
+
+- Add 3 seconds timeout to all HTTP connections to avoid hanging effects
+
 ## 0.0.1
 
 ### Minor
