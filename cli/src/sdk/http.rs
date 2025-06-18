@@ -36,7 +36,7 @@ impl Client {
         insert_api_key(&mut headers, api_key);
         insert_static(&mut headers, reqwest::header::CONTENT_TYPE, "application/json");
         let mut builder = reqwest::Client::builder();
-        builder = builder.user_agent(USER_AGENT).default_headers(headers);
+        builder = builder.user_agent(&*USER_AGENT).default_headers(headers);
         builder = builder.timeout(Duration::from_secs(3));
         let inner = try_to!("build HTTP client", builder.build());
         Client { base_url, inner }

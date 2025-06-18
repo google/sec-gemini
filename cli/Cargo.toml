@@ -30,6 +30,7 @@ linefeed = "0.6.0"
 log = "0.4.27"
 markdown = "1.0.0"
 opener = "0.7.2"
+platform-info = "2.0.5"
 rand = "0.9.1"
 reqwest = { version = "0.12.15", features = ["json"] }
 semver = "1.0.26"
