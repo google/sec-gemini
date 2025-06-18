@@ -14,6 +14,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::io::Read;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
@@ -122,7 +123,7 @@ impl Completer {
     }
 }
 
-pub async fn execute_command(query: &str, sdk: &Arc<Sdk>, session: &mut Session) {
+pub async fn execute_command(query: &str, mut input: CommandInput<'_>) {
     let full_query = split_words(query);
     let mut query = &full_query[..];
     let mut help = match query.first() {
@@ -243,7 +244,7 @@ Examples:
         }
         return;
     }
-    let mut args = HashMap::new();
+    let args = &mut input.args;
     while let Some((arg, rest)) = query.split_first() {
         query = rest;
         let Some(arg) = arg.strip_prefix("--") else {
@@ -273,7 +274,7 @@ Examples:
             None => return user_error!("argument --{} is required", argument.name),
         }
     }
-    exec(CommandInput { sdk, session, args }).await;
+    exec(input).await;
 }
 
 fn split_words(mut query: &str) -> Vec<Cow<'_, str>> {
@@ -397,10 +398,11 @@ enum CommandData {
     Leaf { exec: CommandExec, args: &'static [Argument] },
 }
 
-struct CommandInput<'a> {
-    sdk: &'a Arc<Sdk>,
-    session: &'a mut Session,
-    args: HashMap<String, String>,
+pub struct CommandInput<'a> {
+    pub this: &'a super::Options,
+    pub sdk: &'a Arc<Sdk>,
+    pub session: &'a mut Session,
+    pub args: HashMap<String, String>,
 }
 type CommandOutput<'a> = Pin<Box<dyn Future<Output = ()> + 'a>>;
 type CommandExec = for<'a> fn(input: CommandInput<'a>) -> CommandOutput<'a>;
@@ -468,6 +470,26 @@ async fn print_config(width: Option<usize>, config: &DynConfig) {
         None => println!("no saved value)"),
         Some(value) => println!("saved value is {})", value.cyan()),
     }
+}
+
+fn exec_multiline(input: CommandInput<'_>) -> CommandOutput<'_> {
+    Box::pin(async move {
+        let mut query = Vec::new();
+        let mut stdin = std::io::stdin();
+        loop {
+            let mut buf = [0; 1024];
+            let len = try_to!("read standard input", stdin.read(&mut buf));
+            if len == 0 {
+                break;
+            }
+            query.extend_from_slice(&buf[.. len]);
+        }
+        if !query.ends_with(b"\n") {
+            println!();
+        }
+        let Ok(query) = String::from_utf8(query) else { return user_error!("query is not UTF-8") };
+        input.this.execute(&query, input.session).await;
+    })
 }
 
 fn exec_session_list(input: CommandInput<'_>) -> CommandOutput<'_> {
@@ -575,6 +597,9 @@ The --value argument is only used by write operations."
        ( "name" = "" : compl_config_name )
        ( "action" = "get" : "get" "set" "unset" "save" "reset" )
        ( "value" = "" : * ) }
+    { "multiline" "Reads a multi-line query.\n
+The usual way to end the query is Ctrl-D (twice on a non-empty line)."
+      exec_multiline }
     [ "session" "Provides operations on sessions."
        { "list" "Lists the user sessions."
           exec_session_list ( "refresh" = "false" : "true" "false" )  }

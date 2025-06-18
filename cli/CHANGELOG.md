@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add `/multiline` command for multiline queries
 - Add `enable-shell`, `auto-exec`, and `auto-send` configuration for shell execution
 - Add `sec-gemini --config` to read, write, and delete configuration files
 - Add shell command execution (requires `sh`)
