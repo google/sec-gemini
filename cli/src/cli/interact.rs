@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
 
 use colored::Colorize;
-use dialoguer::Input;
 use indicatif::ProgressBar;
-use tokio::process::Command;
 use tokio::task::spawn_blocking;
 use url::Url;
 
@@ -31,6 +28,7 @@ use crate::sdk::{Sdk, Session};
 use crate::{config, or_fail};
 
 mod cmds;
+mod shell;
 
 #[derive(clap::Args)]
 pub struct Options {
@@ -43,20 +41,31 @@ pub struct Options {
     api_key: Option<String>,
 
     /// Whether Sec-Gemini can ask to execute shell commands.
-    #[arg(long, env = "SEC_GEMINI_ENABLE_SHELL")]
-    enable_shell: Option<config::AutoBool>,
+    #[arg(long, env = "SEC_GEMINI_SHELL_ENABLE")]
+    shell_enable: Option<config::AutoBool>,
+
+    /// Whether Sec-Gemini can ask to execute shell commands.
+    #[arg(long, env = "SEC_GEMINI_SHELL_ENABLE")]
+    shell_timeout: Option<cyborgtime::Duration>,
 
     /// Whether Sec-Gemini can execute shell commands without confirmation.
-    #[arg(long, env = "SEC_GEMINI_AUTO_EXEC")]
-    auto_exec: Option<bool>,
+    #[arg(long, env = "SEC_GEMINI_SHELL_AUTO_EXEC")]
+    shell_auto_exec: Option<bool>,
 
-    /// Whether results of shell commands are sent to Sec-Gemini without confirmation.
-    #[arg(long, env = "SEC_GEMINI_AUTO_SEND")]
-    auto_send: Option<bool>,
+    /// Whether Sec-Gemini can read the result of shell commands without confirmation.
+    #[arg(long, env = "SEC_GEMINI_SHELL_AUTO_READ")]
+    shell_auto_read: Option<bool>,
+
+    /// Whether Sec-Gemini can write input to shell commands without confirmation.
+    #[arg(long, env = "SEC_GEMINI_SHELL_AUTO_WRITE")]
+    shell_auto_write: Option<bool>,
 
     /// Sec-Gemini base URL.
     #[arg(hide = true, long, env = "SEC_GEMINI_BASE_URL")]
     base_url: Option<Url>,
+
+    #[arg(skip)]
+    shell: shell::State,
 }
 
 impl Options {
@@ -96,7 +105,7 @@ impl Options {
             }
             if let Some(query) = query.strip_prefix("/") {
                 let input = cmds::CommandInput {
-                    this: &self,
+                    this: &mut self,
                     sdk: &sdk,
                     session: &mut session,
                     args: HashMap::new(),
@@ -116,59 +125,43 @@ impl Options {
         if let Some(x) = &self.api_key {
             config::API_KEY.set_user(x.clone());
         }
-        if let Some(x) = self.enable_shell {
-            config::ENABLE_SHELL.set_user(x);
+        if let Some(x) = self.shell_enable {
+            config::SHELL_ENABLE.set_user(x);
+        }
+        if let Some(x) = self.shell_timeout {
+            config::SHELL_TIMEOUT.set_user(x);
+        }
+        if let Some(x) = self.shell_auto_exec {
+            config::SHELL_AUTO_EXEC.set_user(x);
+        }
+        if let Some(x) = self.shell_auto_read {
+            config::SHELL_AUTO_READ.set_user(x);
+        }
+        if let Some(x) = self.shell_auto_write {
+            config::SHELL_AUTO_WRITE.set_user(x);
         }
         if let Some(x) = &self.base_url {
             config::BASE_URL.set_user(x.clone());
         }
     }
 
-    async fn execute(&self, query: &str, session: &mut Session) {
+    async fn execute(&mut self, query: &str, session: &mut Session) {
+        let (enable_shell, query) = self.shell.update_query(query).await;
         let mut progress = new_progress();
-        let enable_shell = config::ENABLE_SHELL.get().await.0.guess(console::user_attended);
-        let query: Cow<'_, str> = if enable_shell {
-            format!(
-                "{query}\n
-If you need to run a command on my machine, use the format described at the end of my message.
-I will pass <command> to `sh -c` in my shell and send you the exit status, standard output, and
-standard error (truncated to a thousand bytes each).
-End your message immediately after <command>, don't add any more text.
-You can explain why you want to run that command and what it does before the format.
-If you need any information retrievable by running a command (like the system I'm running), run the
-command to retrieve the information instead of asking me for the information.
-The format is:
-{EXEC_SHELL_CMD}<command>"
-            )
-            .into()
-        } else {
-            query.into()
-        };
         session.send(&query);
         set_message(&progress, "Waiting response");
         while let Some(message) = session.recv().await {
             let content = message.content.unwrap_or_default();
             match message.message_type {
-                MessageType::Result if enable_shell && content.contains(EXEC_SHELL_CMD) => {
-                    progress.finish_and_clear();
-                    let (prefix, command) = content.split_once(EXEC_SHELL_CMD).unwrap();
-                    // This is a best-effort detection that the command looks like a command. The
-                    // most common issue is Sec-Gemini asking to execute multiple commands.
-                    if command.contains(EXEC_SHELL_CMD) {
-                        println!("{}", try_render_markdown(&content).trim_end());
-                        break;
-                    }
-                    if !prefix.is_empty() {
-                        println!("{}", try_render_markdown(prefix).trim_end());
-                    }
-                    println!("{}", "=== Enter shell command execution flow".bold().purple());
-                    let response = execute_shell_command(command).await;
-                    println!("{}", "=== Exit shell command execution flow".bold().purple());
-                    progress = new_progress();
-                    session.send(&response);
-                }
                 MessageType::Result => {
                     progress.finish_and_clear();
+                    if enable_shell {
+                        if let Some(response) = self.shell.interpret_result(&content).await {
+                            progress = new_progress();
+                            session.send(&response);
+                            continue;
+                        }
+                    }
                     println!("{}", try_render_markdown(&content).trim_end());
                     break;
                 }
@@ -215,77 +208,6 @@ async fn get_session(sdk: Arc<Sdk>, sessions: &[PublicSession]) -> Session {
 
 fn set_message(progress: &ProgressBar, message: &str) {
     progress.set_message(message.bold().cyan().to_string());
-}
-
-const EXEC_SHELL_CMD: &str = "Execute shell command: ";
-
-async fn execute_shell_command(command: &str) -> String {
-    println!(
-        "Sec-Gemini wants to execute the following command on your machine:\n{}",
-        command.yellow()
-    );
-    if let Some(error) = authorize(&config::AUTO_EXEC).await {
-        return error;
-    }
-    let output =
-        try_to!("execute shell command", Command::new("sh").arg("-c").arg(command).output().await);
-    let outcome: Cow<'_, str> = match output.status.code() {
-        None => if output.status.success() { "succeeded" } else { "failed" }.into(),
-        Some(0) => "succeeded".into(),
-        Some(code) => format!("failed with exit code {code}").into(),
-    };
-    let mut response = format!("The command {outcome}. ");
-    if output.stdout.is_empty() {
-        writeln!(response, "There is no standard output.").unwrap();
-    } else {
-        extract(&mut response, "standard output", output.stdout);
-    }
-    if !output.stderr.is_empty() {
-        extract(&mut response, "standard error", output.stderr);
-    }
-    print!("The result of the execution is:\n{}", response.blue());
-    println!("Do you authorize sending this result to Sec-Gemini?");
-    if let Some(error) = authorize(&config::AUTO_SEND).await {
-        return error;
-    }
-    response
-}
-
-fn extract(resp: &mut String, name: &str, src: Vec<u8>) {
-    let Ok(src) = String::from_utf8(src) else {
-        return writeln!(resp, "The {name} was not UTF-8 and has been discarded.").unwrap();
-    };
-    let indices = src.char_indices().map(|(i, _)| i).chain(std::iter::once(src.len()));
-    #[allow(clippy::double_ended_iterator_last)]
-    let len = indices.filter(|&i| i <= 1000).last().unwrap();
-    if len < src.len() {
-        write!(resp, "The {name} was {} bytes long. ", src.len()).unwrap();
-        writeln!(resp, "The first {len} bytes are:\n{}", &src[.. len]).unwrap();
-    } else {
-        writeln!(resp, "The {name} is:\n{src}").unwrap();
-    }
-    if resp.ends_with("\n\n") {
-        let _ = resp.pop();
-    }
-}
-
-async fn authorize(config: &config::Config<bool>) -> Option<String> {
-    if let (true, source) = config.get().await {
-        println!("Authorized by {} (read from {source})", config.name());
-        return None;
-    }
-    let prompt = format!("Type {} to authorize or {} to deny", "yes".green(), "no".red());
-    loop {
-        let value: String = try_to!(
-            "read authorization from terminal",
-            Input::new().with_prompt(&prompt).interact_text(),
-        );
-        match value.as_str() {
-            "yes" => break None,
-            "no" => break Some("I deny you to execute this shell command.".to_string()),
-            _ => (),
-        }
-    }
 }
 
 fn new_progress() -> ProgressBar {

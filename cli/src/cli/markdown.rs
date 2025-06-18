@@ -165,6 +165,11 @@ fn render_node(
             render_nodes(context, &mut text, &strong.children)?;
             write!(output, "{}", text.bold().cyan())?;
         }
+        mdast::Node::Emphasis(emphasis) => {
+            let mut text = String::new();
+            render_nodes(context, &mut text, &emphasis.children)?;
+            write!(output, "{}", text.cyan())?;
+        }
         x => return Err(RenderError::String(format!("unimplemented {x:?}"))),
     }
     Ok(())

@@ -70,22 +70,33 @@ Options:
 
           [env: SEC_GEMINI_API_KEY=]
 
-      --enable-shell <ENABLE_SHELL>
+      --shell-enable <SHELL_ENABLE>
           Whether Sec-Gemini can ask to execute shell commands
 
-          [env: SEC_GEMINI_ENABLE_SHELL=]
+          [env: SEC_GEMINI_SHELL_ENABLE=]
           [possible values: auto, false, true]
 
-      --auto-exec <AUTO_EXEC>
+      --shell-timeout <SHELL_TIMEOUT>
+          Whether Sec-Gemini can ask to execute shell commands
+
+          [env: SEC_GEMINI_SHELL_ENABLE=]
+
+      --shell-auto-exec <SHELL_AUTO_EXEC>
           Whether Sec-Gemini can execute shell commands without confirmation
 
-          [env: SEC_GEMINI_AUTO_EXEC=]
+          [env: SEC_GEMINI_SHELL_AUTO_EXEC=]
           [possible values: true, false]
 
-      --auto-send <AUTO_SEND>
-          Whether results of shell commands are sent to Sec-Gemini without confirmation
+      --shell-auto-read <SHELL_AUTO_READ>
+          Whether Sec-Gemini can read the result of shell commands without confirmation
 
-          [env: SEC_GEMINI_AUTO_SEND=]
+          [env: SEC_GEMINI_SHELL_AUTO_READ=]
+          [possible values: true, false]
+
+      --shell-auto-write <SHELL_AUTO_WRITE>
+          Whether Sec-Gemini can write input to shell commands without confirmation
+
+          [env: SEC_GEMINI_SHELL_AUTO_WRITE=]
           [possible values: true, false]
 
   -h, --help

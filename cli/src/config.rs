@@ -50,18 +50,22 @@ macro_rules! make {
 }
 
 make!(API_KEY: String = Fallback::Prompt("Sec-Gemini API key"));
-make!(AUTO_EXEC: bool = Fallback::Default("false"));
-make!(AUTO_SEND: bool = Fallback::Default("true"));
 make!(BASE_URL: Url = Fallback::Default("https://api.secgemini.google"));
-make!(ENABLE_SHELL: AutoBool = Fallback::Default("auto"));
+make!(SHELL_ENABLE: AutoBool = Fallback::Default("auto"));
+make!(SHELL_TIMEOUT: cyborgtime::Duration = Fallback::Default("3s"));
+make!(SHELL_AUTO_EXEC: bool = Fallback::Default("false"));
+make!(SHELL_AUTO_READ: bool = Fallback::Default("true"));
+make!(SHELL_AUTO_WRITE: bool = Fallback::Default("true"));
 make!(SHOW_THINKING: bool = Fallback::Default("false"));
 
 #[derive(Clone, Copy, ValueEnum)]
 pub enum Name {
     ApiKey,
-    AutoExec,
-    AutoSend,
-    EnableShell,
+    ShellEnable,
+    ShellTimeout,
+    ShellAutoExec,
+    ShellAutoRead,
+    ShellAutoWrite,
     ShowThinking,
 }
 
@@ -69,9 +73,11 @@ impl Name {
     pub fn config(self) -> &'static DynConfig {
         match self {
             Name::ApiKey => &API_KEY.config,
-            Name::AutoExec => &AUTO_EXEC.config,
-            Name::AutoSend => &AUTO_SEND.config,
-            Name::EnableShell => &ENABLE_SHELL.config,
+            Name::ShellEnable => &SHELL_ENABLE.config,
+            Name::ShellTimeout => &SHELL_TIMEOUT.config,
+            Name::ShellAutoExec => &SHELL_AUTO_EXEC.config,
+            Name::ShellAutoRead => &SHELL_AUTO_READ.config,
+            Name::ShellAutoWrite => &SHELL_AUTO_WRITE.config,
             Name::ShowThinking => &SHOW_THINKING.config,
         }
     }
