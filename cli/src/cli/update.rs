@@ -19,7 +19,6 @@ use reqwest::header::HeaderMap;
 use semver::Version;
 use serde::Deserialize;
 
-use crate::or_fail;
 use crate::util::{USER_AGENT, insert_static};
 
 #[derive(clap::Args)]
@@ -27,10 +26,6 @@ pub struct Action {
     /// Only prints the release page URL instead of opening it.
     #[arg(long)]
     print: bool,
-
-    /// Access token for github.com/google/sec-gemini.
-    #[arg(hide = true, long, env = "GITHUB_TOKEN")]
-    github_token: Option<String>,
 }
 
 impl Action {
@@ -49,10 +44,6 @@ impl Action {
         let mut headers = HeaderMap::new();
         insert_static(&mut headers, reqwest::header::ACCEPT, "application/vnd.github+json");
         insert_static(&mut headers, "x-github-api-version", "2022-11-28");
-        if let Some(token) = &self.github_token {
-            let token = or_fail(format!("Bearer {token}").parse());
-            assert!(headers.insert(reqwest::header::AUTHORIZATION, token).is_none());
-        }
         let client = try_to!(
             "build HTTP client",
             Client::builder().user_agent(USER_AGENT).default_headers(headers).build(),
