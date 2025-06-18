@@ -51,7 +51,7 @@ macro_rules! make {
 
 make!(API_KEY: String = Fallback::Prompt("Sec-Gemini API key"));
 make!(AUTO_EXEC: bool = Fallback::Default("false"));
-make!(AUTO_SEND: bool = Fallback::Default("false"));
+make!(AUTO_SEND: bool = Fallback::Default("true"));
 make!(BASE_URL: Url = Fallback::Default("https://api.secgemini.google"));
 make!(ENABLE_SHELL: AutoBool = Fallback::Default("auto"));
 make!(SHOW_THINKING: bool = Fallback::Default("false"));
@@ -146,20 +146,23 @@ type Value = Option<(String, Source)>;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Source {
-    /// The value was set by reading the config file.
-    File,
-    /// The value was set by asking the user interactively in the terminal.
-    Term,
-    /// The value was set by the user interactively.
+    /// From some user input (flag, env, or command).
     User,
+    /// From the config file.
+    File,
+    /// From the fallback (prompt).
+    Term,
+    /// From the fallback (default).
+    None,
 }
 
 impl Display for Source {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Source::User => write!(f, "user input"),
             Source::File => write!(f, "config file"),
             Source::Term => write!(f, "terminal"),
-            Source::User => write!(f, "user input"),
+            Source::None => write!(f, "default"),
         }
     }
 }
@@ -208,7 +211,8 @@ impl DynConfig {
     }
 
     pub fn set_term(&self) {
-        let value = self.get_term();
+        let Fallback::Prompt(prompt) = self.fallback else { unreachable!() };
+        let value = self.get_term(prompt);
         *self.value() = Some((value, Source::Term));
     }
 
@@ -222,7 +226,10 @@ impl DynConfig {
             return x.clone();
         }
         let (value, source) = match self.get_file().await {
-            None => (self.get_term(), Source::Term),
+            None => match self.fallback {
+                Fallback::Prompt(x) => (self.get_term(x), Source::Term),
+                Fallback::Default(x) => (x.to_string(), Source::None),
+            },
             Some(value) => (value, Source::File),
         };
         let result = value.clone();
@@ -246,13 +253,9 @@ impl DynConfig {
     }
 
     /// Reads from the terminal.
-    pub fn get_term(&self) -> String {
+    fn get_term(&self, prompt: &str) -> String {
         let name = self.name;
         let instr = self.instr();
-        let prompt = match self.fallback {
-            Fallback::Prompt(x) => x,
-            Fallback::Default(x) => return x.to_string(),
-        };
         try_to!("read {name} config from terminal", console::user_attended().then_some(()), &instr);
         try_to!(
             "read {name} config from terminal",
