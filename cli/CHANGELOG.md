@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add `sec-gemini --config` to read, write, and delete configuration files
 - Add shell command execution (requires `sh`)
 - Add interactive commands with help and completion
 - Generate interactive session name like the Python SDK

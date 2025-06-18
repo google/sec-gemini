@@ -38,6 +38,7 @@ Usage: sec-gemini [OPTIONS] [QUERY]...
        sec-gemini <COMMAND>
 
 Commands:
+  --config               Reads, writes, or deletes configuration files
   --open-ui              Opens the Sec-Gemini web UI in a browser [aliases: --ui]
   --check-update         Checks whether the CLI is up-to-date [aliases: --update]
   --generate-completion  Generates a shell completion file [aliases: --completion]
@@ -58,10 +59,11 @@ Arguments:
             sec-gemini   'what is'     a\ CVE
 
 Options:
-      --show-thinking
+      --show-thinking[=<SHOW_THINKING>]
           Prints the Sec-Gemini thinking steps
 
           [env: SEC_GEMINI_SHOW_THINKING=]
+          [possible values: true, false]
 
       --api-key <API_KEY>
           Sec-Gemini API key

@@ -25,26 +25,25 @@ use tokio::task::spawn_blocking;
 use url::Url;
 
 use crate::cli::markdown::try_render_markdown;
-use crate::config::Config;
-use crate::or_fail;
 use crate::sdk::types::{MessageType, PublicSession};
 use crate::sdk::{Sdk, Session};
+use crate::{config, or_fail};
 
 mod cmds;
 
 #[derive(clap::Args)]
 pub struct Options {
     /// Prints the Sec-Gemini thinking steps.
-    #[arg(long, env = "SEC_GEMINI_SHOW_THINKING")]
-    show_thinking: bool,
+    #[arg(long, require_equals = true, env = "SEC_GEMINI_SHOW_THINKING")]
+    show_thinking: Option<Option<bool>>,
 
     /// Sec-Gemini API key.
     #[arg(long, env = "SEC_GEMINI_API_KEY")]
     api_key: Option<String>,
 
     /// Sec-Gemini base URL.
-    #[arg(hide = true, long, default_value = "https://api.secgemini.google")]
-    base_url: Url,
+    #[arg(hide = true, long, env = "SEC_GEMINI_BASE_URL")]
+    base_url: Option<Url>,
 
     #[arg(skip)]
     shell_authorized: bool,
@@ -53,15 +52,14 @@ pub struct Options {
 impl Options {
     pub async fn query(mut self, query: &str) {
         self.resolve().await;
-        let sdk = Arc::new(Sdk::new(self.sdk_options(false)).await);
+        let sdk = Arc::new(Sdk::new(false).await);
         let mut session = get_session(sdk.clone(), &sdk.cached_sessions().await).await;
         self.execute(query, &mut session).await
     }
 
     pub async fn session(mut self) {
         self.resolve().await;
-        let sdk = Sdk::new(self.sdk_options(true)).await;
-        let sdk = Arc::new(sdk);
+        let sdk = Arc::new(Sdk::new(true).await);
         let mut session = Session::new(sdk.clone(), String::new()).await;
         let interface = Arc::new(or_fail(linefeed::Interface::new("sec-gemini")));
         let style = "\0".bold().blue().to_string();
@@ -100,15 +98,15 @@ impl Options {
             // TODO: Make this configurable (with an option to ask the user each time).
             self.shell_authorized = true;
         }
-    }
-
-    fn sdk_options(&self, interactive: bool) -> crate::sdk::Options {
-        let api_key = match &self.api_key {
-            Some(x) => Config::frozen(x.clone()),
-            None => Config::unknown(&crate::config::API_KEY),
-        };
-        let base_url = self.base_url.clone();
-        crate::sdk::Options { api_key, base_url, interactive }
+        if let Some(x) = self.show_thinking {
+            config::SHOW_THINKING.set_user(x.unwrap_or(true));
+        }
+        if let Some(x) = &self.api_key {
+            config::API_KEY.set_user(x.clone());
+        }
+        if let Some(x) = &self.base_url {
+            config::BASE_URL.set_user(x.clone());
+        }
     }
 
     async fn execute(&self, query: &str, session: &mut Session) {
@@ -119,8 +117,8 @@ impl Options {
 If you need to run a command on my machine, use the following format. I will pass <command> to `sh
 -c` in my shell and send you the exit status, standard output, and standard error (truncated to a
 couple hundred bytes each). End your message immediately after <command>, don't add any more text.
-If you need any information retrievable by running a command (like my system), run the command to
-get the information instead of asking me for the information. The format is:
+If you need any information retrievable by running a command (like the system I'm running), run the
+command to retrieve the information instead of asking me for the information. The format is:
 {EXEC_SHELL_CMD}<command>"
             )
             .into()
@@ -135,6 +133,8 @@ get the information instead of asking me for the information. The format is:
                 MessageType::Result => {
                     progress.finish_and_clear();
                     if let Some((prefix, command)) = content.split_once(EXEC_SHELL_CMD) {
+                        // TODO: Check that command looks like a command. In particular, that it
+                        // doesn't contain any trailing message.
                         if !prefix.is_empty() {
                             println!("{}", try_render_markdown(prefix).trim_end());
                         }
@@ -149,15 +149,17 @@ get the information instead of asking me for the information. The format is:
                     break;
                 }
                 MessageType::Info => set_message(&progress, &content),
-                MessageType::Thinking if self.show_thinking => {
-                    let mut thinking = String::new();
-                    write!(thinking, "{}", "Thinking".bold().yellow()).unwrap();
-                    write!(thinking, "({}): ", message.actor).unwrap();
-                    if let Some(subtype) = message.message_sub_type {
-                        write!(thinking, "[{subtype}] ").unwrap();
+                MessageType::Thinking => {
+                    if config::SHOW_THINKING.get().await.0 {
+                        let mut thinking = String::new();
+                        write!(thinking, "{}: ", "Thinking".bold().yellow()).unwrap();
+                        if let Some(subtype) = message.message_sub_type {
+                            let subtype = format!("[{subtype}]");
+                            write!(thinking, "{} ", subtype.bold().yellow()).unwrap();
+                        }
+                        write!(thinking, "{}", content.trim_end().yellow()).unwrap();
+                        progress.println(thinking);
                     }
-                    write!(thinking, "{}", content.yellow()).unwrap();
-                    progress.println(thinking);
                 }
                 MessageType::Error => fail!("{content}"),
                 _ => (),
@@ -231,7 +233,7 @@ fn extract(resp: &mut String, name: &str, src: Vec<u8>) {
     };
     let indices = src.char_indices().map(|(i, _)| i).chain(std::iter::once(src.len()));
     #[allow(clippy::double_ended_iterator_last)]
-    let len = indices.filter(|&i| i <= 200).last().unwrap();
+    let len = indices.filter(|&i| i <= 1000).last().unwrap();
     if len < src.len() {
         write!(resp, "The {name} was {} bytes long. ", src.len()).unwrap();
         writeln!(resp, "The first {len} bytes are:\n{}", &src[.. len]).unwrap();

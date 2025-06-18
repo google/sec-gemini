@@ -17,6 +17,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use url::Url;
 
+use crate::config;
 use crate::util::{USER_AGENT, insert_static};
 
 pub struct Client {
@@ -25,12 +26,12 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(options: &super::Options) -> Self {
-        let base_url = options.base_url.clone();
+    pub async fn new(api_key: &str) -> Self {
+        let base_url = config::BASE_URL.get().await.0;
         let mut headers = HeaderMap::new();
         insert_static(&mut headers, "x-sdk-version", env!("CARGO_PKG_VERSION"));
         insert_static(&mut headers, "x-sdk", "rust");
-        insert_api_key(&mut headers, &options.api_key);
+        insert_api_key(&mut headers, api_key);
         insert_static(&mut headers, reqwest::header::CONTENT_TYPE, "application/json");
         let inner = try_to!(
             "build HTTP client",

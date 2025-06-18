@@ -20,25 +20,17 @@ use futures_util::{SinkExt, StreamExt};
 use reqwest::StatusCode;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::sync::{Mutex, MutexGuard};
-use url::Url;
 
 use self::types::*;
-use crate::config::Config;
 use crate::util::choose;
-use crate::{StrError, fail, or_fail, try_to};
+use crate::{StrError, config, fail, or_fail, try_to};
 
 mod http;
 mod name;
 pub mod types;
 
-pub struct Options {
-    pub api_key: Config,
-    pub base_url: Url,
-    pub interactive: bool,
-}
-
 pub struct Sdk {
-    options: Options,
+    api_key: String,
     http: http::Client,
     user: PublicUser,
     sessions: Mutex<Vec<PublicSession>>,
@@ -52,21 +44,20 @@ pub struct Session {
 }
 
 impl Sdk {
-    pub async fn new(mut options: Options) -> Self {
-        let mut bypass = false;
-        let (http, UserInfo { user, sessions, available_models }) = loop {
-            options.api_key.force(bypass);
-            let http = http::Client::new(&options);
+    pub async fn new(interactive: bool) -> Self {
+        let (http, api_key, UserInfo { user, sessions, available_models }) = loop {
+            let (api_key, source) = config::API_KEY.get().await;
+            let http = http::Client::new(&api_key).await;
             let info = match http.get::<UserInfo>("/v1/user/info", None).await {
                 Ok(user_info) => {
-                    options.api_key.persist();
+                    config::API_KEY.persist().await;
                     user_info
                 }
                 Err(error) => {
                     let instr: Option<&dyn Display> = match error.status() {
                         Some(StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) => {
-                            if !bypass && options.api_key.reset() {
-                                bypass = true;
+                            if source == config::Source::File {
+                                config::API_KEY.set_term();
                                 continue;
                             }
                             Some(&"Please check your API key.")
@@ -76,20 +67,20 @@ impl Sdk {
                     fail("failed to get user info", Some(&error), instr);
                 }
             };
-            break (http, info);
+            break (http, api_key, info);
         };
-        if options.interactive {
+        if interactive {
             println!("User: {} ({})", user.id.blue(), user.org_id.purple());
         }
         for model in available_models {
             if model.use_experimental {
                 continue;
             }
-            if options.interactive {
+            if interactive {
                 println!("Model: {}", model.model_string.green());
             }
             let sessions = Mutex::new(sessions);
-            return Sdk { options, http, user, sessions, model };
+            return Sdk { api_key, http, user, sessions, model };
         }
         fail!("no stable model found")
     }
@@ -153,10 +144,10 @@ impl Session {
     }
 
     async fn create(sdk: &Sdk, id: String) -> Session {
-        let mut url = sdk.options.base_url.clone();
+        let mut url = sdk.http.base_url.clone();
         url.set_scheme("wss").unwrap();
         url.set_path("/v1/stream");
-        url.set_query(Some(&format!("api_key={}&session_id={id}", &*sdk.options.api_key)));
+        url.set_query(Some(&format!("api_key={}&session_id={id}", sdk.api_key)));
         let (stream, _) = try_to!(
             "connect to Sec-Gemini web-socket",
             tokio_tungstenite::connect_async(url).await,
