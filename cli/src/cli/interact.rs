@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
@@ -94,7 +95,13 @@ impl Options {
                 continue;
             }
             if let Some(query) = query.strip_prefix("/") {
-                cmds::execute_command(query, &sdk, &mut session).await;
+                let input = cmds::CommandInput {
+                    this: &self,
+                    sdk: &sdk,
+                    session: &mut session,
+                    args: HashMap::new(),
+                };
+                cmds::execute_command(query, input).await;
             } else {
                 self.execute(&query, &mut session).await;
             }
