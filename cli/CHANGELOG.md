@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add `enable-shell`, `auto-exec`, and `auto-send` configuration for shell execution
 - Add `sec-gemini --config` to read, write, and delete configuration files
 - Add shell command execution (requires `sh`)
 - Add interactive commands with help and completion

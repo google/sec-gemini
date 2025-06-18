@@ -70,6 +70,24 @@ Options:
 
           [env: SEC_GEMINI_API_KEY=]
 
+      --enable-shell <ENABLE_SHELL>
+          Whether Sec-Gemini can ask to execute shell commands
+
+          [env: SEC_GEMINI_ENABLE_SHELL=]
+          [possible values: auto, false, true]
+
+      --auto-exec <AUTO_EXEC>
+          Whether Sec-Gemini can execute shell commands without confirmation
+
+          [env: SEC_GEMINI_AUTO_EXEC=]
+          [possible values: true, false]
+
+      --auto-send <AUTO_SEND>
+          Whether results of shell commands are sent to Sec-Gemini without confirmation
+
+          [env: SEC_GEMINI_AUTO_SEND=]
+          [possible values: true, false]
+
   -h, --help
           Print help (see a summary with '-h')
 

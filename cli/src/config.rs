@@ -25,6 +25,7 @@ use dialoguer::Input;
 use directories::ProjectDirs;
 use url::Url;
 
+use crate::StrError;
 use crate::util::{read_file, remove_file};
 
 static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
@@ -33,36 +34,34 @@ static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
     dirs.config_dir().to_path_buf()
 });
 
-pub static API_KEY: Config<String> = Config::new(DynConfig {
-    name: "api-key",
-    fallback: Fallback::Prompt("Sec-Gemini API key"),
-    flag: "--api-key",
-    env: "SEC_GEMINI_API_KEY",
-    value: Mutex::new(None),
-    validate: no_validation,
-});
+macro_rules! make {
+    ($name:ident: $type:ty = $fallback:expr) => {
+        pub static $name: Config<$type> = Config::new(DynConfig {
+            name: unsafe {
+                str::from_utf8_unchecked(&make_name::<{ stringify!($name).len() }>(stringify!(
+                    $name
+                )))
+            },
+            fallback: $fallback,
+            value: Mutex::new(None),
+            validate: no_validation,
+        });
+    };
+}
 
-pub static BASE_URL: Config<Url> = Config::new(DynConfig {
-    name: "base-url",
-    fallback: Fallback::Default("https://api.secgemini.google"),
-    flag: "--base-url",
-    env: "SEC_GEMINI_BASE_URL",
-    value: Mutex::new(None),
-    validate: no_validation,
-});
-
-pub static SHOW_THINKING: Config<bool> = Config::new(DynConfig {
-    name: "show-thinking",
-    fallback: Fallback::Default("false"),
-    flag: "--show-thinking",
-    env: "SEC_GEMINI_SHOW_THINKING",
-    value: Mutex::new(None),
-    validate: no_validation,
-});
+make!(API_KEY: String = Fallback::Prompt("Sec-Gemini API key"));
+make!(AUTO_EXEC: bool = Fallback::Default("false"));
+make!(AUTO_SEND: bool = Fallback::Default("false"));
+make!(BASE_URL: Url = Fallback::Default("https://api.secgemini.google"));
+make!(ENABLE_SHELL: AutoBool = Fallback::Default("auto"));
+make!(SHOW_THINKING: bool = Fallback::Default("false"));
 
 #[derive(Clone, Copy, ValueEnum)]
 pub enum Name {
     ApiKey,
+    AutoExec,
+    AutoSend,
+    EnableShell,
     ShowThinking,
 }
 
@@ -70,6 +69,9 @@ impl Name {
     pub fn config(self) -> &'static DynConfig {
         match self {
             Name::ApiKey => &API_KEY.config,
+            Name::AutoExec => &AUTO_EXEC.config,
+            Name::AutoSend => &AUTO_SEND.config,
+            Name::EnableShell => &ENABLE_SHELL.config,
             Name::ShowThinking => &SHOW_THINKING.config,
         }
     }
@@ -87,6 +89,36 @@ pub fn list() -> impl Iterator<Item = &'static DynConfig> {
     Name::value_variants().iter().map(|x| x.config())
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+pub enum AutoBool {
+    Auto,
+    False,
+    True,
+}
+
+impl Display for AutoBool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_possible_value().unwrap().get_name())
+    }
+}
+
+impl FromStr for AutoBool {
+    type Err = StrError;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        <AutoBool as ValueEnum>::from_str(input, true).map_err(StrError)
+    }
+}
+
+impl AutoBool {
+    pub fn guess(self, def: impl Fn() -> bool) -> bool {
+        match self {
+            AutoBool::Auto => def(),
+            AutoBool::False => false,
+            AutoBool::True => true,
+        }
+    }
+}
+
 /// A typed configurable global value.
 pub struct Config<T> {
     config: DynConfig,
@@ -99,10 +131,6 @@ pub struct DynConfig {
     name: &'static str,
     /// The fallback when the config file does not exist.
     fallback: Fallback,
-    /// The name of the flag.
-    flag: &'static str,
-    /// The name of the environment variable.
-    env: &'static str,
     /// The current value.
     value: Mutex<Value>,
     /// Validates a value.
@@ -124,6 +152,16 @@ pub enum Source {
     Term,
     /// The value was set by the user interactively.
     User,
+}
+
+impl Display for Source {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Source::File => write!(f, "config file"),
+            Source::Term => write!(f, "terminal"),
+            Source::User => write!(f, "user input"),
+        }
+    }
 }
 
 impl<T> Deref for Config<T> {
@@ -269,10 +307,33 @@ struct ConfigInstr<'a>(&'a DynConfig);
 
 impl<'a> std::fmt::Display for ConfigInstr<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Set the {} flag or the {} environment variable.", self.0.flag, self.0.env)
+        let mut env = "SEC_GEMINI_".to_string();
+        for c in self.0.name.chars() {
+            env.push(match c {
+                '-' => '_',
+                _ => c.to_ascii_uppercase(),
+            });
+        }
+        write!(f, "Set the --{} flag or the {env} environment variable.", self.0.name)
     }
 }
 
 fn no_validation(_: &str) -> Option<String> {
     None
+}
+
+const fn make_name<const N: usize>(x: &str) -> [u8; N] {
+    let mut y = [0; N];
+    let x = x.as_bytes();
+    let mut i = 0;
+    while i < x.len() {
+        y[i] = match x[i] {
+            b'_' => b'-',
+            b @ b'A' ..= b'Z' => b - b'A' + b'a',
+            b @ b'0' ..= b'9' => b,
+            _ => panic!(),
+        };
+        i += 1;
+    }
+    y
 }

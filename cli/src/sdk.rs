@@ -131,7 +131,7 @@ impl Session {
         .build();
         let result = sdk.session_register(&session).await;
         if !result.ok {
-            fail!("failed to create session", &StrError(&result.status_message));
+            fail!("failed to create session", &StrError(result.status_message));
         }
         log::info!("{}", result.status_message);
         let id = session.id.clone();

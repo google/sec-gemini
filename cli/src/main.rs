@@ -67,10 +67,10 @@ async fn main() {
 }
 
 #[derive(Debug)]
-struct StrError<'a>(&'a str);
+pub struct StrError(String);
 
-impl Error for StrError<'_> {}
-impl Display for StrError<'_> {
+impl Error for StrError {}
+impl Display for StrError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }

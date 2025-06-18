@@ -41,12 +41,21 @@ pub struct Options {
     #[arg(long, env = "SEC_GEMINI_API_KEY")]
     api_key: Option<String>,
 
+    /// Whether Sec-Gemini can ask to execute shell commands.
+    #[arg(long, env = "SEC_GEMINI_ENABLE_SHELL")]
+    enable_shell: Option<config::AutoBool>,
+
+    /// Whether Sec-Gemini can execute shell commands without confirmation.
+    #[arg(long, env = "SEC_GEMINI_AUTO_EXEC")]
+    auto_exec: Option<bool>,
+
+    /// Whether results of shell commands are sent to Sec-Gemini without confirmation.
+    #[arg(long, env = "SEC_GEMINI_AUTO_SEND")]
+    auto_send: Option<bool>,
+
     /// Sec-Gemini base URL.
     #[arg(hide = true, long, env = "SEC_GEMINI_BASE_URL")]
     base_url: Option<Url>,
-
-    #[arg(skip)]
-    shell_authorized: bool,
 }
 
 impl Options {
@@ -94,15 +103,14 @@ impl Options {
     }
 
     async fn resolve(&mut self) {
-        if console::user_attended() {
-            // TODO: Make this configurable (with an option to ask the user each time).
-            self.shell_authorized = true;
-        }
         if let Some(x) = self.show_thinking {
             config::SHOW_THINKING.set_user(x.unwrap_or(true));
         }
         if let Some(x) = &self.api_key {
             config::API_KEY.set_user(x.clone());
+        }
+        if let Some(x) = self.enable_shell {
+            config::ENABLE_SHELL.set_user(x);
         }
         if let Some(x) = &self.base_url {
             config::BASE_URL.set_user(x.clone());
@@ -111,7 +119,8 @@ impl Options {
 
     async fn execute(&self, query: &str, session: &mut Session) {
         let mut progress = new_progress();
-        let query: Cow<'_, str> = if self.shell_authorized {
+        let enable_shell = config::ENABLE_SHELL.get().await.0.guess(console::user_attended);
+        let query: Cow<'_, str> = if enable_shell {
             format!(
                 "{query}\n
 If you need to run a command on my machine, use the following format. I will pass <command> to `sh
@@ -130,21 +139,26 @@ command to retrieve the information instead of asking me for the information. Th
         while let Some(message) = session.recv().await {
             let content = message.content.unwrap_or_default();
             match message.message_type {
+                MessageType::Result if enable_shell && content.contains(EXEC_SHELL_CMD) => {
+                    progress.finish_and_clear();
+                    let (prefix, command) = content.split_once(EXEC_SHELL_CMD).unwrap();
+                    // This is a best-effort detection that the command looks like a command. The
+                    // most common issue is Sec-Gemini asking to execute multiple commands.
+                    if command.contains(EXEC_SHELL_CMD) {
+                        println!("{}", try_render_markdown(&content).trim_end());
+                        break;
+                    }
+                    if !prefix.is_empty() {
+                        println!("{}", try_render_markdown(prefix).trim_end());
+                    }
+                    println!("{}", "=== Enter shell command execution flow".bold().purple());
+                    let response = execute_shell_command(command).await;
+                    println!("{}", "=== Exit shell command execution flow".bold().purple());
+                    progress = new_progress();
+                    session.send(&response);
+                }
                 MessageType::Result => {
                     progress.finish_and_clear();
-                    if let Some((prefix, command)) = content.split_once(EXEC_SHELL_CMD) {
-                        // TODO: Check that command looks like a command. In particular, that it
-                        // doesn't contain any trailing message.
-                        if !prefix.is_empty() {
-                            println!("{}", try_render_markdown(prefix).trim_end());
-                        }
-                        println!("{}", "=== Enter shell command execution flow".bold().purple());
-                        let response = execute_shell_command(command).await;
-                        println!("{}", "=== Exit shell command execution flow".bold().purple());
-                        progress = new_progress();
-                        session.send(&response);
-                        continue;
-                    }
                     println!("{}", try_render_markdown(&content).trim_end());
                     break;
                 }
@@ -200,7 +214,7 @@ async fn execute_shell_command(command: &str) -> String {
         "Sec-Gemini wants to execute the following command on your machine:\n{}",
         command.yellow()
     );
-    if let Some(error) = authorize() {
+    if let Some(error) = authorize(&config::AUTO_EXEC).await {
         return error;
     }
     let output =
@@ -221,7 +235,7 @@ async fn execute_shell_command(command: &str) -> String {
     }
     print!("The result of the execution is:\n{}", response.blue());
     println!("Do you authorize sending this result to Sec-Gemini?");
-    if let Some(error) = authorize() {
+    if let Some(error) = authorize(&config::AUTO_SEND).await {
         return error;
     }
     response
@@ -245,18 +259,22 @@ fn extract(resp: &mut String, name: &str, src: Vec<u8>) {
     }
 }
 
-fn authorize() -> Option<String> {
-    let prompt =
-        format!("Type {} to authorize ({} or anything else to deny)", "yes".green(), "no".red());
-    let value: String = try_to!(
-        "read authorization from terminal",
-        Input::new().with_prompt(prompt).interact_text(),
-    );
-    if value == "yes" {
-        None
-    } else {
-        println!("Authorization was {}.", "denied".red());
-        Some("You are not allowed to execute this shell command.".to_string())
+async fn authorize(config: &config::Config<bool>) -> Option<String> {
+    if let (true, source) = config.get().await {
+        println!("Authorized by {} (read from {source})", config.name());
+        return None;
+    }
+    let prompt = format!("Type {} to authorize or {} to deny", "yes".green(), "no".red());
+    loop {
+        let value: String = try_to!(
+            "read authorization from terminal",
+            Input::new().with_prompt(&prompt).interact_text(),
+        );
+        match value.as_str() {
+            "yes" => break None,
+            "no" => break Some("I deny you to execute this shell command.".to_string()),
+            _ => (),
+        }
     }
 }
 
