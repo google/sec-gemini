@@ -25,6 +25,7 @@ let getSocketResponseMessage = jest.fn((req: string): string | object => {
 });
 
 // Helpers that allow tests to directly interact with the web socket object created by Streamer.
+let mockSocket: WebSocket.WebSocket;
 let openSocket = () => {};
 let closeSocket = (code: number, reason: string) => {};
 let errorSocket = (message: string) => {};
@@ -43,6 +44,7 @@ jest.mock('isomorphic-ws', () => {
         openSocket = socketMocks.openSocket;
         closeSocket = socketMocks.closeSocket;
         errorSocket = socketMocks.errorSocket;
+        mockSocket = socketMocks.mockSocket;
         return socketMocks.mockSocket;
       }
     ),
@@ -94,12 +96,12 @@ describe('Streamer', () => {
       apiKey,
       config
     );
-    // Check creation.
-    await expect(streamerPromise).resolves.not.toThrow();
-    expect(onerror).toHaveBeenCalledTimes(0);
-    const streamer = await streamerPromise;
-    // Check connection.
+    // Need to call the open callback, which mimics the WebSocket interface sending an open event.
     openSocket();
+    // Check creation.
+    const streamer = await streamerPromise;
+    expect(onerror).toHaveBeenCalledTimes(0);
+    // Check connection.
     expect(onopen).toHaveBeenCalled();
     expect(streamer.isConnected()).toBe(true);
     // Fast forward and check heartbeat.
@@ -146,7 +148,7 @@ describe('Streamer', () => {
   });
 
   test('should attempt to reconnect to server', async () => {
-    const streamer = await Streamer.create(
+    const streamerPromise = Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -157,6 +159,7 @@ describe('Streamer', () => {
       config
     );
     openSocket();
+    const streamer = await streamerPromise;
     // Check connection is open.
     expect(onopen).toHaveBeenCalled();
     expect(streamer.isConnected()).toBe(true);
@@ -196,7 +199,7 @@ describe('Streamer', () => {
 
   // TODO: send message with parent ID.
   test('should send and receive messages', async () => {
-    const streamer = await Streamer.create(
+    const streamerPromise = Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -206,17 +209,15 @@ describe('Streamer', () => {
       apiKey,
       config
     );
-    // Try to send messages before connection is opened.
-    streamer.send('Hello SecGemini!');
-    expect(onmessage).not.toHaveBeenCalled();
     openSocket();
+    const streamer = await streamerPromise;
     expect(onopen).toHaveBeenCalled();
-    // Expect previous messages to have been sent.
+    streamer.send('Hello SecGemini!');
     expect(onmessage).toHaveBeenCalledWith({
       data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"Hello SecGemini!"}',
       message_type: 'result',
     });
-    // Try to send more messages now that the socket has been opened.
+    // Send second message.
     streamer.send('How are you?');
     expect(onmessage).toHaveBeenCalledWith({
       data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"How are you?"}',
@@ -231,7 +232,7 @@ describe('Streamer', () => {
   });
 
   test('should gracefully handle failed messages', async () => {
-    const streamer = await Streamer.create(
+    const streamerPromise = Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -241,21 +242,13 @@ describe('Streamer', () => {
       apiKey,
       config
     );
-    // Try to send messages before connection is opened.
-    getSocketResponseMessage
-      .mockImplementationOnce(() => {
-        throw new Error('Received bad message in web socket.');
-      })
-      .mockImplementationOnce(() => {
-        throw new Error('Received bad message in web socket.');
-      });
-    streamer.send('bad message');
-    expect(onmessage).not.toHaveBeenCalled();
     openSocket();
+    const streamer = await streamerPromise;
     expect(onopen).toHaveBeenCalled();
-    // Expect previous messages to have been sent.
-    expect(onerror).toHaveBeenCalledWith(new Error('Received bad message in web socket.'));
-    // Try to send more messages now that the socket has been opened.
+    // Try to send bad message.
+    getSocketResponseMessage.mockImplementationOnce(() => {
+      throw new Error('Received bad message in web socket.');
+    });
     streamer.send('bad message');
     expect(onerror).toHaveBeenCalledWith(new Error('Received bad message in web socket.'));
 
@@ -269,7 +262,7 @@ describe('Streamer', () => {
   });
 
   test('should gracefully handle bad prompts', async () => {
-    const streamer = await Streamer.create(
+    const streamerPromise = Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -280,6 +273,7 @@ describe('Streamer', () => {
       config
     );
     openSocket();
+    const streamer = await streamerPromise;
     const sendRes = streamer.send('');
     expect(sendRes).rejects.toEqual(new Error('Invalid prompt: must be a non-empty string'));
 
@@ -291,7 +285,7 @@ describe('Streamer', () => {
   });
 
   test('should handle Buffer responses', async () => {
-    const streamer = await Streamer.create(
+    const streamerPromise = Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -302,6 +296,7 @@ describe('Streamer', () => {
       config
     );
     openSocket();
+    const streamer = await streamerPromise;
     // Try to send a message.
     getSocketResponseMessage.mockImplementationOnce((req: string) => {
       return {
@@ -322,7 +317,7 @@ describe('Streamer', () => {
   });
 
   test('should gracefully handle bad responses', async () => {
-    const streamer = await Streamer.create(
+    const streamerPromise = Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -332,9 +327,11 @@ describe('Streamer', () => {
       apiKey,
       config
     );
+    // Need to call the open callback, which mimics the WebSocket interface sending an open event.
     openSocket();
+    const streamer = await streamerPromise;
     // Send message.
-    getSocketResponseMessage.mockReturnValue('bad response');
+    getSocketResponseMessage.mockReturnValueOnce('bad response');
     streamer.send('send bad response');
     expect(onerror).toHaveBeenCalledWith(new Error('Streamer: Received message of unknown type: undefined'));
     expect(onmessage).not.toHaveBeenCalled();
@@ -347,7 +344,7 @@ describe('Streamer', () => {
   });
 
   test('should handle "not found" status message from web socket', async () => {
-    const streamer = await Streamer.create(
+    const streamerPromise = Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -358,8 +355,9 @@ describe('Streamer', () => {
       config
     );
     openSocket();
+    const streamer = await streamerPromise;
     // Send message.
-    getSocketResponseMessage.mockReturnValue({
+    getSocketResponseMessage.mockReturnValueOnce({
       data: JSON.stringify({ status_message: 'not found', message_type: MessageTypeEnum.ERROR }),
     });
     streamer.send('Hello SecGemini!');
@@ -368,6 +366,53 @@ describe('Streamer', () => {
 
     // Check connection callbacks.
     expect(config.onConnectionStatusChange.mock.calls).toEqual([['connecting'], ['connected'], ['disconnected']]);
+  });
+
+  test('should handle "response complete" messages, and be able to send more messages', async () => {
+    const streamerPromise = Streamer.create(
+      onmessage,
+      onopen,
+      onerror,
+      onclose,
+      websocketUrl,
+      sessionID,
+      apiKey,
+      config
+    );
+    openSocket();
+    const streamer = await streamerPromise;
+    expect(onopen).toHaveBeenCalled();
+    streamer.send('First request!');
+    expect(onmessage).toHaveBeenCalledWith({
+      data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"First request!"}',
+      message_type: 'result',
+    });
+    expect(onmessage).toHaveBeenCalledTimes(1);
+    // In real-world situations, the server will send 'completed' messages to signal to the client to close the connection.
+    mockSocket.onmessage({ data: JSON.stringify({ message_type: MessageTypeEnum.RESPONSE_COMPLETE }) });
+    // Try to send another message, which should reopen the connection.
+    streamer.send('Second request!');
+    // Message shouldn't have been sent yet because the connection is not yet open.
+    expect(onmessage).toHaveBeenCalledTimes(1);
+    // Manually open the socket (mimics the web socket being opened).
+    openSocket();
+    expect(onmessage).toHaveBeenCalledWith({
+      data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"Second request!"}',
+      message_type: 'result',
+    });
+
+    // Close.
+    streamer.close();
+
+    // Check connection callbacks.
+    expect(config.onConnectionStatusChange.mock.calls).toEqual([
+      ['connecting'],
+      ['connected'],
+      ['disconnected'],
+      ['connecting'],
+      ['connected'],
+      ['disconnected'],
+    ]);
   });
   // TODO: status message test.
 });

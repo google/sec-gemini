@@ -187,7 +187,8 @@ export type MessageType =
   | 'delete'
   | 'confirmation_request'
   | 'confirmation_response'
-  | 'query';
+  | 'query'
+  | 'response_complete';
 
 /**
  * Completion type
@@ -272,7 +273,6 @@ export type ModelInfoInput = {
   toolsets?: Array<OptionalToolSet>;
 };
 
-
 /**
  * Describes a Sec-Gemini model.
  */
@@ -302,7 +302,6 @@ export type ModelInfoOutput = {
    */
   toolsets?: Array<OptionalToolSet>;
 };
-
 
 export type OpResult = {
   /**

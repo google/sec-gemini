@@ -35,7 +35,7 @@ import {
   PublicSessionOutput, // Output from get/list sessions
   SessionRequest, // Input for generate
   SessionResponse, // Output from generate
-  
+
   // User and Model Info
   PublicUser,
   UserInfo,
