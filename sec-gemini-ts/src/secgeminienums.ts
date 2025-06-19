@@ -37,6 +37,7 @@ export enum MessageTypeEnum {
   CONFIRMATION_REQUEST = 'confirmation_request', // Original: confirmation_request
   CONFIRMATION_RESPONSE = 'confirmation_response', // Original: confirmation_response
   QUERY = 'query', // Original: query
+  RESPONSE_COMPLETE = 'response_complete',
 }
 
 /**

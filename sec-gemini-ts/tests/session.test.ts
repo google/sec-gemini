@@ -160,8 +160,9 @@ describe('Session', () => {
       language: 'en',
     });
 
-    const streamer = await session.streamer(onmessage, onopen, onerror, onclose);
+    const streamerPromise = session.streamer(onmessage, onopen, onerror, onclose);
     openSocket();
+    const streamer = await streamerPromise;
     expect(streamer.isConnected()).toBe(true);
     streamer.close();
     expect(streamer.isConnected()).toBe(false);
@@ -300,7 +301,15 @@ describe('Session', () => {
       can_log: true,
       language: 'en',
       messages: [],
-      files: [{ name: 'filename1', size: 18, sha256: 'eb2eb8f9bbe4c506bd67c2a8b8f76badb0ab870b7c272fc273cd2b849281d4b9', mime_type: 'text/plain', content_type_label: 'txt' }],
+      files: [
+        {
+          name: 'filename1',
+          size: 18,
+          sha256: 'eb2eb8f9bbe4c506bd67c2a8b8f76badb0ab870b7c272fc273cd2b849281d4b9',
+          mime_type: 'text/plain',
+          content_type_label: 'txt',
+        },
+      ],
     };
     const expectedSessionAfterDetachment = {
       id: 'a-b-c-d-e',
@@ -329,15 +338,19 @@ describe('Session', () => {
       _checkHeaders(init!);
       if (input === 'http://google.com/v1/session/attach_file' && init!.method === 'POST') {
         attachFileReq = init!.body! as string;
-        return new Response(JSON.stringify({ ok: true, status_code: 200,
-          data: {
-            name: 'filename1',
-            size: 18,
-            sha256: 'eb2eb8f9bbe4c506bd67c2a8b8f76badb0ab870b7c272fc273cd2b849281d4b9',
-            mime_type: 'text/plain',
-            content_type_label: 'txt',
-          }
-         }));
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            status_code: 200,
+            data: {
+              name: 'filename1',
+              size: 18,
+              sha256: 'eb2eb8f9bbe4c506bd67c2a8b8f76badb0ab870b7c272fc273cd2b849281d4b9',
+              mime_type: 'text/plain',
+              content_type_label: 'txt',
+            },
+          })
+        );
       }
       if (input === 'http://google.com/v1/session/get?session_id=a-b-c-d-e' && init!.method === 'GET') {
         if (detachFileRequest === undefined) {
@@ -374,11 +387,11 @@ describe('Session', () => {
     expect(detachFileRequest).not.toBeDefined();
     expect(session.files.length).toEqual(1);
     // TODO add more fields
-    expect(attachedSessionFile.name === 'filename1')
-    expect(attachedSessionFile.size === 18)
-    expect(attachedSessionFile.sha256 === 'eb2eb8f9bbe4c506bd67c2a8b8f76badb0ab870b7c272fc273cd2b849281d4b9')
-    expect(attachedSessionFile.mime_type === 'text/plain')
-    expect(attachedSessionFile.content_type_label === 'txt')
+    expect(attachedSessionFile.name === 'filename1');
+    expect(attachedSessionFile.size === 18);
+    expect(attachedSessionFile.sha256 === 'eb2eb8f9bbe4c506bd67c2a8b8f76badb0ab870b7c272fc273cd2b849281d4b9');
+    expect(attachedSessionFile.mime_type === 'text/plain');
+    expect(attachedSessionFile.content_type_label === 'txt');
 
     // Check that the session is being updated
     let fetchSessionPromise = session.fetchSession();

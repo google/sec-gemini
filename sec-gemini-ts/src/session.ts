@@ -234,7 +234,7 @@ class InteractiveSession {
     name?: string;
     description?: string;
     language?: string;
-    id?: string ; // Optional ID for creating named sessions.
+    id?: string; // Optional ID for creating named sessions.
   }): Promise<void> {
     const {
       ttl,
@@ -550,7 +550,7 @@ class InteractiveSession {
   public async attachFile(
     filename: string,
     content: string | ArrayBuffer | Uint8Array,
-    mimeTypeHint?: string,
+    mimeTypeHint?: string
   ): Promise<PublicSessionFile> {
     this._ensureInitialized();
 

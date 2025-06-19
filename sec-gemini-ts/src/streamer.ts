@@ -8,8 +8,8 @@
 import randomUUID from './uuid';
 import WebSocket from 'isomorphic-ws'; // Use isomorphic-ws for compatibility
 import { EndPointsEnum, ResponseStatusEnum } from './enum';
-import { RoleEnum, MimeTypeEnum, MessageTypeEnum } from './secgeminienums';
-import { Message, Role, MimeType } from './secgeminitypes';
+import { RoleEnum, MimeTypeEnum, MessageTypeEnum, StateEnum } from './secgeminienums';
+import { Message, Role, MimeType, State } from './secgeminitypes';
 
 const ROOT_MESSAGE_ID = '3713';
 
@@ -49,6 +49,8 @@ class Streamer {
   private readonly apiKey: string;
   private readonly sessionID: string;
   private isReconnecting: boolean = false;
+  // True if the server wants the client to close the WebSocket connection (e.g. after a query and completed streaming response).
+  private serverClosed: boolean = false;
   private messageQueue: { prompt: string; parentId?: string }[] = [];
 
   private reconnectAttempts: number = 0;
@@ -78,52 +80,9 @@ class Streamer {
     const streamer = new Streamer(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
 
     return new Promise<Streamer>((resolve, reject) => {
-      const tempOnOpen = () => {
-        cleanUpTempHandlers();
-        console.info('Streamer: WebSocket connected successfully.');
+      streamer.attemptConnection(() => {
         resolve(streamer);
-      };
-
-      const tempOnError = (eventOrError: WebSocket.ErrorEvent | Error) => {
-        cleanUpTempHandlers();
-        const error =
-          eventOrError instanceof Error
-            ? eventOrError
-            : new Error(
-                `WebSocket connection error: ${(eventOrError as WebSocket.ErrorEvent).message || (eventOrError as Event).type || 'Unknown WS Error'}`
-              );
-        console.error('Streamer: WebSocket connection failed.', error);
-        reject(error);
-      };
-
-      streamer.connectionTimeoutId = setTimeout(() => {
-        cleanUpTempHandlers();
-        const error = new Error(`Streamer: Connection timeout after ${streamer.connectionTimeout}ms`);
-        console.error(error.message);
-        if (streamer.ws && streamer.ws.readyState === WebSocket.CONNECTING) {
-          streamer.ws.close(4000, 'Connection Timeout');
-        }
-        reject(error);
-      }, streamer.connectionTimeout);
-
-      const cleanUpTempHandlers = () => {
-        if (streamer.connectionTimeoutId) {
-          clearTimeout(streamer.connectionTimeoutId);
-          streamer.connectionTimeoutId = null;
-        }
-        if (streamer.ws) {
-          streamer.ws.removeEventListener('open', tempOnOpen as any);
-          streamer.ws.removeEventListener('error', tempOnError as any);
-        }
-      };
-
-      try {
-        streamer.connect(tempOnOpen, tempOnError);
-        resolve(streamer);
-      } catch (error) {
-        cleanUpTempHandlers();
-        reject(error);
-      }
+      }, reject);
     });
   }
 
@@ -168,6 +127,7 @@ class Streamer {
       return;
     }
 
+    this.serverClosed = false;
     this.updateConnectionStatus('connecting');
     console.debug('Streamer: Attempting to connect...');
 
@@ -207,11 +167,24 @@ class Streamer {
 
   public async send(prompt: string, parentId?: string): Promise<void> {
     const state = this.ws ? this.ws.readyState : '';
+    if (this.serverClosed) {
+      this.attemptConnection(
+        () => {},
+        (error) => {
+          console.error('Streamer: Error reopening connection to server:', error);
+          this.notifyError(error instanceof Error ? error : new Error('Failed to reopen connection to send message'));
+        }
+      );
+      console.debug('Streamer: Reconnecting and queuing message during reconnect:', prompt.substring(0, 30) + '...');
+      this.messageQueue.push({ prompt, parentId });
+      return;
+    }
     if (this.isReconnecting || state === WebSocket.CONNECTING) {
       console.debug('Streamer: Queuing message during reconnect:', prompt.substring(0, 30) + '...');
       this.messageQueue.push({ prompt, parentId });
       return;
-    } else if (state !== WebSocket.OPEN) {
+    }
+    if (state !== WebSocket.OPEN) {
       throw new Error('WebSocket is not connected.');
     }
     const currentWs = this.ws!;
@@ -314,6 +287,11 @@ class Streamer {
         this.close(4001, 'Session Not Found');
         return;
       }
+      if (message.message_type === MessageTypeEnum.RESPONSE_COMPLETE) {
+        this.close(1000, 'Server Response Complete');
+        this.serverClosed = true;
+        return;
+      }
       this.userOnMessage(message);
     } catch (error) {
       console.error('Streamer: Error parsing/handling incoming message:', error);
@@ -377,6 +355,54 @@ class Streamer {
       this.isReconnecting = false;
       this.updateConnectionStatus('disconnected');
       this.ws = null;
+    }
+  }
+
+  private attemptConnection(onOpenCallback: () => void, onErrorCallback: (err: any) => void): void {
+    const tempOnOpen = () => {
+      cleanUpTempHandlers();
+      console.info('Streamer: WebSocket connected successfully.');
+      onOpenCallback();
+    };
+
+    const tempOnError = (eventOrError: WebSocket.ErrorEvent | Error) => {
+      cleanUpTempHandlers();
+      const error =
+        eventOrError instanceof Error
+          ? eventOrError
+          : new Error(
+              `WebSocket connection error: ${(eventOrError as WebSocket.ErrorEvent).message || (eventOrError as Event).type || 'Unknown WS Error'}`
+            );
+      console.error('Streamer: WebSocket connection failed.', error);
+      onErrorCallback(error);
+    };
+
+    this.connectionTimeoutId = setTimeout(() => {
+      cleanUpTempHandlers();
+      const error = new Error(`Streamer: Connection timeout after ${this.connectionTimeout}ms`);
+      console.error(error.message);
+      if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+        this.ws.close(4000, 'Connection Timeout');
+      }
+      onErrorCallback(error);
+    }, this.connectionTimeout);
+
+    const cleanUpTempHandlers = () => {
+      if (this.connectionTimeoutId) {
+        clearTimeout(this.connectionTimeoutId);
+        this.connectionTimeoutId = null;
+      }
+      if (this.ws) {
+        this.ws.removeEventListener('open', tempOnOpen as any);
+        this.ws.removeEventListener('error', tempOnError as any);
+      }
+    };
+
+    try {
+      this.connect(tempOnOpen, tempOnError);
+    } catch (error) {
+      cleanUpTempHandlers();
+      onErrorCallback(error);
     }
   }
 
