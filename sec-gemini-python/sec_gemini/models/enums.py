@@ -233,3 +233,6 @@ class MessageType(str, Enum):
 
     # User messages
     QUERY = "query"
+
+    # Server messages
+    RESPONSE_COMPLETE = "response_complete"
