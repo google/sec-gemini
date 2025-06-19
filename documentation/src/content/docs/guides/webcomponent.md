@@ -39,6 +39,7 @@ Once the component is installed (either via CDN or npm), you can use the `<sec-g
   sessionDescription="My description"
   sessionPrompt="You are a senior cybersecurity threat intelligence analyst"
   theme="dark"
+  is-fullscreen="true"
 >
 </sec-gem-chat>
 ```
@@ -85,6 +86,13 @@ Here's a detailed explanation of each attribute:
   - **Accepted Values:** `"light"`, `"dark"`
   - **Default:** `"light"`
   - Determines the visual theme of the chat interface. Set to `"dark"` for a dark mode appearance or `"light"` for a standard light theme.
+
+- **`is-fullscreen`** (Optional)
+
+  - **Type:** `string`
+  - **Accepted Values:** `"true"`, `"false"`
+  - **Default:** `"false"`
+  - Determines whether the webcomponent initially opens in full screen.
 
 ---
 
