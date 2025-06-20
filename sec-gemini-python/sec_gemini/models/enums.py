@@ -206,7 +206,7 @@ class State(str, Enum):
     PLANNING = "planning"  # planning execution
     REVIEWING = "reviewing"  # reviewing current result
     UNDERSTANDING = "understanding"  # intent detection
-    RETRIVING = "retriving"  # retrieving info
+    RETRIEVING = "retrieving"  # retrieving info
     GROUNDING = "grounding"  # grounding
 
 
