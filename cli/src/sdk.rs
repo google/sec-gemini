@@ -186,16 +186,17 @@ impl Session {
                 tokio_tungstenite::connect_async(url).await,
             );
             let (sink, mut stream) = stream.split();
-            let (onmessage, msg_queue) = unbounded_channel::<Message>();
+            let (send, recv) = unbounded_channel::<Message>();
             let abort = tokio::spawn(async move {
                 while let Some(message) = stream.next().await {
                     let message = match try_to!("receive web-socket message", message) {
                         tungstenite::Message::Text(x) => x,
                         tungstenite::Message::Ping(_) => continue, // handled by tungstenite
+                        tungstenite::Message::Close(_) => break,
                         x => fail!("received unexpected web-socket message {x:?}"),
                     };
                     log::trace!("received {message}");
-                    match onmessage.send(try_to!(
+                    match send.send(try_to!(
                         "parse web-socket message",
                         serde_json::from_str(message.as_str())
                     )) {
@@ -205,7 +206,7 @@ impl Session {
                 }
             })
             .abort_handle();
-            self.state = Some(SessionState { recv: msg_queue, sink, abort })
+            self.state = Some(SessionState { recv, sink, abort })
         }
         self.state.as_mut().unwrap()
     }
