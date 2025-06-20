@@ -23,7 +23,7 @@ macro_rules! api {
     (pub enum $Name:ident { $($field:ident,)* }) => {
         #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
         #[serde(rename_all = "snake_case")]
-        pub enum $Name { $($field,)* }
+        pub enum $Name { $($field,)* #[serde(other)] Other }
     };
     (pub struct $Name:ident $Builder:ident {
         $($(#[$attr:meta])*
@@ -109,6 +109,7 @@ api! {
         ConfirmationRequest,
         ConfirmationResponse,
         Query,
+        ResponseComplete,
     }
 }
 
