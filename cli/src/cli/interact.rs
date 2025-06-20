@@ -148,7 +148,7 @@ impl Options {
     async fn execute(&mut self, query: &str, session: &mut Session) {
         let (enable_shell, query) = self.shell.update_query(query).await;
         let mut progress = new_progress();
-        session.send(&query);
+        session.send(&query).await;
         set_message(&progress, "Waiting response");
         while let Some(message) = session.recv().await {
             let content = message.content.unwrap_or_default();
@@ -158,7 +158,7 @@ impl Options {
                     if enable_shell {
                         if let Some(response) = self.shell.interpret_result(&content).await {
                             progress = new_progress();
-                            session.send(&response);
+                            session.send(&response).await;
                             continue;
                         }
                     }
@@ -182,6 +182,7 @@ impl Options {
                 _ => (),
             }
         }
+        session.done();
     }
 }
 
@@ -199,7 +200,7 @@ async fn get_session(sdk: Arc<Sdk>, sessions: &[PublicSession]) -> Session {
     }
     if let Some((_, id)) = best {
         log::info!("Resuming existing CLI session.");
-        Session::resume(&sdk, id.clone()).await
+        Session::resume(sdk, id.clone())
     } else {
         log::info!("Creating new CLI session.");
         Session::new(sdk, SESSION_NAME.to_string()).await
