@@ -21,7 +21,7 @@ face any issue installing a package or running a binary, please search the exist
 for an existing one to upvote or create a new one otherwise.
 
 [issues]: https://github.com/google/sec-gemini/issues
-[release]: https://github.com/google/sec-gemini/releases/tag/cli-v0.0.1
+[release]: https://github.com/google/sec-gemini/releases/tag/cli-v0.0.2
 
 ### Usage
 
