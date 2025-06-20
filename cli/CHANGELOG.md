@@ -15,6 +15,7 @@
 
 ### Patch
 
+- Close the web-socket connection when waiting for user input
 - Fix panic on malformed server message
 - Add sysname and machine to the user agent for HTTP connections
 - Add 3 seconds timeout to all HTTP connections to avoid hanging effects

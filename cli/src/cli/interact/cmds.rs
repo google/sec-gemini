@@ -528,7 +528,7 @@ fn exec_session_resume(input: CommandInput<'_>) -> CommandOutput<'_> {
             Some(session) => session.id.clone(),
             None => return user_error!("no session named {name}"),
         };
-        *input.session = Session::resume(input.sdk, id).await;
+        *input.session = Session::resume(input.sdk.clone(), id);
     })
 }
 

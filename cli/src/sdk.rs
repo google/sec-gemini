@@ -16,14 +16,18 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use colored::Colorize;
+use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use reqwest::StatusCode;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
+use tokio::net::TcpStream;
+use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 use tokio::sync::{Mutex, MutexGuard};
+use tokio::task::AbortHandle;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use self::types::*;
 use crate::util::choose;
-use crate::{StrError, config, fail, or_fail, try_to};
+use crate::{StrError, config, fail, or_fail};
 
 mod http;
 mod name;
@@ -39,8 +43,8 @@ pub struct Sdk {
 
 pub struct Session {
     id: String,
-    recv: UnboundedReceiver<Message>,
-    send: UnboundedSender<tungstenite::Message>,
+    sdk: Arc<Sdk>,
+    state: Option<SessionState>,
 }
 
 impl Sdk {
@@ -136,48 +140,11 @@ impl Session {
         log::info!("{}", result.status_message);
         let id = session.id.clone();
         sdk.cached_sessions().await.push(session);
-        Self::create(&sdk, id).await
+        Session { id, sdk, state: None }
     }
 
-    pub async fn resume(sdk: &Sdk, id: String) -> Session {
-        Self::create(sdk, id).await
-    }
-
-    async fn create(sdk: &Sdk, id: String) -> Session {
-        let mut url = sdk.http.base_url.clone();
-        url.set_scheme("wss").unwrap();
-        url.set_path("/v1/stream");
-        url.set_query(Some(&format!("api_key={}&session_id={id}", sdk.api_key)));
-        let (stream, _) = try_to!(
-            "connect to Sec-Gemini web-socket",
-            tokio_tungstenite::connect_async(url).await,
-        );
-        let (mut sink, mut stream) = stream.split();
-        let (onmessage, msg_queue) = unbounded_channel::<Message>();
-        drop(tokio::spawn(async move {
-            while let Some(message) = stream.next().await {
-                let message = match try_to!("receive web-socket message", message) {
-                    tungstenite::Message::Text(x) => x,
-                    tungstenite::Message::Ping(_) => continue, // handled by tungstenite
-                    x => fail!("received unexpected web-socket message {x:?}"),
-                };
-                log::trace!("received {message}");
-                match onmessage.send(try_to!(
-                    "parse web-socket message",
-                    serde_json::from_str(message.as_str())
-                )) {
-                    Ok(()) => (),
-                    Err(_) => break,
-                }
-            }
-        }));
-        let (send, mut recv) = unbounded_channel::<tungstenite::Message>();
-        drop(tokio::spawn(async move {
-            while let Some(message) = recv.recv().await {
-                try_to("send web-socket message", sink.send(message).await, None);
-            }
-        }));
-        Session { id, recv: msg_queue, send }
+    pub fn resume(sdk: Arc<Sdk>, id: String) -> Session {
+        Session { id, sdk, state: None }
     }
 
     #[allow(dead_code)]
@@ -189,16 +156,66 @@ impl Session {
         session
     }
 
-    pub fn send(&self, prompt: &str) {
+    pub async fn send(&mut self, prompt: &str) {
         let message = MessageBuilder::new(MessageType::Query)
             .mime_type(Some("text/plain".to_string()))
             .content(Some(prompt.to_string()))
             .build();
         let message = serde_json::to_string(&message).unwrap();
-        try_to!("send web-socket message", self.send.send(tungstenite::Message::text(message)));
+        try_to!(
+            "send web-socket message",
+            self.state().await.sink.send(tungstenite::Message::text(message)).await
+        );
     }
 
     pub async fn recv(&mut self) -> Option<Message> {
-        self.recv.recv().await
+        self.state().await.recv.recv().await
     }
+
+    pub fn done(&mut self) {
+        if let Some(state) = self.state.take() {
+            state.abort.abort();
+        }
+    }
+
+    async fn state(&mut self) -> &mut SessionState {
+        if self.state.is_none() {
+            let mut url = self.sdk.http.base_url.clone();
+            url.set_scheme("wss").unwrap();
+            url.set_path("/v1/stream");
+            url.set_query(Some(&format!("api_key={}&session_id={}", self.sdk.api_key, self.id)));
+            let (stream, _) = try_to!(
+                "connect to Sec-Gemini web-socket",
+                tokio_tungstenite::connect_async(url).await,
+            );
+            let (sink, mut stream) = stream.split();
+            let (onmessage, msg_queue) = unbounded_channel::<Message>();
+            let abort = tokio::spawn(async move {
+                while let Some(message) = stream.next().await {
+                    let message = match try_to!("receive web-socket message", message) {
+                        tungstenite::Message::Text(x) => x,
+                        tungstenite::Message::Ping(_) => continue, // handled by tungstenite
+                        x => fail!("received unexpected web-socket message {x:?}"),
+                    };
+                    log::trace!("received {message}");
+                    match onmessage.send(try_to!(
+                        "parse web-socket message",
+                        serde_json::from_str(message.as_str())
+                    )) {
+                        Ok(()) => (),
+                        Err(_) => break,
+                    }
+                }
+            })
+            .abort_handle();
+            self.state = Some(SessionState { recv: msg_queue, sink, abort })
+        }
+        self.state.as_mut().unwrap()
+    }
+}
+
+struct SessionState {
+    recv: UnboundedReceiver<Message>,
+    sink: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, tungstenite::Message>,
+    abort: AbortHandle,
 }
