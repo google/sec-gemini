@@ -5,7 +5,7 @@
 ### Minor
 
 - Add `sec-gemini --config` to read, write, and delete configuration files
-- Add `--enable-shell`, `--auto-exec`, and `--auto-send` for shell command execution (requires `sh`)
+- Add `--shell-{enable,timeout,auto-{exec,read,write}}` for shell command execution (requires `sh`)
 - Add interactive commands with `/help` and completion
 - Generate interactive session name like the Python SDK
 - Use more colors and render markdown

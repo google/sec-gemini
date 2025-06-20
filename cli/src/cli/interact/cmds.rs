@@ -399,7 +399,7 @@ enum CommandData {
 }
 
 pub struct CommandInput<'a> {
-    pub this: &'a super::Options,
+    pub this: &'a mut super::Options,
     pub sdk: &'a Arc<Sdk>,
     pub session: &'a mut Session,
     pub args: HashMap<String, String>,
