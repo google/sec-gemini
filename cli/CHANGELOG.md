@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.3-git
+
+### Patch
+
+- Handle closed web-socket without failing
+
 ## 0.0.2
 
 ### Minor
