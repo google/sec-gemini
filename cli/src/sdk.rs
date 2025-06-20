@@ -162,7 +162,10 @@ impl Session {
                     x => fail!("received unexpected web-socket message {x:?}"),
                 };
                 log::trace!("received {message}");
-                match onmessage.send(serde_json::from_str(message.as_str()).unwrap()) {
+                match onmessage.send(try_to!(
+                    "parse web-socket message",
+                    serde_json::from_str(message.as_str())
+                )) {
                     Ok(()) => (),
                     Err(_) => break,
                 }
