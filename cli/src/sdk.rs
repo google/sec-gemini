@@ -102,12 +102,10 @@ impl Sdk {
         or_fail(self.http.post("/v1/session/register", session).await)
     }
 
-    #[allow(dead_code)]
     async fn session_get(&self, id: &str) -> PublicSession {
         or_fail(self.http.get("/v1/session/get", Some(&format!("session_id={id}"))).await)
     }
 
-    #[allow(dead_code)]
     async fn session_delete(&self, session: &PublicSession) -> OpResult {
         or_fail(self.http.post("/v1/session/delete", session).await)
     }
@@ -147,7 +145,6 @@ impl Session {
         Session { id, sdk, state: None }
     }
 
-    #[allow(dead_code)]
     pub async fn delete(sdk: &Sdk, id: &str) -> PublicSession {
         let session = sdk.session_get(id).await;
         let result = sdk.session_delete(&session).await;
