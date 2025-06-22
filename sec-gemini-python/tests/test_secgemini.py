@@ -12,17 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import copy
 import hashlib
 import ipaddress
 import json
+import os
+import traceback
 
 import pytest
+import websockets
 from conftest import MOCK_SEC_GEMINI_API_HOST
 from pytest_httpx import HTTPXMock
-from utils import parse_secgemini_response, require_env_variable
+from utils import (
+    async_require_env_variable,
+    parse_secgemini_response,
+    require_env_variable,
+)
 
 from sec_gemini import SecGemini
+from sec_gemini.models.enums import MessageType
+from sec_gemini.models.message import Message
 from sec_gemini.models.public import PublicSession, PublicSessionFile, UserInfo
 from sec_gemini.session import InteractiveSession
 
@@ -378,3 +388,43 @@ def test_report_feedback_and_bug_report(secgemini_client: SecGemini):
 
     res = session.send_feedback(3, "this is a comment", "group Y")
     assert res is True
+
+
+@pytest.mark.asyncio
+@async_require_env_variable("SEC_GEMINI_API_KEY")
+async def test_websockets(secgemini_client: SecGemini):
+    session = secgemini_client.create_session()
+
+    api_key = os.environ["SEC_GEMINI_API_KEY"]
+    session_id = session.id
+
+    msg = Message(
+        id=session.id,
+        parent_id="3713",
+        role="user",
+        mime_type="text/plain",
+        message_type="query",
+        content="yoo",
+    )
+
+    uri = f"{secgemini_client.base_websockets_url}/v1/stream?api_key={api_key}&session_id={session_id}"
+    async with websockets.connect(uri) as websocket:
+        await websocket.send(msg.model_dump_json())
+
+        try:
+            while True:
+                received_msg = Message(
+                    **json.loads(await asyncio.wait_for(websocket.recv(), timeout=30))
+                )
+                print(received_msg.model_dump())
+
+                if received_msg.message_type == MessageType.RESPONSE_COMPLETE:
+                    break
+        except asyncio.TimeoutError:
+            print("Reached timeout without having received a RESPONSE_COMPLETE message")
+            raise
+        except Exception:
+            print(
+                f"Exception while sending/receiving messages. {traceback.format_exc()}"
+            )
+            raise
