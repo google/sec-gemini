@@ -31,7 +31,7 @@ from utils import (
 )
 
 from sec_gemini import SecGemini
-from sec_gemini.models.enums import MessageType
+from sec_gemini.models.enums import MessageType, MimeType, Role
 from sec_gemini.models.message import Message
 from sec_gemini.models.public import PublicSession, PublicSessionFile, UserInfo
 from sec_gemini.session import InteractiveSession
@@ -401,16 +401,17 @@ async def test_websockets(secgemini_client: SecGemini):
     msg = Message(
         id=session.id,
         parent_id="3713",
-        role="user",
-        mime_type="text/plain",
-        message_type="query",
-        content="yoo",
+        role=Role.USER,
+        mime_type=MimeType.TEXT,
+        message_type=MessageType.QUERY,
+        content="Hello, what is 12345+54321?",
     )
 
     uri = f"{secgemini_client.base_websockets_url}/v1/stream?api_key={api_key}&session_id={session_id}"
     async with websockets.connect(uri) as websocket:
         await websocket.send(msg.model_dump_json())
 
+        result_msg = ""
         try:
             while True:
                 received_msg = Message(
@@ -418,6 +419,9 @@ async def test_websockets(secgemini_client: SecGemini):
                 )
                 print(received_msg.model_dump())
 
+                if received_msg.message_type == MessageType.RESULT:
+                    assert received_msg.content is not None
+                    result_msg += received_msg.content
                 if received_msg.message_type == MessageType.RESPONSE_COMPLETE:
                     break
         except asyncio.TimeoutError:
@@ -428,3 +432,5 @@ async def test_websockets(secgemini_client: SecGemini):
                 f"Exception while sending/receiving messages. {traceback.format_exc()}"
             )
             raise
+
+    assert result_msg.find("66666") >= 0
