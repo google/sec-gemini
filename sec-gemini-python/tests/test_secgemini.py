@@ -31,7 +31,7 @@ from utils import (
 )
 
 from sec_gemini import SecGemini
-from sec_gemini.models.enums import MessageType, MimeType, Role
+from sec_gemini.models.enums import MessageType, MimeType, Role, State
 from sec_gemini.models.message import Message
 from sec_gemini.models.public import PublicSession, PublicSessionFile, UserInfo
 from sec_gemini.session import InteractiveSession
@@ -404,7 +404,7 @@ async def test_websockets(secgemini_client: SecGemini):
         role=Role.USER,
         mime_type=MimeType.TEXT,
         message_type=MessageType.QUERY,
-        content="Hello, what is 12345+54321?",
+        content="How much is 12345+54321? Just answer with the numeric value, nothing else.",
     )
 
     uri = f"{secgemini_client.base_websockets_url}/v1/stream?api_key={api_key}&session_id={session_id}"
@@ -422,7 +422,10 @@ async def test_websockets(secgemini_client: SecGemini):
                 if received_msg.message_type == MessageType.RESULT:
                     assert received_msg.content is not None
                     result_msg += received_msg.content
-                if received_msg.message_type == MessageType.RESPONSE_COMPLETE:
+                if (
+                    received_msg.message_type == MessageType.INFO
+                    and received_msg.state == State.END
+                ):
                     break
         except asyncio.TimeoutError:
             print("Reached timeout without having received a RESPONSE_COMPLETE message")
