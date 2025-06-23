@@ -2,8 +2,13 @@
 
 ## 0.0.3-git
 
+### Minor
+
+- Match recent changes to Sec-Gemini API
+
 ### Patch
 
+- Consider error messages as recoverable
 - Reconnect to the session if closed while sending
 - Handle closed web-socket without failing
 

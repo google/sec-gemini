@@ -86,7 +86,7 @@ api! {
         pub role: Role = Role::User,
         pub timestamp: u64 = now(),
         pub message_type: MessageType,
-        pub message_sub_type: Option<String> = None,
+        pub title: Option<String> = None,
         pub state: State = State::Start,
         pub content: Option<String> = None,
         pub mime_type: Option<MimeType> = None,
@@ -109,7 +109,6 @@ api! {
         ConfirmationRequest,
         ConfirmationResponse,
         Query,
-        ResponseComplete,
     }
 }
 
@@ -190,7 +189,9 @@ api! {
 
 api! {
     pub enum State {
+        Undefined,
         Start,
+        End,
         Query,
         RunningAgent,
         AgentDone,
