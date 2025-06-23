@@ -428,7 +428,7 @@ async def test_websockets(secgemini_client: SecGemini):
                 ):
                     break
         except asyncio.TimeoutError:
-            print("Reached timeout without having received a RESPONSE_COMPLETE message")
+            print("Reached timeout without having received a State.END message")
             raise
         except Exception:
             print(
