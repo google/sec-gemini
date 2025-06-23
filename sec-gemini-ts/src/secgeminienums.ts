@@ -37,7 +37,6 @@ export enum MessageTypeEnum {
   CONFIRMATION_REQUEST = 'confirmation_request', // Original: confirmation_request
   CONFIRMATION_RESPONSE = 'confirmation_response', // Original: confirmation_response
   QUERY = 'query', // Original: query
-  RESPONSE_COMPLETE = 'response_complete',
 }
 
 /**
@@ -107,7 +106,9 @@ export enum RoleEnum {
  * State enum generated from type definition.
  */
 export enum StateEnum {
+  UNDEFINED = 'undefined', // Original: undefined
   START = 'start', // Original: start
+  END = 'end', // Original: end
   QUERY = 'query', // Original: query
   RUNNING_AGENT = 'running_agent', // Original: running_agent
   AGENT_DONE = 'agent_done', // Original: agent_done

@@ -144,9 +144,9 @@ export type Message = {
    */
   message_type: MessageType;
   /**
-   * The sub type of the message - e.g. function name.
+   * Descripting title of the message.
    */
-  message_sub_type?: string | null;
+  title?: string | null;
   /**
    * The state the message belongs to.
    */
