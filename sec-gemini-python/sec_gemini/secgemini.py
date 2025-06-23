@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.WARNING)
 
 
 class SecGemini:
-    DEFAULT_STABLE_MODEL_NAME = "sec-gemini-1.1"
+    DEFAULT_STABLE_MODEL_NAME = "sec-gemini-stable"
 
     def __init__(
         self,
