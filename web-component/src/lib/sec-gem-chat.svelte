@@ -71,8 +71,9 @@
   let thinkingMessages: MessageWithStreaming[] = $state([]);
   let input_field = $state("");
   let files: PublicSessionFile[] | [] = $state([]);
+  let isSessionInitialized = $state(false); 
 
-  $effect(() => {
+ $effect(() => {
     isProcessing = messages.some(
       (msg) =>
         (msg.role === "agent" && msg.message_type === MessageTypeEnum.INFO) ||
@@ -192,40 +193,10 @@
     }
   }
 
-  async function handleSend(e: Event) {
+  function handleSend(e: Event) {
     e.preventDefault();
     showPrompt = false;
-
-    if (input_field.trim().length < 3) {
-      return;
-    }
-
-    try {
-      const loadingMessage: MessageWithStreaming = {
-        id: crypto.randomUUID(),
-        timestamp: Date.now() / 1000,
-        message_type: "info",
-        role: "system",
-        content: "Initializing session...",
-        mime_type: "text/plain",
-        streaming: true,
-      };
-
-      if (currentApiKey && !currentStreamer) {
-        messages = [...messages, loadingMessage];
-        await initializeSDK();
-
-        messages = messages.map((msg) =>
-          msg.id === loadingMessage.id
-            ? { ...msg, content: "Just a sec..." }
-            : msg
-        );
-      }
-
-      if (!currentStreamer) {
-        throw new Error("Failed to initialize session");
-      }
-
+    if (input_field.trim().length >= 3) {
       const userMessage: Message = {
         id: crypto.randomUUID(),
         timestamp: Date.now() / 1000,
@@ -234,45 +205,22 @@
         content: input_field + " " + systemPrompt,
         mime_type: "text/plain",
       };
-
-      if (currentApiKey && messages[messages.length - 1]?.streaming) {
-        messages = [
-          ...messages.slice(0, -1),
-          userMessage,
-          { ...messages[messages.length - 1], content: "Just a sec..." },
-        ];
-      } else {
-        const placeHolderMessage: MessageWithStreaming = {
-          id: crypto.randomUUID(),
-          timestamp: Date.now() / 1000,
-          message_type: "info",
-          role: "system",
-          content: "Just a sec...",
-          mime_type: "text/plain",
-          streaming: true,
-        };
-        messages = [...messages, userMessage, placeHolderMessage];
-      }
-
-      setTimeout(scrollToTop, 100);
-      await currentStreamer.send(input_field + " " + systemPrompt);
-      input_field = "";
-    } catch (error) {
-      console.error("Error in handleSend:", error);
-
-      const errorMessage: MessageWithStreaming = {
+      const placeHolderMessage: MessageWithStreaming = {
         id: crypto.randomUUID(),
         timestamp: Date.now() / 1000,
-        message_type: "error",
+        message_type: "info",
         role: "system",
-        content: "Failed to send message. Please try again.",
+        content: "Just a sec...",
         mime_type: "text/plain",
-        streaming: false,
+        streaming: true,
       };
 
-      messages = messages
-        .filter((msg) => !msg.streaming)
-        .concat([errorMessage]);
+      messages = [...messages, userMessage, placeHolderMessage];
+
+      setTimeout(scrollToTop, 100);
+
+      currentStreamer!.send(input_field + " " + systemPrompt);
+      input_field = "";
     }
   }
 
@@ -298,6 +246,8 @@
         dialog.showModal();
         isChatExpanded = true;
       }
+
+      initializeSDK();
     } catch (error) {
       console.error("API Key validation failed:", error);
       errorMessage = "Invalid API key. Please check and try again.";
@@ -395,7 +345,10 @@
     }
   }
 
-  function toggleChat() {
+  async function toggleChat() {
+    if (currentApiKey && !isSessionInitialized) {
+      await initializeSDK();
+    }
     isChatExpanded = !isChatExpanded;
     if (scrollable) {
       const elementsToRemoveAnimation =
