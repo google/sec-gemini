@@ -186,7 +186,10 @@ class MimeType(str, Enum):
 
 
 class State(str, Enum):
-    START = "start"  # session just started
+    UNDEFINED = "undefined"
+
+    START = "start"  # turn started
+    END = "end"  # turn completed
 
     QUERY = "query"  # user query
 
@@ -233,6 +236,3 @@ class MessageType(str, Enum):
 
     # User messages
     QUERY = "query"
-
-    # Server messages
-    RESPONSE_COMPLETE = "response_complete"

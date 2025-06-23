@@ -75,10 +75,8 @@ class Message(BaseModel):
         description="The type of message - Generation, Tool Call, or Info.",
     )
 
-    message_sub_type: Optional[str] = Field(
-        None,
-        title="Message Sub Type",
-        description="The sub type of the message - e.g. function name.",
+    title: Optional[str] = Field(
+        None, title="Title", description="Descripting title of the message."
     )
 
     state: State = Field(
