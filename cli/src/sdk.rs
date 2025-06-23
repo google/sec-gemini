@@ -159,6 +159,13 @@ impl Session {
             .content(Some(prompt.to_string()))
             .build();
         let message = serde_json::to_string(&message).unwrap();
+        match self.state().await.sink.send(tungstenite::Message::text(message.clone())).await {
+            Ok(()) => return,
+            Err(tungstenite::Error::Protocol(
+                tungstenite::error::ProtocolError::SendAfterClosing,
+            )) => self.done(),
+            Err(err) => try_to!("send web-socket message", Err(err)),
+        }
         try_to!(
             "send web-socket message",
             self.state().await.sink.send(tungstenite::Message::text(message)).await
