@@ -7,6 +7,7 @@
     Streamer,
     type Message,
     type PublicSessionFile,
+    type PublicSessionOutput,
   } from "sec-gemini";
   import { onMount } from "svelte";
   import MaterialSymbolsAdd2Rounded from "../icons/MaterialSymbolsAdd2Rounded.svelte";
@@ -63,9 +64,11 @@
   let showThinking: boolean = $state(false);
   let systemPrompt: string | undefined = $state(initialPrompt);
   let showPrompt: boolean = $state(false);
+  let showSessionDropdown: boolean = $state(false);
 
   let secGemSDK: SecGemini;
   let session: InteractiveSession | null = $state(null);
+  let sessions: PublicSessionOutput[] | undefined = $state([]);
   let currentStreamer: Streamer | null = $state(null);
   let messages: MessageWithStreaming[] = $state([]);
   let thinkingMessages: MessageWithStreaming[] = $state([]);
@@ -136,6 +139,26 @@
       }
     } catch (error) {
       console.error(`Error detaching file "${fileName}":`, error);
+    }
+  }
+
+  async function switchSession(sessionId: string | undefined) {
+    if (sessionId) {
+      session = await secGemSDK.resumeSession(sessionId);
+      sessions = secGemSDK.getUserInfo()?.sessions;
+      //@ts-ignore
+      isSessionLogging = session._session.can_log;
+      //@ts-ignore
+      session._session.messages.length > 0 &&
+        //@ts-ignore
+        (messages = session._session.messages.filter(
+          (message: { message_type: string }) =>
+            message.message_type === "result" ||
+            message.message_type === "query"
+        ));
+      //@ts-ignore
+      files = session._session.files;
+      showSessionDropdown = false;
     }
   }
 
@@ -280,7 +303,7 @@
       secGemSDK = await SecGemini.create(currentApiKey);
       if (sessionId) {
         session = await secGemSDK.resumeSession(sessionId);
-        console.log(session);
+        sessions = secGemSDK.getUserInfo()?.sessions;
         isResumedSession = true;
         //@ts-ignore
         isSessionLogging = session._session.can_log;
@@ -383,6 +406,12 @@
       dialog.close();
       document.body.style.overflowY = "";
       isChatExpanded = false;
+    } else if (
+      event.target &&
+      (event.target as Element).closest &&
+      !(event.target as Element).closest(".relative")
+    ) {
+      showSessionDropdown = false;
     }
   }
 
@@ -434,6 +463,42 @@
                 <span class="hidden md:inline">New Session</span>
                 <span class="inline md:hidden">New</span>
               </button>
+            {:else}
+              <div class="relative ml-auto mr-2 my-auto">
+                <button
+                  class="p-2 text-sm h-auto w-auto flex sm:w-32 items-center justify-center gap-1 rounded-full bg-base border border-text/50 hover:bg-accent disabled:pointer-events-none disabled:hover:bg-transparent hover:cursor-pointer"
+                  onclick={() => (showSessionDropdown = !showSessionDropdown)}
+                  aria-haspopup="true"
+                  aria-expanded={showSessionDropdown}
+                >
+                  <span class="inline truncate">{sessionId}</span>
+                </button>
+
+                {#if showSessionDropdown}
+                  <div
+                    class="absolute right-0 mt-2 w-48 bg-base border border-text/50 rounded-md shadow-lg z-10"
+                  >
+                    <div class="py-1">
+                      {#each sessions ?? [] as session}
+                        <button
+                          class="block w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors"
+                          class:bg-accent={session.id === sessionId}
+                          onclick={() => switchSession(session.id)}
+                        >
+                          <span class="font-medium">{session.id}</span>
+                        </button>
+                      {/each}
+                      <hr class="my-1 border-text/20" />
+                      <button
+                        class="block w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors text-red-500"
+                        onclick={resetSession}
+                      >
+                        Reset Current Session
+                      </button>
+                    </div>
+                  </div>
+                {/if}
+              </div>
             {/if}
             {#if systemPrompt}
               <button
@@ -1255,6 +1320,9 @@
       .top-20 {
         top: calc(var(--spacing) * 20);
       }
+      .right-0 {
+        right: calc(var(--spacing) * 0);
+      }
       .right-1 {
         right: calc(var(--spacing) * 1);
       }
@@ -1317,6 +1385,9 @@
       }
       .mx-auto {
         margin-inline: auto;
+      }
+      .my-1 {
+        margin-block: calc(var(--spacing) * 1);
       }
       .my-auto {
         margin-block: auto;
@@ -2365,6 +2436,12 @@
       .border-text {
         border-color: var(--color-text);
       }
+      .border-text\/20 {
+        border-color: color-mix(in srgb, #1b1c1d 20%, transparent);
+        @supports (color: color-mix(in lab, red, red)) {
+          border-color: color-mix(in oklab, var(--color-text) 20%, transparent);
+        }
+      }
       .border-text\/50 {
         border-color: color-mix(in srgb, #1b1c1d 50%, transparent);
         @supports (color: color-mix(in lab, red, red)) {
@@ -2506,6 +2583,9 @@
       .text-center {
         text-align: center;
       }
+      .text-left {
+        text-align: left;
+      }
       .text-start {
         text-align: start;
       }
@@ -2619,6 +2699,14 @@
       }
       .opacity-100 {
         opacity: 100%;
+      }
+      .shadow-lg {
+        --tw-shadow:
+          0 10px 15px -3px var(--tw-shadow-color, rgb(0 0 0 / 0.1)),
+          0 4px 6px -4px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
+        box-shadow:
+          var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+          var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
       }
       .shadow-md {
         --tw-shadow:
@@ -3170,6 +3258,11 @@
       .sm\:h-auto {
         @media (width >= 40rem) {
           height: auto;
+        }
+      }
+      .sm\:w-32 {
+        @media (width >= 40rem) {
+          width: calc(var(--spacing) * 32);
         }
       }
       .sm\:w-72 {
