@@ -4,6 +4,7 @@
 
 ### Patch
 
+- Reconnect to the session if closed while sending
 - Handle closed web-socket without failing
 
 ## 0.0.2
