@@ -838,7 +838,7 @@
           class="text-center text-xs px-2 pb-0 pt-2 line-clamp-1 text-text-muted"
         >
           Prompts and responses will be used to improve Sec-Gemini. It can make
-          mistakes, so please double check everything. v0.61
+          mistakes, so please double check everything. v0.69
         </p>
         {#if errorMessage}
           <div class="p-3 bg-red-100 text-red-700 rounded-md mt-2">

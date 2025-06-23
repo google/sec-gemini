@@ -73,7 +73,7 @@
               >
                 {message.message_type === "error"
                   ? message.status_message || "Error"
-                  : message.message_sub_type}
+                  : message.title}
               </p>
               <p
                 class={`${message.message_type === "error" ? "text-red-500" : ""} "italic text-sm"`}
