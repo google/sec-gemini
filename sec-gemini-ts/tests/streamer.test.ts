@@ -16,7 +16,7 @@
 
 import WebSocket from 'isomorphic-ws';
 import Streamer from '../src/streamer';
-import { MessageTypeEnum } from '../src/secgeminienums';
+import { MessageTypeEnum, StateEnum } from '../src/secgeminienums';
 import { getMockSocket, CloseEvent as SocketCloseEvent } from './mock_socket';
 
 // Method to create a response message that should be returned on the web socket. This can be spied on.
@@ -388,8 +388,8 @@ describe('Streamer', () => {
       message_type: 'result',
     });
     expect(onmessage).toHaveBeenCalledTimes(1);
-    // In real-world situations, the server will send 'completed' messages to signal to the client to close the connection.
-    mockSocket.onmessage({ data: JSON.stringify({ message_type: MessageTypeEnum.RESPONSE_COMPLETE }) });
+    // In real-world situations, the server will send 'end' messages to signal to the client to close the connection.
+    mockSocket.onmessage({ data: JSON.stringify({ message_type: MessageTypeEnum.INFO, state: StateEnum.END }) });
     // Try to send another message, which should reopen the connection.
     streamer.send('Second request!');
     // Message shouldn't have been sent yet because the connection is not yet open.

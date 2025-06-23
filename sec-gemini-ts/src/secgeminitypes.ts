@@ -187,8 +187,7 @@ export type MessageType =
   | 'delete'
   | 'confirmation_request'
   | 'confirmation_response'
-  | 'query'
-  | 'response_complete';
+  | 'query';
 
 /**
  * Completion type
@@ -676,7 +675,9 @@ export type SessionResponse = {
 };
 
 export type State =
+  | 'undefined'
   | 'start'
+  | 'end'
   | 'query'
   | 'running_agent'
   | 'agent_done'
@@ -690,7 +691,7 @@ export type State =
   | 'planning'
   | 'reviewing'
   | 'understanding'
-  | 'retriving'
+  | 'retrieving'
   | 'grounding';
 
 /**

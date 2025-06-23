@@ -287,7 +287,7 @@ class Streamer {
         this.close(4001, 'Session Not Found');
         return;
       }
-      if (message.message_type === MessageTypeEnum.RESPONSE_COMPLETE) {
+      if (message.message_type === MessageTypeEnum.INFO && message.state == StateEnum.END) {
         this.close(1000, 'Server Response Complete');
         this.serverClosed = true;
         return;
