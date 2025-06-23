@@ -96,6 +96,13 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
     }
 
+    @media screen and (max-width: 768px) {
+      .hero-image-placeholder {
+        width: 90vw;
+        height: 30vh;
+      }
+    }
+
     .hero-image-placeholder::before {
       content: '';
       position: absolute;
@@ -135,6 +142,12 @@
       padding-left: 60px;
       max-width: 600px;
       position: relative;
+    }
+
+    @media screen and (max-width: 768px) {
+      .hero-text {
+        font-size: 0.8em;
+      }
     }
 
     @media screen and (max-width: 768px) {
