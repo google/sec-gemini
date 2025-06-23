@@ -71,9 +71,9 @@
   let thinkingMessages: MessageWithStreaming[] = $state([]);
   let input_field = $state("");
   let files: PublicSessionFile[] | [] = $state([]);
-  let isSessionInitialized = $state(false); 
+  let isSessionInitialized = $state(false);
 
- $effect(() => {
+  $effect(() => {
     isProcessing = messages.some(
       (msg) =>
         (msg.role === "agent" && msg.message_type === MessageTypeEnum.INFO) ||
@@ -311,6 +311,7 @@
 
       currentStreamer = await session.streamer(onmessage as any);
       isLoading = false;
+      isSessionInitialized = true;
     } catch (error) {
       console.error("Failed to initialize SDK:", error);
       errorMessage =
