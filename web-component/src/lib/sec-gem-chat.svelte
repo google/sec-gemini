@@ -30,6 +30,7 @@
     "session-description": sessionDescription,
     "session-name": sessionName,
     "session-prompt": initialPrompt,
+    examples: examples,
   } = $props();
 
   let isFull = $state(isFullscreen);
@@ -42,21 +43,6 @@
   function toggleFullScreen() {
     isFull = !isFull;
   }
-
-  const securityTopics = [
-    {
-      id: 1,
-      title: "Network Security",
-      prompt:
-        "What are the key differences between a firewall and an intrusion detection system, and how do they work together to secure a network?",
-    },
-    {
-      id: 2,
-      title: "Cryptography",
-      prompt:
-        "Explain the concept of public-key cryptography and provide a real-world example of its application.",
-    },
-  ];
 
   interface MessageWithStreaming extends Message {
     streaming?: boolean;
@@ -206,10 +192,40 @@
     }
   }
 
-  function handleSend(e: Event) {
+  async function handleSend(e: Event) {
     e.preventDefault();
     showPrompt = false;
-    if (input_field.trim().length >= 3) {
+
+    if (input_field.trim().length < 3) {
+      return;
+    }
+
+    try {
+      const loadingMessage: MessageWithStreaming = {
+        id: crypto.randomUUID(),
+        timestamp: Date.now() / 1000,
+        message_type: "info",
+        role: "system",
+        content: "Initializing session...",
+        mime_type: "text/plain",
+        streaming: true,
+      };
+
+      if (currentApiKey && !currentStreamer) {
+        messages = [...messages, loadingMessage];
+        await initializeSDK();
+
+        messages = messages.map((msg) =>
+          msg.id === loadingMessage.id
+            ? { ...msg, content: "Just a sec..." }
+            : msg
+        );
+      }
+
+      if (!currentStreamer) {
+        throw new Error("Failed to initialize session");
+      }
+
       const userMessage: Message = {
         id: crypto.randomUUID(),
         timestamp: Date.now() / 1000,
@@ -218,22 +234,45 @@
         content: input_field + " " + systemPrompt,
         mime_type: "text/plain",
       };
-      const placeHolderMessage: MessageWithStreaming = {
-        id: crypto.randomUUID(),
-        timestamp: Date.now() / 1000,
-        message_type: "info",
-        role: "system",
-        content: "Just a sec...",
-        mime_type: "text/plain",
-        streaming: true,
-      };
 
-      messages = [...messages, userMessage, placeHolderMessage];
+      if (currentApiKey && messages[messages.length - 1]?.streaming) {
+        messages = [
+          ...messages.slice(0, -1),
+          userMessage,
+          { ...messages[messages.length - 1], content: "Just a sec..." },
+        ];
+      } else {
+        const placeHolderMessage: MessageWithStreaming = {
+          id: crypto.randomUUID(),
+          timestamp: Date.now() / 1000,
+          message_type: "info",
+          role: "system",
+          content: "Just a sec...",
+          mime_type: "text/plain",
+          streaming: true,
+        };
+        messages = [...messages, userMessage, placeHolderMessage];
+      }
 
       setTimeout(scrollToTop, 100);
-
-      currentStreamer!.send(input_field + " " + systemPrompt);
+      await currentStreamer.send(input_field + " " + systemPrompt);
       input_field = "";
+    } catch (error) {
+      console.error("Error in handleSend:", error);
+
+      const errorMessage: MessageWithStreaming = {
+        id: crypto.randomUUID(),
+        timestamp: Date.now() / 1000,
+        message_type: "error",
+        role: "system",
+        content: "Failed to send message. Please try again.",
+        mime_type: "text/plain",
+        streaming: false,
+      };
+
+      messages = messages
+        .filter((msg) => !msg.streaming)
+        .concat([errorMessage]);
     }
   }
 
@@ -259,8 +298,6 @@
         dialog.showModal();
         isChatExpanded = true;
       }
-
-      initializeSDK();
     } catch (error) {
       console.error("API Key validation failed:", error);
       errorMessage = "Invalid API key. Please check and try again.";
@@ -403,9 +440,6 @@
   }
 
   onMount(async () => {
-    if (currentApiKey) {
-      initializeSDK();
-    }
     const fontFaces = `@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&family=Noto+Sans+Mono:wght@100..900&family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');`;
     const style = document.createElement("style");
     style.textContent = fontFaces;
@@ -554,30 +588,32 @@
             >
               How can I help you?
             </p>
-            <div class="flex flex-col gap-1 justify-center">
-              <p
-                class="text-start text-text-muted md:text-lg font-medium py-2 inline-block"
-              >
-                Examples
-              </p>
-              {#each securityTopics as topic, index (topic.id)}
-                <button
-                  onclick={() => setPrompt(topic.prompt)}
-                  class={`w-full animate-background hover:bg-[linear-gradient(152deg,_#217BFE,_#078EFB_42%,_#AC87EB)] bg-[length:_400%_400%] p-[1px] transition-colors ease-in-out duration-1000 [animation-duration:_6s] relative hover:cursor-pointer rounded-xl text-start flex flex-col gap-2`}
+            {#if examples && JSON.parse(examples).length > 0}
+              <div class="flex flex-col gap-1 justify-center">
+                <p
+                  class="text-start text-text-muted md:text-lg font-medium py-2 inline-block"
                 >
-                  <div
-                    class="bg-accent-dark rounded-xl h-full w-full py-3 px-2"
+                  Examples
+                </p>
+                {#each JSON.parse(examples) as topic, index (index)}
+                  <button
+                    onclick={() => setPrompt(topic.prompt)}
+                    class={`w-full animate-background hover:bg-[linear-gradient(152deg,_#217BFE,_#078EFB_42%,_#AC87EB)] bg-[length:_400%_400%] p-[1px] transition-colors ease-in-out duration-1000 [animation-duration:_6s] relative hover:cursor-pointer rounded-xl text-start flex flex-col gap-2`}
                   >
-                    <p class="text-text text-sm mb-1 line-clamp-1">
-                      {topic.title}
-                    </p>
-                    <p class="text-text-muted text-sm line-clamp-4">
-                      {topic.prompt}
-                    </p>
-                  </div>
-                </button>
-              {/each}
-            </div>
+                    <div
+                      class="bg-accent-dark rounded-xl h-full w-full py-3 px-2"
+                    >
+                      <p class="text-text text-sm mb-1 line-clamp-1">
+                        {topic.title}
+                      </p>
+                      <p class="text-text-muted text-sm line-clamp-4">
+                        {topic.prompt}
+                      </p>
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
         {:else}
           <MessageList {messages} {session} {isSessionLogging} {systemPrompt} />
@@ -1134,7 +1170,6 @@
       embed,
       object {
         display: block;
-        vertical-align: middle;
       }
       img,
       video {
@@ -1949,18 +1984,21 @@
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 1;
+        line-clamp: 1;
       }
       .line-clamp-3 {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 3;
+        line-clamp: 1;
       }
       .line-clamp-4 {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 4;
+        line-clamp: 1;
       }
       .block {
         display: block;

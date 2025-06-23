@@ -40,7 +40,10 @@ Once the component is installed (either via CDN or npm), you can use the `<sec-g
   sessionPrompt="You are a senior cybersecurity threat intelligence analyst"
   theme="dark"
   is-fullscreen="true"
+  api-key=""
+  examples='[{"title":"Network Security","prompt":"What are the key differences between a firewall and an intrusion detection system, and how do they work together to secure a network?"},{"title":"Cryptography","prompt":"Explain the concept of public-key cryptography and provide a real-world example of its application."}]'
 >
+  >
 </sec-gem-chat>
 ```
 
@@ -94,6 +97,13 @@ Here's a detailed explanation of each attribute:
   - **Default:** `"false"`
   - Determines whether the webcomponent initially opens in full screen.
 
+- **`examples`** (Optional)
+
+  - **Type:** `string (string representation of a JSON array)`
+  - **Accepted Values:** A stringified JSON array of objects, where each object has at least a `title (string)` and a `prompt (string).`
+  - **Default:** `null`
+  - Lists example prompts on the landing screen
+
 ---
 
 You're looking to integrate the `Sec-Gemini` web component into various popular web frameworks using the CDN approach. This is an excellent way to leverage a pre-built component without deep framework-specific bundling.
@@ -122,14 +132,17 @@ Integrating custom HTML and scripts into WordPress can be done in several ways. 
 
 ```html
 <sec-gem-chat
-      incognito="true"
-      session-id=""
-      session-name="TestName"
-      session-description="TestDescription"
-      session-prompt="You are a senior cybersecurity threat intelligence analyst..."
-      theme="dark"
-      api-key="..."
-></sec-gem-chat>
+  incognito="true"
+  session-id=""
+  session-name="TestName"
+  session-description="TestDescription"
+  session-prompt="You are a senior cybersecurity threat intelligence analyst..."
+  theme="dark"
+  api-key="..."
+  examples='[{"title":"Network Security","prompt":"What are the key differences between a firewall and an intrusion detection system, and how do they work together to secure a network?"},{"title":"Cryptography","prompt":"Explain the concept of public-key cryptography and provide a real-world example of its application."}]'
+>
+  ></sec-gem-chat
+>
 
 <link
   rel="stylesheet"
@@ -171,7 +184,10 @@ Astro components are designed for static site generation and allow you to direct
       session-prompt="You are a senior cybersecurity threat intelligence analyst..."
       theme="dark"
       api-key="..."
-    ></sec-gem-chat>
+      examples='[{"title":"Network Security","prompt":"What are the key differences between a firewall and an intrusion detection system, and how do they work together to secure a network?"},{"title":"Cryptography","prompt":"Explain the concept of public-key cryptography and provide a real-world example of its application."}]'
+    >
+      ></sec-gem-chat
+    >
 
     <script
       is:inline
@@ -237,7 +253,10 @@ export default function Home() {
         session-prompt="You are a senior cybersecurity threat intelligence analyst..."
         theme="dark"
         api-key="..."
-      ></sec-gem-chat>
+        examples='[{"title":"Network Security","prompt":"What are the key differences between a firewall and an intrusion detection system, and how do they work together to secure a network?"},{"title":"Cryptography","prompt":"Explain the concept of public-key cryptography and provide a real-world example of its application."}]'
+      >
+        >
+      </sec-gem-chat>
     </div>
   );
 }
@@ -303,7 +322,10 @@ function App() {
           session-prompt="You are a senior cybersecurity threat intelligence analyst..."
           theme="dark"
           api-key="..."
-        ></sec-gem-chat>
+          examples='[{"title":"Network Security","prompt":"What are the key differences between a firewall and an intrusion detection system, and how do they work together to secure a network?"},{"title":"Cryptography","prompt":"Explain the concept of public-key cryptography and provide a real-world example of its application."}]'
+        >
+          >
+        </sec-gem-chat>
       </header>
     </div>
   );

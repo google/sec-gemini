@@ -10,6 +10,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Sec-Gemini SDK Docs",
+      customCss: ["./src/styles/globals.css"],
       social: [
         {
           icon: "github",
