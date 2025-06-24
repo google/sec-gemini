@@ -5,16 +5,11 @@ edition = "2024"
 authors = ["Julien Cretin <cretin@google.com>"]
 license = "Apache-2.0"
 description = "Experimental cybersecurity-focused AI from Google"
+repository = "https://github.com/google/sec-gemini"
 publish = false
 
-[package.metadata.bundle]
-identifier = "google.secgemini"
-copyright = "Copyright 2025 Google LLC"
-icon = ["icon.png"]
-category = "Productivity"
-linux_exec_args = "--open-ui"
-linux_use_terminal = true
-dep_depends = ["libssl-dev"]
+[package.metadata.dist]
+dist = true
 
 [dependencies]
 clap = { version = "4.5.32", features = ["derive", "env", "unstable-markdown", "wrap_help"] }
@@ -34,7 +29,6 @@ opener = "0.7.2"
 platform-info = "2.0.5"
 rand = "0.9.1"
 reqwest = { version = "0.12.15", features = ["json"] }
-semver = "1.0.26"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 tokio = { version = "1.44.2", features = ["fs", "macros", "process", "rt-multi-thread"] }
@@ -42,6 +36,9 @@ tokio-tungstenite = { version = "0.26.2", features = ["native-tls"] }
 tungstenite = { version = "0.26.2", features = ["url"] }
 url = "2.5.4"
 uuid = { version = "1.16.0", features = ["v4"] }
+
+[profile.dist]
+inherits = "release"
 
 [lints]
 # TODO(https://github.com/rust-lang/rust/issues/53667): Remove when stable.
