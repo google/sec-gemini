@@ -8,10 +8,13 @@
 
 ### Minor
 
+- Add `shell-idle-time` to avoid waiting the full `shell-timeout`
 - Match recent changes to Sec-Gemini API
 
 ### Patch
 
+- Fix the environment variable of `shell-timeout`
+- Disable `shell-timeout` and `shell-idle-time` for sudo commands
 - Consider error messages as recoverable
 - Reconnect to the session if closed while sending
 - Handle closed web-socket without failing

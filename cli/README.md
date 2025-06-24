@@ -62,9 +62,14 @@ Options:
           [possible values: auto, false, true]
 
       --shell-timeout <SHELL_TIMEOUT>
-          Whether Sec-Gemini can ask to execute shell commands
+          How long a shell command can run before sending the output to Sec-Gemini
 
-          [env: SEC_GEMINI_SHELL_ENABLE=]
+          [env: SEC_GEMINI_SHELL_TIMEOUT=]
+
+      --shell-idle-time <SHELL_IDLE_TIME>
+          How long a shell command can idle before sending the output to Sec-Gemini
+
+          [env: SEC_GEMINI_SHELL_IDLE_TIME=]
 
       --shell-auto-exec <SHELL_AUTO_EXEC>
           Whether Sec-Gemini can execute shell commands without confirmation
