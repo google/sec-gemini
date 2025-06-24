@@ -23,7 +23,7 @@ use tokio::task::spawn_blocking;
 use url::Url;
 
 use crate::cli::markdown::try_render_markdown;
-use crate::sdk::types::{MessageType, PublicSession};
+use crate::sdk::types::{MessageType, PublicSession, State};
 use crate::sdk::{Sdk, Session};
 use crate::{config, or_fail};
 
@@ -150,35 +150,47 @@ impl Options {
         let mut progress = new_progress();
         session.send(&query).await;
         set_message(&progress, "Waiting response");
+        let mut result: Option<String> = None;
         while let Some(message) = session.recv().await {
+            if message.state == State::End {
+                progress.finish_and_clear();
+                let Some(content) = result.take() else {
+                    log::warn!("no result before end");
+                    break;
+                };
+                if enable_shell {
+                    if let Some(response) = self.shell.interpret_result(&content).await {
+                        progress = new_progress();
+                        session.send(&response).await;
+                        continue;
+                    }
+                }
+                println!("{}", try_render_markdown(&content).trim_end());
+                break;
+            }
             let content = message.content.unwrap_or_default();
             match message.message_type {
-                MessageType::Result => {
-                    progress.finish_and_clear();
-                    if enable_shell {
-                        if let Some(response) = self.shell.interpret_result(&content).await {
-                            progress = new_progress();
-                            session.send(&response).await;
-                            continue;
-                        }
-                    }
-                    println!("{}", try_render_markdown(&content).trim_end());
-                    break;
-                }
+                MessageType::Result if result.is_some() => log::warn!("multiple results"),
+                MessageType::Result => result = Some(content),
                 MessageType::Info => set_message(&progress, &content),
                 MessageType::Thinking => {
                     if config::SHOW_THINKING.get().await.0 {
                         let mut thinking = String::new();
                         write!(thinking, "{}: ", "Thinking".bold().yellow()).unwrap();
-                        if let Some(subtype) = message.message_sub_type {
-                            let subtype = format!("[{subtype}]");
-                            write!(thinking, "{} ", subtype.bold().yellow()).unwrap();
+                        if let Some(title) = message.title {
+                            let title = format!("[{title}]");
+                            write!(thinking, "{} ", title.bold().yellow()).unwrap();
                         }
                         write!(thinking, "{}", content.trim_end().yellow()).unwrap();
                         progress.println(thinking);
                     }
                 }
-                MessageType::Error => fail!("{content}"),
+                MessageType::Error => {
+                    let mut error = String::new();
+                    write!(error, "{}: ", "Error".bold().red()).unwrap();
+                    write!(error, "{}", content.trim_end().red()).unwrap();
+                    progress.println(error);
+                }
                 _ => (),
             }
         }
