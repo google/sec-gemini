@@ -40,6 +40,8 @@ And for Windows:
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/google/sec-gemini/releases/download/cli/sec-gemini-v0.0.3/sec-gemini-installer.ps1 | iex"
 ```
 
+[![asciicast](cli/demo.gif)](https://asciinema.org/a/Kh2el8CwjUFzuuQhtqeY0N4JN)
+
 ## Website
 
 For more information on Sec-Gemini, visit [https://secgemini.google](https://secgemini.google).
