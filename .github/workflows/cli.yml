@@ -36,47 +36,9 @@ jobs:
         with:
           # This is needed to test that CHANGELOG.md is up-to-date.
           fetch-depth: 0
-      # TODO(https://github.com/actions/cache/issues/1539): Just use actions/cache instead of the
-      # work-around. The only relevant steps in-between are the cargo install commands.
-      # BEGIN work-around
-      - name: Restore cargo cache
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      - uses: taiki-e/install-action@9ba3ac3fd006a70c6e186a683577abc1ccf0ff3a # v2.54.0
         with:
-          key: cargo-home
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/.crates*
-      - name: Snapshot before cargo install
-        id: before
-        run: |
-          LIST="$(cargo install --list)"; echo "$LIST"
-          HASH=$(echo "$LIST" | sha256sum | cut -f1 -d' '); echo $HASH
-          echo snapshot=$HASH >> $GITHUB_OUTPUT
-      - name: Install taplo
-        run: cargo install taplo-cli
-      - name: Snapshot after cargo install
-        id: after
-        run: |
-          LIST="$(cargo install --list)"; echo "$LIST"
-          HASH=$(echo "$LIST" | sha256sum | cut -f1 -d' '); echo $HASH
-          echo snapshot=$HASH >> $GITHUB_OUTPUT
-      - name: Delete cache (if snapshot changed)
-        if: ${{ steps.before.outputs.snapshot != steps.after.outputs.snapshot }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          ID="$(gh cache list --ref=${{ github.ref }} --key=cargo-home --json=id --jq='.[].id')"
-          echo "[$ID]"
-          [ -z "$ID" ] || gh cache delete "$ID"
-      - name: Save cargo cache (if snapshot changed)
-        if: ${{ steps.before.outputs.snapshot != steps.after.outputs.snapshot }}
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          key: cargo-home
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/.crates*
-      # END work-around
+          tool: taplo
       - name: Run tests
         run: ./ci.sh
         working-directory: cli
