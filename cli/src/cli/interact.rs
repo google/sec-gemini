@@ -44,9 +44,13 @@ pub struct Options {
     #[arg(long, env = "SEC_GEMINI_SHELL_ENABLE")]
     shell_enable: Option<config::AutoBool>,
 
-    /// Whether Sec-Gemini can ask to execute shell commands.
-    #[arg(long, env = "SEC_GEMINI_SHELL_ENABLE")]
+    /// How long a shell command can run before sending the output to Sec-Gemini.
+    #[arg(long, env = "SEC_GEMINI_SHELL_TIMEOUT")]
     shell_timeout: Option<cyborgtime::Duration>,
+
+    /// How long a shell command can idle before sending the output to Sec-Gemini.
+    #[arg(long, env = "SEC_GEMINI_SHELL_IDLE_TIME")]
+    shell_idle_time: Option<cyborgtime::Duration>,
 
     /// Whether Sec-Gemini can execute shell commands without confirmation.
     #[arg(long, env = "SEC_GEMINI_SHELL_AUTO_EXEC")]
@@ -130,6 +134,9 @@ impl Options {
         }
         if let Some(x) = self.shell_timeout {
             config::SHELL_TIMEOUT.set_user(x);
+        }
+        if let Some(x) = self.shell_idle_time {
+            config::SHELL_IDLE_TIME.set_user(x);
         }
         if let Some(x) = self.shell_auto_exec {
             config::SHELL_AUTO_EXEC.set_user(x);

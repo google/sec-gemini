@@ -118,6 +118,13 @@ The format is:
         if let Some(error) = authorize(&config::SHELL_AUTO_EXEC).await {
             return error;
         }
+        let mut check_timeout = true;
+        let mut check_idle = true;
+        if command.starts_with("sudo ") {
+            // We need to give the user time in case they need to type their password.
+            check_timeout = false;
+            check_idle = false;
+        }
         let mut child = try_to!(
             "execute shell command",
             Command::new("sh")
@@ -128,6 +135,8 @@ The format is:
                 .spawn()
         );
         let running = Box::new(Running {
+            check_timeout,
+            check_idle,
             stdin: child.stdin.take().unwrap(),
             stdout: child.stdout.take().unwrap(),
             stderr: child.stderr.take().unwrap(),
@@ -158,11 +167,13 @@ The format is:
                 }
             }
         }
+        let idle_time = *config::SHELL_IDLE_TIME.get().await.0;
         let timeout = tokio::time::sleep(*config::SHELL_TIMEOUT.get().await.0);
         tokio::pin!(timeout);
         let outcome = loop {
             tokio::select! {
-                () = &mut timeout => break Outcome::Timeout,
+                () = &mut timeout, if running.check_timeout => break Outcome::Timeout,
+                () = tokio::time::sleep(idle_time), if running.check_idle => break Outcome::Idle,
                 len = running.stdout.read(running.output.read()) => {
                     match len {
                         Ok(len) => running.output.advance(len),
@@ -207,6 +218,10 @@ The format is:
                 "The command is still running after {}",
                 config::SHELL_TIMEOUT.get().await.0
             ),
+            Outcome::Idle => format!(
+                "The command has been idle for {} and is still running",
+                config::SHELL_IDLE_TIME.get().await.0
+            ),
             Outcome::Error => "The command execution failed".to_string(),
             Outcome::Full => "The command is still running and can produce more output".to_string(),
         };
@@ -221,7 +236,7 @@ The format is:
             return error;
         }
         match outcome {
-            Outcome::Timeout | Outcome::Full => {
+            Outcome::Timeout | Outcome::Idle | Outcome::Full => {
                 self.0 = StateImpl::Running(running);
                 append_running_command(&mut response);
             }
@@ -250,6 +265,8 @@ const KILL_SHELL_CMD: &str = "Kill shell command.";
 const CONT_SHELL_CMD: &str = "Resume shell command: ";
 
 struct Running {
+    check_timeout: bool,
+    check_idle: bool,
     child: Child,
     stdin: ChildStdin,
     stdout: ChildStdout,
@@ -267,6 +284,7 @@ struct Buffer {
 enum Outcome {
     Exit(ExitStatus),
     Timeout,
+    Idle,
     Error,
     Full,
 }
