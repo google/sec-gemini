@@ -159,7 +159,8 @@ def test_get_info_request_error(
 def test_simple_query(secgemini_client: SecGemini):
     session = secgemini_client.create_session()
     resp = session.query(
-        "How much is 12345+54321? Just answer with the numeric value, nothing else."
+        "How much is 12345+54321? Just answer with the numeric value, nothing else. "
+        "If in doubt, just provide your best guess, no need to be a math expert!"
     )
     content = resp.text().strip()
     assert content.find("66666") >= 0
@@ -404,7 +405,10 @@ async def test_websockets(secgemini_client: SecGemini):
         role=Role.USER,
         mime_type=MimeType.TEXT,
         message_type=MessageType.QUERY,
-        content="How much is 12345+54321? Just answer with the numeric value, nothing else.",
+        content=(
+            "How much is 12345+54321? Just answer with the numeric value, nothing else. "
+            "If in doubt, just provide your best guess, no need to be a math expert!"
+        ),
     )
 
     uri = f"{secgemini_client.base_websockets_url}/v1/stream?api_key={api_key}&session_id={session_id}"
