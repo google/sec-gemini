@@ -2,6 +2,10 @@
 
 ## 0.0.3-git
 
+### Major
+
+- Rename `--check-update` to `--self-update` and perform the update
+
 ### Minor
 
 - Match recent changes to Sec-Gemini API

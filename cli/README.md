@@ -4,24 +4,9 @@
 
 ### Install
 
-You can download binaries and packages from the [latest CLI release][release] and install them
-accordingly. For example:
+You can download and install binaries from the [latest CLI release][release].
 
-```shell
-# For the Debian package.
-sudo dpkg -i sec-gemini.deb
-
-# For the Linux binary.
-chmod +x sec-gemini_x86_64-unknown-linux-gnu
-mv sec-gemini_x86_64-unknown-linux-gnu "${PATH%%:*}"/sec-gemini
-```
-
-If a binary is missing for your platform, if a package is missing for your distribution, or if you
-face any issue installing a package or running a binary, please search the existing [issues][issues]
-for an existing one to upvote or create a new one otherwise.
-
-[issues]: https://github.com/google/sec-gemini/issues
-[release]: https://github.com/google/sec-gemini/releases/tag/cli-v0.0.2
+[release]: https://github.com/google/sec-gemini/releases/tag/cli/sec-gemini-v0.0.2
 
 ### Usage
 
@@ -40,7 +25,7 @@ Usage: sec-gemini [OPTIONS] [QUERY]...
 Commands:
   --config               Reads, writes, or deletes configuration files
   --open-ui              Opens the Sec-Gemini web UI in a browser [aliases: --ui]
-  --check-update         Checks whether the CLI is up-to-date [aliases: --update]
+  --self-update          Updates the CLI if a newer version exists [aliases: --update]
   --generate-completion  Generates a shell completion file [aliases: --completion]
 
 Arguments:

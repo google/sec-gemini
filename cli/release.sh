@@ -29,9 +29,9 @@ info "Reset CHANGELOG.md counter"
 sed -i 's/\(^<!-- .* test\): [0-9]* -->$/\1: 0 -->/' CHANGELOG.md
 
 info "Updating README.md"
-sed -i 's#\(releases/tag/cli-v\).*$#\1'"$VERSION"'#' README.md
+sed -i 's#\(releases/tag/cli/sec-gemini-v\).*$#\1'"$VERSION"'#' README.md
 
 info "Creating a commit with those changes"
 git commit -aqm"Release CLI v$VERSION"
 
-todo "Create a PR with this commit, merge it, and trigger the workflow"
+todo "Create a PR with this commit, merge it, and tag it cli/sec-gemini-v$VERSION"

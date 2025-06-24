@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io::ErrorKind;
+
 use clap::Parser;
 
 mod completion;
 mod config;
 mod interact;
 mod markdown;
-mod update;
 
 /// Sec-Gemini swiss-army knife.
 ///
@@ -59,11 +60,9 @@ enum Command {
     #[command(name = "--open-ui", visible_alias = "--ui")]
     OpenUi,
 
-    /// Checks whether the CLI is up-to-date.
-    ///
-    /// If a newer version exists, its release page is opened in a browser.
-    #[command(name = "--check-update", visible_alias = "--update")]
-    CheckUpdate(update::Action),
+    /// Updates the CLI if a newer version exists.
+    #[command(name = "--self-update", visible_alias = "--update")]
+    SelfUpdate,
 
     /// Generates a shell completion file.
     #[command(name = "--generate-completion", visible_alias = "--completion")]
@@ -95,7 +94,14 @@ impl Command {
             Command::OpenUi => {
                 try_to!("open browser", opener::open_browser("https://ui.secgemini.google/"))
             }
-            Command::CheckUpdate(x) => x.run().await,
+            Command::SelfUpdate => {
+                let mut update = tokio::process::Command::new("sec-gemini-update");
+                match update.status().await {
+                    Ok(status) => std::process::exit(status.code().unwrap_or(0)),
+                    Err(err) if err.kind() == ErrorKind::NotFound => fail!("updater not found"),
+                    Err(err) => fail!("failed to self update", &err),
+                }
+            }
             Command::Completion(x) => x.run().await,
             Command::RenderMarkdown(x) => x.run(),
         }
