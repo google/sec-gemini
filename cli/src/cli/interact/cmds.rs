@@ -499,11 +499,15 @@ fn exec_session_list(input: CommandInput<'_>) -> CommandOutput<'_> {
             "false" => (),
             _ => return user_error!("argument --refresh expects true or false"),
         }
+        let debug = input.args["debug"].as_str() == "true";
         for session in input.sdk.cached_sessions().await.iter() {
             if session.id == input.session.id() {
                 print!("* {}", session.name.bold().cyan());
             } else {
                 print!("- {}", session.name.cyan());
+            }
+            if debug {
+                print!(" {}", session.id.yellow());
             }
             println!(
                 " created {} ago ({} messages)",
@@ -602,7 +606,9 @@ The usual way to end the query is Ctrl-D (twice on a non-empty line)."
       exec_multiline }
     [ "session" "Provides operations on sessions."
        { "list" "Lists the user sessions."
-          exec_session_list ( "refresh" = "false" : "true" "false" )  }
+          exec_session_list
+          ( "refresh" = "false" : "true" "false" )
+          ( "debug" = "false" : "true" "false" ) }
        { "create" "Creates a new session.\n
 If the --name argument is an empty string (the default), a name is generated."
           exec_session_create ( "name" = "" : * ) }

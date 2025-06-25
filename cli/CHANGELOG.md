@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add `/session list --debug` argument
 - Support complex markdown heading
 
 ## 0.0.3
