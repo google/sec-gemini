@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.4-git
+
+### Minor
+
+- Support complex markdown heading
+
 ## 0.0.3
 
 ### Major

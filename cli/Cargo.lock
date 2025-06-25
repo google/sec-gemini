@@ -1625,7 +1625,7 @@ dependencies = [
 
 [[package]]
 name = "sec-gemini"
-version = "0.0.3"
+version = "0.0.4-git"
 dependencies = [
  "clap",
  "clap_complete",
