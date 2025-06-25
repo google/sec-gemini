@@ -99,10 +99,10 @@ fn render_node(
                 render_node(context, output, &nodes[1])?;
             }
         }
-        mdast::Node::Heading(heading) if heading.children.len() == 1 => {
+        mdast::Node::Heading(heading) => {
             let mut header = "#".repeat(heading.depth as usize);
             header.push(' ');
-            render_node(context, &mut header, &heading.children[0])?;
+            render_nodes(context, &mut header, &heading.children)?;
             writeln!(output, "{}", header.bold().purple())?;
         }
         mdast::Node::Text(text) => write!(output, "{}", text.value)?,
