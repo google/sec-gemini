@@ -211,7 +211,7 @@ def test_query_with_virustotal_tool_benign(secgemini_client: SecGemini):
 
 
 @require_env_variable("SEC_GEMINI_API_KEY")
-def test_query_with_virustotat_tool_malicious(secgemini_client: SecGemini):
+def test_query_with_virustotal_tool_malicious(secgemini_client: SecGemini):
     session = secgemini_client.create_session()
     resp = session.query(
         "Is file a188ff24aec863479408cee54b337a2fce25b9372ba5573595f7a54b784c65f8 benign or malicious? "
