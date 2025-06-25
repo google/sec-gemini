@@ -393,7 +393,29 @@ def test_report_feedback_and_bug_report(secgemini_client: SecGemini):
 
 @pytest.mark.asyncio
 @async_require_env_variable("SEC_GEMINI_API_KEY")
-async def test_websockets(secgemini_client: SecGemini):
+async def test_simple_query_ws(secgemini_client: SecGemini):
+    query = (
+        "This is a test query as part of an automated integration test. "
+        "As a reply, please just output the word 'fulmicotone', nothing else."
+    )
+    content = await query_via_websocket(secgemini_client, query)
+    content = parse_secgemini_response(content)
+    assert content.find("fulmicotone") >= 0
+
+
+@pytest.mark.asyncio
+@async_require_env_variable("SEC_GEMINI_API_KEY")
+async def test_query_with_virustotal_tool_malicious_ws(secgemini_client: SecGemini):
+    query = (
+        "Is file a188ff24aec863479408cee54b337a2fce25b9372ba5573595f7a54b784c65f8 benign or malicious? "
+        "Just output one word, 'benign' or 'malicious'. If uncertain, take your best guess."
+    )
+    content = await query_via_websocket(secgemini_client, query)
+    content = parse_secgemini_response(content)
+    assert content == "malicious"
+
+
+async def query_via_websocket(secgemini_client: SecGemini, query: str) -> str:
     session = secgemini_client.create_session()
 
     api_key = os.environ["SEC_GEMINI_API_KEY"]
@@ -405,10 +427,7 @@ async def test_websockets(secgemini_client: SecGemini):
         role=Role.USER,
         mime_type=MimeType.TEXT,
         message_type=MessageType.QUERY,
-        content=(
-            "How much is 12345+54321? Just answer with the numeric value, nothing else. "
-            "If in doubt, just provide your best guess, no need to be a math expert!"
-        ),
+        content=query,
     )
 
     uri = f"{secgemini_client.base_websockets_url}/v1/stream?api_key={api_key}&session_id={session_id}"
@@ -439,5 +458,4 @@ async def test_websockets(secgemini_client: SecGemini):
                 f"Exception while sending/receiving messages. {traceback.format_exc()}"
             )
             raise
-
-    assert result_msg.find("66666") >= 0
+    return result_msg
