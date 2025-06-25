@@ -159,11 +159,11 @@ def test_get_info_request_error(
 def test_simple_query(secgemini_client: SecGemini):
     session = secgemini_client.create_session()
     resp = session.query(
-        "How much is 12345+54321? Just answer with the numeric value, nothing else. "
-        "If in doubt, just provide your best guess, no need to be a math expert!"
+        "This is a test query as part of an automated integration test. "
+        "As a reply, please just output the word 'fulmicotone', nothing else."
     )
     content = resp.text().strip()
-    assert content.find("66666") >= 0
+    assert content.find("fulmicotone") >= 0
 
 
 @require_env_variable("SEC_GEMINI_API_KEY")
