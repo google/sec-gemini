@@ -73,9 +73,6 @@ impl Sdk {
             };
             break (http, api_key, info);
         };
-        if interactive {
-            println!("User: {} ({})", user.id.blue(), user.org_id.purple());
-        }
         for model in available_models {
             if model.use_experimental {
                 continue;

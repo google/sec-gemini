@@ -4,8 +4,13 @@
 
 ### Minor
 
+- Don't print the user and org id anymore
 - Add `/session list --debug` argument
 - Support complex markdown heading
+
+### Patch
+
+- Fix deadlock with single queries creating the query session
 
 ## 0.0.3
 
