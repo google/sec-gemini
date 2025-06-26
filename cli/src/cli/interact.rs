@@ -23,7 +23,7 @@ use tokio::task::spawn_blocking;
 use url::Url;
 
 use crate::cli::markdown::try_render_markdown;
-use crate::sdk::types::{MessageType, PublicSession, State};
+use crate::sdk::types::{MessageType, State};
 use crate::sdk::{Sdk, Session};
 use crate::{config, or_fail};
 
@@ -76,7 +76,7 @@ impl Options {
     pub async fn query(mut self, query: &str) {
         self.resolve().await;
         let sdk = Arc::new(Sdk::new(false).await);
-        let mut session = get_session(sdk.clone(), &sdk.cached_sessions().await).await;
+        let mut session = get_session(sdk.clone()).await;
         self.execute(query, &mut session).await
     }
 
@@ -205,21 +205,21 @@ impl Options {
     }
 }
 
-async fn get_session(sdk: Arc<Sdk>, sessions: &[PublicSession]) -> Session {
+async fn get_session(sdk: Arc<Sdk>) -> Session {
     const SESSION_NAME: &str = "sec-gemini query";
     let mut best = None;
-    for session in sessions {
+    for session in sdk.cached_sessions().await.iter() {
         if session.name != SESSION_NAME {
             continue;
         }
         match best {
             Some((best_time, _)) if session.create_time < best_time => (),
-            _ => best = Some((session.create_time, &session.id)),
+            _ => best = Some((session.create_time, session.id.clone())),
         }
     }
     if let Some((_, id)) = best {
         log::info!("Resuming existing CLI session.");
-        Session::resume(sdk, id.clone())
+        Session::resume(sdk, id)
     } else {
         log::info!("Creating new CLI session.");
         Session::new(sdk, SESSION_NAME.to_string()).await
