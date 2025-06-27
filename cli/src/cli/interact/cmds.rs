@@ -557,6 +557,14 @@ fn exec_session_delete(input: CommandInput<'_>) -> CommandOutput<'_> {
     })
 }
 
+fn exec_shell(input: CommandInput<'_>) -> CommandOutput<'_> {
+    Box::pin(async move {
+        let command = format!("{}{}", super::shell::EXEC_SHELL_CMD, input.args["command"]);
+        let response = input.this.shell.interpret_result(&command).await.unwrap();
+        input.this.execute_updated(true, &response, input.session).await;
+    })
+}
+
 fn compl_session_name(completer: &Completer) -> Vec<String> {
     Handle::current().block_on(async {
         completer.sdk.cached_sessions().await.iter().map(|x| x.name.clone()).collect()
@@ -620,4 +628,6 @@ If the --name argument is an empty string (the default), a name is generated."
        { "delete" "Deletes an existing session.\n
 The current session cannot be deleted."
           exec_session_delete ( "name" : compl_session_name ) } ]
+    { "shell" "Executes a shell command as if Sec-Gemini requested it."
+      exec_shell ( "command" : * ) }
 };
