@@ -10,6 +10,7 @@
 
 ### Patch
 
+- Fix shell command output being partially discarded on command exit
 - Fix deadlock with single queries creating the query session
 
 ## 0.0.3
