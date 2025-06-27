@@ -1,0 +1,225 @@
+---
+title: Getting Started with SDKs
+description: Getting Started with the SecGemini SDKs for Python and TypeScript
+prev:
+  label: Prerequisites
+  link: getting-started
+next: false
+---
+
+import { Tabs, TabItem, Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+The Sec-Gemini SDKs provide a streamlined way to interact with the Sec-Gemini platform programmatically. The SDK handles all low-level communication with the Sec-Gemini backend service. This guide provides code examples for both Python and TypeScript.
+
+<Aside>Make sure you've completed the [prerequisites](getting-started) before using the SDK.</Aside>
+
+## Core Concepts
+- **Initialization:** The SDK is initialized by providing your API key.
+- **Sessions:** All Sec-Gemini interactions happen within a session (`InteractiveSession`). You can create new sessions or resume existing ones.
+- **Messages:** Communication within a session is structured using `Message` objects, which include information like the message type, role, and content.
+- **Streaming:** The SDK supports bidirectional streaming of messages, enabling real-time communication.
+
+### Obtain an API Key
+If you haven't already, head to [secgemini.google](https://secgemini.google/) and obtain an API key using the "Get API Keys" link on the left side (after signing in, if necessary). You will need it later in this guide.
+
+### Install Sec-Gemini SDK
+
+<Tabs syncKey="sdk_type">
+<TabItem label="Python">
+```bash
+pip install sec-gemini
+```
+</TabItem>
+<TabItem label="TypeScript">
+```bash
+npm install sec-gemini
+# or: 
+# yarn add sec-gemini
+```
+</TabItem>
+<TabItem label="OpenAI API">
+Not applicable.
+</TabItem>
+</Tabs>
+
+
+## Initializing
+<Tabs syncKey="sdk_type">
+<TabItem label="Python">
+```Python
+from sec_gemini import SecGemini, MessageType, MimeType
+api_key = "your_api_key_here" # replace with the API key from the earlier step
+sg = SecGemini(api_key)
+```
+</TabItem>
+
+<TabItem label="TypeScript">
+```TypeScript
+// ES Modules
+import SecGemini, { InteractiveSession, Message, MessageTypeEnum } from "sec-gemini";
+
+const apiKey = "your_api_key_here"; // replace with the API key from the earlier step
+const sg = await SecGemini.create(apiKey);
+
+```
+</TabItem>
+<TabItem label="OpenAI API">
+
+Provide your API key using HTTP Bearer authentication.
+```
+Authorization: Bearer your_api_key_here
+```
+</TabItem>
+</Tabs>
+
+## Creating a new session
+
+All interactions with Sec-Gemini occur within a session. Sessions can be customized with optional parameters:
+
+- `ttl` (int, optional): Time to live for the session in seconds (default: 86400, minimum: 300). The session will expire this many seconds after creation, unless the TTL is explicitly extended with the `InteractiveSession.update()` method.
+- `name` (str, optional): Human-readable name for the session.
+- `description` (str, optional): Description of the session.
+- `log_session` (bool, optional): Whether the session can be logged (default: True). This option only has an effect if logging is optional for the API key.
+- `model` (str | ModelInfoInput, optional): Model to use ('stable', 'experimental', or specific model info).
+- `language` (str, optional): ISO language code (default: 'en').
+
+<Tabs syncKey="sdk_type">
+<TabItem label="Python">
+
+```Python
+session = sg.create_session(
+    ttl=3600, # 1 hour
+    name="My Session",
+    description="Testing Sec-Gemini SDK",
+    language="en"
+)   
+
+print(f"Created session with ID: {session.session_id}")
+```
+
+</TabItem>
+<TabItem label="TypeScript">
+
+```TypeScript
+const session = await sg.createSession({
+  ttl: 3600, // 1 hour
+  name: "My Session",
+  description: "Testing Sec-Gemini SDK",
+  language: "en"
+});
+
+console.log(`Created session with ID: ${session.sessionId}`);
+```
+</TabItem>
+<TabItem label="OpenAI API">
+
+Not supported; all OpenAI requests create a new session.
+
+</TabItem>
+</Tabs>
+
+## Sending and receiving messages
+
+### Streaming (Preferred)
+
+Streams are used for bidirectional, real-time communication within a session. 
+
+<Tabs syncKey="sdk_type">
+<TabItem label="Python">
+```Python
+import asyncio
+
+async def query(prompt):
+    async for msg in session.stream(prompt):
+        if msg.message_type == MessageType.INFO and msg.mime_type == MimeType.TEXT:
+            print(f"INFO: {msg.get_content()}")
+        if msg.message_type == MessageType.RESULT and msg.mime_type == MimeType.TEXT:
+            # result
+            print(f"\nResponse:\n{msg.get_content()}")
+            break
+
+asyncio.run(query("What is the IP address of google.com?"))
+
+```
+
+</TabItem>
+<TabItem label="TypeScript">
+You provide callback functions to handle incoming messages and the final result.
+
+**Parameters:**
+- `onmessage` (function): Callback function to handle individual messages (`Message`) from the stream.
+- `onresult` (function): Callback function to handle the final result (`Message`) from the stream.
+
+```TypeScript
+         const streamer = await session.streamer(
+             (message) => { console.log('Message:', message.content); },
+             (result) => { console.log('Result:', result.content); }
+         );
+```
+
+Once the streamer is active, you can send messages to Sec-Gemini.
+
+```TypeScript
+await streamer.send("What is the IP address of google.com?");
+```
+</TabItem>
+<TabItem label="OpenAI API">
+Not supported.
+</TabItem>
+</Tabs>
+
+
+### Interactive query and response
+
+<Tabs syncKey="sdk_type">
+<TabItem label="Python">
+The `InteractiveSession.query()` method lets you easily send an individual query to Sec-Gemini.
+
+```Python
+response = session.query("What are the IP addresses for google.com?")
+response.text()
+```
+
+The `SessionResponse` object includes additional information on how Sec-Gemini handled the query.
+
+</TabItem>
+<TabItem label="TypeScript">
+Not supported; use the streaming approach.
+</TabItem>
+<TabItem label="OpenAI API">
+Sec-Gemini provides a minimal chat completion endpoint at https://api.secgemini.google/chat/completions. 
+
+Use the OpenAI SDK with https://api.secgemini.google/ or send an HTTP request to https://api.secgemini.google/chat/completions.
+
+Example:
+```bash
+curl --location 'https://api.secgemini.google/chat/completions' \
+   --header 'Authorization: Bearer YOUR_API_KEY_HERE' \
+   --header 'Content-Type: application/json' \
+   --data '{
+    "model": "sec-gemini-1.1",
+    "messages": [
+        {
+            "role": "user",
+            "content": "What is the IP address of google.com?"
+        }
+    ]
+}'
+```
+</TabItem>
+</Tabs>
+
+
+
+## Further Reading
+
+You're up and running! You've successfully connected to Sec-Gemini and sent 
+your first message. 
+
+To learn about what other functionality is available through the SDKs, visit
+their corresponding reference pages.
+
+<CardGrid>
+  <LinkCard title="Python Reference" href="/reference/python"/>
+  <LinkCard title="TypeScript Reference" href="/reference/typescript"/>
+</CardGrid>
