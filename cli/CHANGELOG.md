@@ -11,6 +11,7 @@
 
 ### Patch
 
+- Fix wrapping behavior for input query
 - Fix shell command output being partially discarded on command exit
 - Fix deadlock with single queries creating the query session
 

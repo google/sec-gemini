@@ -87,7 +87,7 @@ impl Options {
         let interface = Arc::new(or_fail(linefeed::Interface::new("sec-gemini")));
         let style = "\0".bold().blue().to_string();
         let (start, clear) = style.split_once('\0').unwrap();
-        or_fail(interface.set_prompt(&format!("{clear}> {start}")));
+        or_fail(interface.set_prompt(&format!("\x01{clear}\x02> \x01{start}\x02")));
         let _ = interface.set_completer(Arc::new(cmds::Completer::new(sdk.clone())));
         loop {
             let line = try_to!(
