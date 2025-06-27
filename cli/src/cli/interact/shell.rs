@@ -172,33 +172,30 @@ The format is:
         tokio::pin!(timeout);
         let outcome = loop {
             tokio::select! {
+                biased;
                 () = &mut timeout, if running.check_timeout => break Outcome::Timeout,
                 () = tokio::time::sleep(idle_time), if running.check_idle => break Outcome::Idle,
-                len = running.stdout.read(running.output.read()) => {
-                    match len {
-                        Ok(len) => running.output.advance(len),
-                        Err(err) => {
-                            log::debug!("failed to read stdout: {err}");
-                            break Outcome::Error;
-                        },
-                    }
-                }
-                len = running.stderr.read(running.error.read()) => {
-                    match len {
-                        Ok(len) => running.error.advance(len),
-                        Err(err) => {
-                            log::debug!("failed to read stderr: {err}");
-                            break Outcome::Error;
-                        },
-                    }
-                }
+                len = running.stdout.read(running.output.read()) => match len {
+                    Ok(len) => running.output.advance(len),
+                    Err(err) => {
+                        log::debug!("failed to read stdout: {err}");
+                        break Outcome::Error;
+                    },
+                },
+                len = running.stderr.read(running.error.read()) => match len {
+                    Ok(len) => running.error.advance(len),
+                    Err(err) => {
+                        log::debug!("failed to read stderr: {err}");
+                        break Outcome::Error;
+                    },
+                },
                 status = running.child.wait() => match status {
                     Ok(status) => break Outcome::Exit(status),
                     Err(err) => {
                         log::debug!("failed to wait for child: {err}");
                         break Outcome::Error;
                     },
-                }
+                },
             }
             if running.output.is_full() || running.error.is_full() {
                 break Outcome::Full;
