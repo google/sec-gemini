@@ -468,12 +468,12 @@ class InteractiveSession:
             raise Exception(error_msg)
         return session_resp
 
-    async def stream(self, query: str) -> AsyncIterator[Message]:
+    async def stream(self, prompt: str) -> AsyncIterator[Message]:
         """Streaming Generation/Completion Request"""
-        if not query:
+        if not prompt:
             raise ValueError("query is required")
 
-        message = self._build_prompt_message(query)
+        message = self._build_prompt_message(prompt)
         # FIXME: maybe move to http client as it is super specific
         url = f"{self.websocket_url}{_EndPoints.STREAM.value}"
         url += f"?api_key={self.api_key}&session_id={self.id}"
