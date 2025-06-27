@@ -112,6 +112,8 @@ impl Options {
                     this: &mut self,
                     sdk: &sdk,
                     session: &mut session,
+                    start,
+                    clear,
                     args: HashMap::new(),
                 };
                 cmds::execute_command(query, input).await;

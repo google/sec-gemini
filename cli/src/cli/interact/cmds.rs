@@ -402,6 +402,8 @@ pub struct CommandInput<'a> {
     pub this: &'a mut super::Options,
     pub sdk: &'a Arc<Sdk>,
     pub session: &'a mut Session,
+    pub start: &'a str,
+    pub clear: &'a str,
     pub args: HashMap<String, String>,
 }
 type CommandOutput<'a> = Pin<Box<dyn Future<Output = ()> + 'a>>;
@@ -488,6 +490,7 @@ fn exec_multiline(input: CommandInput<'_>) -> CommandOutput<'_> {
             println!();
         }
         let Ok(query) = String::from_utf8(query) else { return user_error!("query is not UTF-8") };
+        println!("{}End of multiline query.{}", input.start, input.clear);
         input.this.execute(&query, input.session).await;
     })
 }

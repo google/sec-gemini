@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add visible confirmation after multi-line query
 - Don't print the user and org id anymore
 - Add `/session list --debug` argument
 - Support complex markdown heading
