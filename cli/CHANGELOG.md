@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.5-git
+
+### Minor
+
+- Ensure cached credentials for sudo in a separate step
+
+### Patch
+
+- Fix bug where commands don't have time to terminate
+
 ## 0.0.4
 
 ### Minor

@@ -118,12 +118,16 @@ The format is:
         if let Some(error) = authorize(&config::SHELL_AUTO_EXEC).await {
             return error;
         }
-        let mut check_timeout = true;
-        let mut check_idle = true;
         if command.starts_with("sudo ") {
-            // We need to give the user time in case they need to type their password.
-            check_timeout = false;
-            check_idle = false;
+            // Make sure the cached credentials are valid. We do this in a separate process because
+            // we don't want the timeout to trigger while the user is entering their password.
+            let status = try_to!(
+                "update sudo cached credentials",
+                Command::new("sudo").arg("-v").stdin(Stdio::null()).status().await
+            );
+            if !status.success() {
+                return format_exit_status(status);
+            }
         }
         let mut child = try_to!(
             "execute shell command",
@@ -135,8 +139,6 @@ The format is:
                 .spawn()
         );
         let running = Box::new(Running {
-            check_timeout,
-            check_idle,
             stdin: child.stdin.take().unwrap(),
             stdout: child.stdout.take().unwrap(),
             stderr: child.stderr.take().unwrap(),
@@ -173,16 +175,20 @@ The format is:
         let outcome = loop {
             tokio::select! {
                 biased;
-                () = &mut timeout, if running.check_timeout => break Outcome::Timeout,
-                () = tokio::time::sleep(idle_time), if running.check_idle => break Outcome::Idle,
-                len = running.stdout.read(running.output.read()) => match len {
+                () = &mut timeout => break Outcome::Timeout,
+                () = tokio::time::sleep(idle_time) => break Outcome::Idle,
+                len = running.stdout.read(running.output.read()),
+                if !running.output.done => match len {
+                    Ok(0) => running.output.done = true,
                     Ok(len) => running.output.advance(len),
                     Err(err) => {
                         log::debug!("failed to read stdout: {err}");
                         break Outcome::Error;
                     },
                 },
-                len = running.stderr.read(running.error.read()) => match len {
+                len = running.stderr.read(running.error.read()),
+                if !running.error.done => match len {
+                    Ok(0) => running.error.done = true,
                     Ok(len) => running.error.advance(len),
                     Err(err) => {
                         log::debug!("failed to read stderr: {err}");
@@ -206,11 +212,7 @@ The format is:
 
     async fn process_outcome(&mut self, mut running: Box<Running>, outcome: Outcome) -> String {
         let mut response = match outcome {
-            Outcome::Exit(status) => match status.code() {
-                _ if status.success() => "The command succeeded".to_string(),
-                None => "The command failed".to_string(),
-                Some(code) => format!("The command failed with exit code {code}"),
-            },
+            Outcome::Exit(status) => format_exit_status(status),
             Outcome::Timeout => format!(
                 "The command is still running after {}",
                 config::SHELL_TIMEOUT.get().await.0
@@ -252,6 +254,7 @@ The format is:
 
     async fn kill(&mut self) {
         if let Some(mut state) = self.take() {
+            try_to!("close child stdin", state.stdin.shutdown().await);
             try_to!("kill shell command", state.child.kill().await);
         }
     }
@@ -262,8 +265,6 @@ const KILL_SHELL_CMD: &str = "Kill shell command.";
 const CONT_SHELL_CMD: &str = "Resume shell command: ";
 
 struct Running {
-    check_timeout: bool,
-    check_idle: bool,
     child: Child,
     stdin: ChildStdin,
     stdout: ChildStdout,
@@ -275,6 +276,7 @@ struct Running {
 struct Buffer {
     len: usize,
     data: [u8; 1024],
+    done: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -288,7 +290,7 @@ enum Outcome {
 
 impl Default for Buffer {
     fn default() -> Self {
-        Buffer { len: 0, data: [0; 1024] }
+        Buffer { len: 0, data: [0; 1024], done: false }
     }
 }
 
@@ -399,4 +401,12 @@ fn split_command<'a>(content: &'a str, command: &str) -> Option<&'a str> {
     }
     log::info!("{command}{suffix:?}");
     Some(suffix)
+}
+
+fn format_exit_status(status: ExitStatus) -> String {
+    match status.code() {
+        _ if status.success() => "The command succeeded".to_string(),
+        None => "The command failed".to_string(),
+        Some(code) => format!("The command failed with exit code {code}"),
+    }
 }
