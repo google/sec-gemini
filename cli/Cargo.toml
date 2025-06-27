@@ -1,6 +1,6 @@
 [package]
 name = "sec-gemini"
-version = "0.0.4-git"
+version = "0.0.4"
 edition = "2024"
 authors = ["Julien Cretin <cretin@google.com>"]
 license = "Apache-2.0"

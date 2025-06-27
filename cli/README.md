@@ -6,7 +6,7 @@
 
 You can download and install binaries from the [latest CLI release][release].
 
-[release]: https://github.com/google/sec-gemini/releases/tag/cli/sec-gemini-v0.0.3
+[release]: https://github.com/google/sec-gemini/releases/tag/cli/sec-gemini-v0.0.4
 
 ### Usage
 

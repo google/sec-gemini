@@ -31,13 +31,13 @@ We also have a web component to ease integration on your website. Here's how to 
 The CLI can be installed on Linux and macOS:
 
 ```shell
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/google/sec-gemini/releases/download/cli/sec-gemini-v0.0.3/sec-gemini-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/google/sec-gemini/releases/download/cli/sec-gemini-v0.0.4/sec-gemini-installer.sh | sh
 ```
 
 And for Windows:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/google/sec-gemini/releases/download/cli/sec-gemini-v0.0.3/sec-gemini-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/google/sec-gemini/releases/download/cli/sec-gemini-v0.0.4/sec-gemini-installer.ps1 | iex"
 ```
 
 [![asciicast](cli/demo.gif)](https://asciinema.org/a/Kh2el8CwjUFzuuQhtqeY0N4JN)
