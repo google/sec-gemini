@@ -257,7 +257,7 @@ The format is:
     }
 }
 
-const EXEC_SHELL_CMD: &str = "Execute shell command: ";
+pub const EXEC_SHELL_CMD: &str = "Execute shell command: ";
 const KILL_SHELL_CMD: &str = "Kill shell command.";
 const CONT_SHELL_CMD: &str = "Resume shell command: ";
 

@@ -4,6 +4,7 @@
 
 ### Minor
 
+- Add `/shell` command to simulate a Sec-Gemini request
 - Add visible confirmation after multi-line query
 - Don't print the user and org id anymore
 - Add `/session list --debug` argument

@@ -156,8 +156,12 @@ impl Options {
 
     async fn execute(&mut self, query: &str, session: &mut Session) {
         let (enable_shell, query) = self.shell.update_query(query).await;
+        self.execute_updated(enable_shell, &query, session).await;
+    }
+
+    async fn execute_updated(&mut self, enable_shell: bool, query: &str, session: &mut Session) {
         let mut progress = new_progress();
-        session.send(&query).await;
+        session.send(query).await;
         set_message(&progress, "Waiting response");
         let mut result: Option<String> = None;
         while let Some(message) = session.recv().await {
