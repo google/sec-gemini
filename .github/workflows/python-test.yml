@@ -11,7 +11,7 @@ on:
       - 'sec-gemini-python/**'
   schedule:
     - cron: "42 */6 * * *"
-        
+
 permissions:
   contents: read
   id-token: write
@@ -24,22 +24,22 @@ jobs:
         shell: bash
         working-directory: ./sec-gemini-python
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
 
       - name: Install the project
         run: uv sync --all-extras --dev
 
       - name: Check source
         run: bash ./scripts/check_source.sh
-        
+
       - name: Run tests
         run: uv run -m pytest
         env:
           SEC_GEMINI_API_KEY: ${{ secrets.SEC_GEMINI_API_KEY }}
-      
+
       - name: Run basic example
         run: uv run ./scripts/basic_example.py
         env:
