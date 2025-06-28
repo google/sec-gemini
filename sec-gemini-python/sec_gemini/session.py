@@ -240,7 +240,7 @@ class InteractiveSession:
 
         return public_session_file
 
-    def detach_file(self, session_id: str, file_idx: int) -> bool:
+    def detach_file(self, file_idx: int) -> bool:
         """Detach a file from the session. The file to detach is indicated by
         its index in the `session.files` list.
         """
@@ -248,7 +248,7 @@ class InteractiveSession:
         resp = self.http.post(
             f"{_EndPoints.DETACH_FILE.value}",
             DetachFileRequest(
-                session_id=session_id,
+                session_id=self.id,
                 file_idx=file_idx,
             ),
         )
@@ -263,7 +263,7 @@ class InteractiveSession:
             logging.error(error_msg)
             return False
 
-        msg = f"[Session][DetachFile] {session_id=} {file_idx=}: OK"
+        msg = f"[Session][DetachFile] session_id={self.id} {file_idx=}: OK"
         logging.debug(msg)
         return True
 
