@@ -263,7 +263,7 @@ class InteractiveSession:
             logging.error(error_msg)
             return False
 
-        msg = f"[Session][DetachFile] session_id={self.id} {file_idx=}: OK"
+        msg = f"[Session][DetachFile] session_id={self.id}, file_idx={file_idx}: OK"
         logging.debug(msg)
         return True
 
