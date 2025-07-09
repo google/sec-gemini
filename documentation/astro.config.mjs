@@ -22,6 +22,12 @@ export default defineConfig({
         {
           label: "Guides",
           items: [
+            { label: "Getting Started", 
+              items: [{"label": "Prerequisites", slug: "guides/getting-started"},
+                {"label": "Programmatic Access", slug: "guides/getting-started-sdk"},
+                {"label": "Command-line (CLI)", slug: "guides/getting-started-cli"}
+              ]
+            },
             { label: "Vanilla JS Example", slug: "guides/vanilla" },
             { label: "Webcomponent Example", slug: "guides/webcomponent" },
           ],

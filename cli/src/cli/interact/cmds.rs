@@ -402,6 +402,8 @@ pub struct CommandInput<'a> {
     pub this: &'a mut super::Options,
     pub sdk: &'a Arc<Sdk>,
     pub session: &'a mut Session,
+    pub start: &'a str,
+    pub clear: &'a str,
     pub args: HashMap<String, String>,
 }
 type CommandOutput<'a> = Pin<Box<dyn Future<Output = ()> + 'a>>;
@@ -488,6 +490,7 @@ fn exec_multiline(input: CommandInput<'_>) -> CommandOutput<'_> {
             println!();
         }
         let Ok(query) = String::from_utf8(query) else { return user_error!("query is not UTF-8") };
+        println!("{}End of multiline query.{}", input.start, input.clear);
         input.this.execute(&query, input.session).await;
     })
 }
@@ -499,11 +502,15 @@ fn exec_session_list(input: CommandInput<'_>) -> CommandOutput<'_> {
             "false" => (),
             _ => return user_error!("argument --refresh expects true or false"),
         }
+        let debug = input.args["debug"].as_str() == "true";
         for session in input.sdk.cached_sessions().await.iter() {
             if session.id == input.session.id() {
                 print!("* {}", session.name.bold().cyan());
             } else {
                 print!("- {}", session.name.cyan());
+            }
+            if debug {
+                print!(" {}", session.id.yellow());
             }
             println!(
                 " created {} ago ({} messages)",
@@ -547,6 +554,14 @@ fn exec_session_delete(input: CommandInput<'_>) -> CommandOutput<'_> {
             }
         }
         user_error!("no session named {name}");
+    })
+}
+
+fn exec_shell(input: CommandInput<'_>) -> CommandOutput<'_> {
+    Box::pin(async move {
+        let command = format!("{}{}", super::shell::EXEC_SHELL_CMD, input.args["command"]);
+        let response = input.this.shell.interpret_result(&command).await.unwrap();
+        input.this.execute_updated(true, &response, input.session).await;
     })
 }
 
@@ -602,7 +617,9 @@ The usual way to end the query is Ctrl-D (twice on a non-empty line)."
       exec_multiline }
     [ "session" "Provides operations on sessions."
        { "list" "Lists the user sessions."
-          exec_session_list ( "refresh" = "false" : "true" "false" )  }
+          exec_session_list
+          ( "refresh" = "false" : "true" "false" )
+          ( "debug" = "false" : "true" "false" ) }
        { "create" "Creates a new session.\n
 If the --name argument is an empty string (the default), a name is generated."
           exec_session_create ( "name" = "" : * ) }
@@ -611,4 +628,6 @@ If the --name argument is an empty string (the default), a name is generated."
        { "delete" "Deletes an existing session.\n
 The current session cannot be deleted."
           exec_session_delete ( "name" : compl_session_name ) } ]
+    { "shell" "Executes a shell command as if Sec-Gemini requested it."
+      exec_shell ( "command" : * ) }
 };

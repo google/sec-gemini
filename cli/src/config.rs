@@ -53,6 +53,7 @@ make!(API_KEY: String = Fallback::Prompt("Sec-Gemini API key"));
 make!(BASE_URL: Url = Fallback::Default("https://api.secgemini.google"));
 make!(SHELL_ENABLE: AutoBool = Fallback::Default("auto"));
 make!(SHELL_TIMEOUT: cyborgtime::Duration = Fallback::Default("3s"));
+make!(SHELL_IDLE_TIME: cyborgtime::Duration = Fallback::Default("500ms"));
 make!(SHELL_AUTO_EXEC: bool = Fallback::Default("false"));
 make!(SHELL_AUTO_READ: bool = Fallback::Default("true"));
 make!(SHELL_AUTO_WRITE: bool = Fallback::Default("true"));
@@ -63,6 +64,7 @@ pub enum Name {
     ApiKey,
     ShellEnable,
     ShellTimeout,
+    ShellIdleTime,
     ShellAutoExec,
     ShellAutoRead,
     ShellAutoWrite,
@@ -75,6 +77,7 @@ impl Name {
             Name::ApiKey => &API_KEY.config,
             Name::ShellEnable => &SHELL_ENABLE.config,
             Name::ShellTimeout => &SHELL_TIMEOUT.config,
+            Name::ShellIdleTime => &SHELL_IDLE_TIME.config,
             Name::ShellAutoExec => &SHELL_AUTO_EXEC.config,
             Name::ShellAutoRead => &SHELL_AUTO_READ.config,
             Name::ShellAutoWrite => &SHELL_AUTO_WRITE.config,

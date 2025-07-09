@@ -23,7 +23,7 @@ use tokio::task::spawn_blocking;
 use url::Url;
 
 use crate::cli::markdown::try_render_markdown;
-use crate::sdk::types::{MessageType, PublicSession};
+use crate::sdk::types::{MessageType, State};
 use crate::sdk::{Sdk, Session};
 use crate::{config, or_fail};
 
@@ -44,9 +44,13 @@ pub struct Options {
     #[arg(long, env = "SEC_GEMINI_SHELL_ENABLE")]
     shell_enable: Option<config::AutoBool>,
 
-    /// Whether Sec-Gemini can ask to execute shell commands.
-    #[arg(long, env = "SEC_GEMINI_SHELL_ENABLE")]
+    /// How long a shell command can run before sending the output to Sec-Gemini.
+    #[arg(long, env = "SEC_GEMINI_SHELL_TIMEOUT")]
     shell_timeout: Option<cyborgtime::Duration>,
+
+    /// How long a shell command can idle before sending the output to Sec-Gemini.
+    #[arg(long, env = "SEC_GEMINI_SHELL_IDLE_TIME")]
+    shell_idle_time: Option<cyborgtime::Duration>,
 
     /// Whether Sec-Gemini can execute shell commands without confirmation.
     #[arg(long, env = "SEC_GEMINI_SHELL_AUTO_EXEC")]
@@ -72,7 +76,7 @@ impl Options {
     pub async fn query(mut self, query: &str) {
         self.resolve().await;
         let sdk = Arc::new(Sdk::new(false).await);
-        let mut session = get_session(sdk.clone(), &sdk.cached_sessions().await).await;
+        let mut session = get_session(sdk.clone()).await;
         self.execute(query, &mut session).await
     }
 
@@ -83,7 +87,7 @@ impl Options {
         let interface = Arc::new(or_fail(linefeed::Interface::new("sec-gemini")));
         let style = "\0".bold().blue().to_string();
         let (start, clear) = style.split_once('\0').unwrap();
-        or_fail(interface.set_prompt(&format!("{clear}> {start}")));
+        or_fail(interface.set_prompt(&format!("\x01{clear}\x02> \x01{start}\x02")));
         let _ = interface.set_completer(Arc::new(cmds::Completer::new(sdk.clone())));
         loop {
             let line = try_to!(
@@ -108,6 +112,8 @@ impl Options {
                     this: &mut self,
                     sdk: &sdk,
                     session: &mut session,
+                    start,
+                    clear,
                     args: HashMap::new(),
                 };
                 cmds::execute_command(query, input).await;
@@ -131,6 +137,9 @@ impl Options {
         if let Some(x) = self.shell_timeout {
             config::SHELL_TIMEOUT.set_user(x);
         }
+        if let Some(x) = self.shell_idle_time {
+            config::SHELL_IDLE_TIME.set_user(x);
+        }
         if let Some(x) = self.shell_auto_exec {
             config::SHELL_AUTO_EXEC.set_user(x);
         }
@@ -147,38 +156,54 @@ impl Options {
 
     async fn execute(&mut self, query: &str, session: &mut Session) {
         let (enable_shell, query) = self.shell.update_query(query).await;
+        self.execute_updated(enable_shell, &query, session).await;
+    }
+
+    async fn execute_updated(&mut self, enable_shell: bool, query: &str, session: &mut Session) {
         let mut progress = new_progress();
-        session.send(&query).await;
+        session.send(query).await;
         set_message(&progress, "Waiting response");
+        let mut result: Option<String> = None;
         while let Some(message) = session.recv().await {
+            if message.state == State::End {
+                progress.finish_and_clear();
+                let Some(content) = result.take() else {
+                    log::warn!("no result before end");
+                    break;
+                };
+                if enable_shell {
+                    if let Some(response) = self.shell.interpret_result(&content).await {
+                        progress = new_progress();
+                        session.send(&response).await;
+                        continue;
+                    }
+                }
+                println!("{}", try_render_markdown(&content).trim_end());
+                break;
+            }
             let content = message.content.unwrap_or_default();
             match message.message_type {
-                MessageType::Result => {
-                    progress.finish_and_clear();
-                    if enable_shell {
-                        if let Some(response) = self.shell.interpret_result(&content).await {
-                            progress = new_progress();
-                            session.send(&response).await;
-                            continue;
-                        }
-                    }
-                    println!("{}", try_render_markdown(&content).trim_end());
-                    break;
-                }
+                MessageType::Result if result.is_some() => log::warn!("multiple results"),
+                MessageType::Result => result = Some(content),
                 MessageType::Info => set_message(&progress, &content),
                 MessageType::Thinking => {
                     if config::SHOW_THINKING.get().await.0 {
                         let mut thinking = String::new();
                         write!(thinking, "{}: ", "Thinking".bold().yellow()).unwrap();
-                        if let Some(subtype) = message.message_sub_type {
-                            let subtype = format!("[{subtype}]");
-                            write!(thinking, "{} ", subtype.bold().yellow()).unwrap();
+                        if let Some(title) = message.title {
+                            let title = format!("[{title}]");
+                            write!(thinking, "{} ", title.bold().yellow()).unwrap();
                         }
                         write!(thinking, "{}", content.trim_end().yellow()).unwrap();
                         progress.println(thinking);
                     }
                 }
-                MessageType::Error => fail!("{content}"),
+                MessageType::Error => {
+                    let mut error = String::new();
+                    write!(error, "{}: ", "Error".bold().red()).unwrap();
+                    write!(error, "{}", content.trim_end().red()).unwrap();
+                    progress.println(error);
+                }
                 _ => (),
             }
         }
@@ -186,21 +211,21 @@ impl Options {
     }
 }
 
-async fn get_session(sdk: Arc<Sdk>, sessions: &[PublicSession]) -> Session {
+async fn get_session(sdk: Arc<Sdk>) -> Session {
     const SESSION_NAME: &str = "sec-gemini query";
     let mut best = None;
-    for session in sessions {
+    for session in sdk.cached_sessions().await.iter() {
         if session.name != SESSION_NAME {
             continue;
         }
         match best {
             Some((best_time, _)) if session.create_time < best_time => (),
-            _ => best = Some((session.create_time, &session.id)),
+            _ => best = Some((session.create_time, session.id.clone())),
         }
     }
     if let Some((_, id)) = best {
         log::info!("Resuming existing CLI session.");
-        Session::resume(sdk, id.clone())
+        Session::resume(sdk, id)
     } else {
         log::info!("Creating new CLI session.");
         Session::new(sdk, SESSION_NAME.to_string()).await

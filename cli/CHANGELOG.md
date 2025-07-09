@@ -1,9 +1,47 @@
 # Changelog
 
-## 0.0.3-git
+## 0.0.5-git
+
+### Minor
+
+- Ensure cached credentials for sudo in a separate step
 
 ### Patch
 
+- Fix bug where commands don't have time to terminate
+
+## 0.0.4
+
+### Minor
+
+- Add `/shell` command to simulate a Sec-Gemini request
+- Add visible confirmation after multi-line query
+- Don't print the user and org id anymore
+- Add `/session list --debug` argument
+- Support complex markdown heading
+
+### Patch
+
+- Fix wrapping behavior for input query
+- Fix shell command output being partially discarded on command exit
+- Fix deadlock with single queries creating the query session
+
+## 0.0.3
+
+### Major
+
+- Rename `--check-update` to `--self-update` and perform the update
+
+### Minor
+
+- Add `shell-idle-time` to avoid waiting the full `shell-timeout`
+- Match recent changes to Sec-Gemini API
+
+### Patch
+
+- Fix the environment variable of `shell-timeout`
+- Disable `shell-timeout` and `shell-idle-time` for sudo commands
+- Consider error messages as recoverable
 - Reconnect to the session if closed while sending
 - Handle closed web-socket without failing
 

@@ -74,7 +74,9 @@ class PublicUser(BaseModel):
         description="Whether the user is allowed to use experimental features.",
     )
     vendors: list[PublicUserVendor] = Field(
-        [], title="Vendors", description="The list of vendors the user has access to."
+        default_factory=list,
+        title="Vendors",
+        description="The list of vendors the user has access to.",
     )
 
 
@@ -192,11 +194,13 @@ class UserInfo(BaseModel):
 
     user: PublicUser = Field(..., title="User", description="The user information.")
     sessions: list[PublicSession] = Field(
-        [], title="Sessions", description="The list of users active sessions."
+        default_factory=list,
+        title="Sessions",
+        description="The list of users active sessions.",
     )
 
     available_models: list[ModelInfo] = Field(
-        [],
+        default_factory=list,
         title="Available Models",
         description="The list of models available to the user.",
     )

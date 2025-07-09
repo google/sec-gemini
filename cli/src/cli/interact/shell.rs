@@ -118,6 +118,17 @@ The format is:
         if let Some(error) = authorize(&config::SHELL_AUTO_EXEC).await {
             return error;
         }
+        if command.starts_with("sudo ") {
+            // Make sure the cached credentials are valid. We do this in a separate process because
+            // we don't want the timeout to trigger while the user is entering their password.
+            let status = try_to!(
+                "update sudo cached credentials",
+                Command::new("sudo").arg("-v").stdin(Stdio::null()).status().await
+            );
+            if !status.success() {
+                return format_exit_status(status);
+            }
+        }
         let mut child = try_to!(
             "execute shell command",
             Command::new("sh")
@@ -158,36 +169,39 @@ The format is:
                 }
             }
         }
+        let idle_time = *config::SHELL_IDLE_TIME.get().await.0;
         let timeout = tokio::time::sleep(*config::SHELL_TIMEOUT.get().await.0);
         tokio::pin!(timeout);
         let outcome = loop {
             tokio::select! {
+                biased;
                 () = &mut timeout => break Outcome::Timeout,
-                len = running.stdout.read(running.output.read()) => {
-                    match len {
-                        Ok(len) => running.output.advance(len),
-                        Err(err) => {
-                            log::debug!("failed to read stdout: {err}");
-                            break Outcome::Error;
-                        },
-                    }
-                }
-                len = running.stderr.read(running.error.read()) => {
-                    match len {
-                        Ok(len) => running.error.advance(len),
-                        Err(err) => {
-                            log::debug!("failed to read stderr: {err}");
-                            break Outcome::Error;
-                        },
-                    }
-                }
+                () = tokio::time::sleep(idle_time) => break Outcome::Idle,
+                len = running.stdout.read(running.output.read()),
+                if !running.output.done => match len {
+                    Ok(0) => running.output.done = true,
+                    Ok(len) => running.output.advance(len),
+                    Err(err) => {
+                        log::debug!("failed to read stdout: {err}");
+                        break Outcome::Error;
+                    },
+                },
+                len = running.stderr.read(running.error.read()),
+                if !running.error.done => match len {
+                    Ok(0) => running.error.done = true,
+                    Ok(len) => running.error.advance(len),
+                    Err(err) => {
+                        log::debug!("failed to read stderr: {err}");
+                        break Outcome::Error;
+                    },
+                },
                 status = running.child.wait() => match status {
                     Ok(status) => break Outcome::Exit(status),
                     Err(err) => {
                         log::debug!("failed to wait for child: {err}");
                         break Outcome::Error;
                     },
-                }
+                },
             }
             if running.output.is_full() || running.error.is_full() {
                 break Outcome::Full;
@@ -198,14 +212,14 @@ The format is:
 
     async fn process_outcome(&mut self, mut running: Box<Running>, outcome: Outcome) -> String {
         let mut response = match outcome {
-            Outcome::Exit(status) => match status.code() {
-                _ if status.success() => "The command succeeded".to_string(),
-                None => "The command failed".to_string(),
-                Some(code) => format!("The command failed with exit code {code}"),
-            },
+            Outcome::Exit(status) => format_exit_status(status),
             Outcome::Timeout => format!(
                 "The command is still running after {}",
                 config::SHELL_TIMEOUT.get().await.0
+            ),
+            Outcome::Idle => format!(
+                "The command has been idle for {} and is still running",
+                config::SHELL_IDLE_TIME.get().await.0
             ),
             Outcome::Error => "The command execution failed".to_string(),
             Outcome::Full => "The command is still running and can produce more output".to_string(),
@@ -221,7 +235,7 @@ The format is:
             return error;
         }
         match outcome {
-            Outcome::Timeout | Outcome::Full => {
+            Outcome::Timeout | Outcome::Idle | Outcome::Full => {
                 self.0 = StateImpl::Running(running);
                 append_running_command(&mut response);
             }
@@ -240,12 +254,13 @@ The format is:
 
     async fn kill(&mut self) {
         if let Some(mut state) = self.take() {
+            try_to!("close child stdin", state.stdin.shutdown().await);
             try_to!("kill shell command", state.child.kill().await);
         }
     }
 }
 
-const EXEC_SHELL_CMD: &str = "Execute shell command: ";
+pub const EXEC_SHELL_CMD: &str = "Execute shell command: ";
 const KILL_SHELL_CMD: &str = "Kill shell command.";
 const CONT_SHELL_CMD: &str = "Resume shell command: ";
 
@@ -261,19 +276,21 @@ struct Running {
 struct Buffer {
     len: usize,
     data: [u8; 1024],
+    done: bool,
 }
 
 #[derive(Clone, Copy)]
 enum Outcome {
     Exit(ExitStatus),
     Timeout,
+    Idle,
     Error,
     Full,
 }
 
 impl Default for Buffer {
     fn default() -> Self {
-        Buffer { len: 0, data: [0; 1024] }
+        Buffer { len: 0, data: [0; 1024], done: false }
     }
 }
 
@@ -384,4 +401,12 @@ fn split_command<'a>(content: &'a str, command: &str) -> Option<&'a str> {
     }
     log::info!("{command}{suffix:?}");
     Some(suffix)
+}
+
+fn format_exit_status(status: ExitStatus) -> String {
+    match status.code() {
+        _ if status.success() => "The command succeeded".to_string(),
+        None => "The command failed".to_string(),
+        Some(code) => format!("The command failed with exit code {code}"),
+    }
 }

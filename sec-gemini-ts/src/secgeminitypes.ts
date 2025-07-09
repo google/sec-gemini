@@ -356,9 +356,17 @@ export type OptionalToolSet = {
    */
   vendor: ToolSetVendor;
   /**
-   * Whether the toolset is enabled or not.
+   * Deprecated (and will be removed). Use is_enabled_by_default instead.
    */
   is_enabled?: boolean;
+  /**
+   * Whether the toolset is enabled or not by default.
+   */
+  is_enabled_by_default?: boolean;
+  /**
+   * Whether the toolset is enabled by default in incognito mode.
+   */
+  is_enabled_by_default_in_incognito?: boolean;
   /**
    * Whether the toolset is experimental or not.
    */
