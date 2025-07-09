@@ -8,10 +8,10 @@
 </script>
 
 <div
-  class="absolute left-0 top-4 z-50 w-full bg-base h-full overflow-y-auto [scrollbar-color:transparent_transparent] hover:[scrollbar-color:var(--color-accent)_var(--color-base)] grow md:max-w-[1000px] px-2 pb-12"
+  class="absolute left-0 top-4 z-50 w-full bg-base h-full overflow-y-auto [scrollbar-color:transparent_transparent] hover:[scrollbar-color:var(--color-accent)_var(--color-base)] grow max-w-6xl px-2 pb-12"
 >
   <div
-    class="flex flex-col w-full max-w-[1000px] relative border-neutral-500/80 border rounded-3xl"
+    class="flex flex-col w-full max-w-6xl relative border-neutral-500/80 border rounded-3xl"
   >
     <div
       class="p-4 pb-2 border-b border-neutral-500/80 flex items-center justify-start w-full"

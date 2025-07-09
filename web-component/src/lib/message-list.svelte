@@ -56,7 +56,6 @@
   onMount(() => {
     if (typeof localStorage === "undefined") {
       console.error("Local storage is not available.");
-      // toast.push("Please enable local storage to allow feedback history");
     } else {
       const storedFeedback = localStorage.getItem("feedbackHistory");
       if (storedFeedback) {
@@ -188,7 +187,7 @@
 </script>
 
 <div
-  class={`prose min-h-[calc(80vh-(300px))]  max-w-none prose-code:bg-accent prose-code:text-sm prose-code:text-text prose-code:px-2 prose-code:rounded-md prose-p:first:!mt-2 prose-headings:!text-text prose-a:!text-text prose-strong:!text-text !text-text flex-1 overflow-y-auto px-2 md:px-4 py-6 pb-[150px] space-y-4`}
+  class={`prose min-h-[calc(80vh-(350px))]  max-w-none prose-code:bg-accent prose-code:text-sm prose-code:text-text prose-code:px-2 prose-code:rounded-md prose-p:first:!mt-2 prose-headings:!text-text prose-a:!text-text prose-strong:!text-text !text-text flex-1 overflow-y-auto px-2 md:px-4 py-6 pb-[150px] space-y-4`}
   id="chat-messages"
   bind:this={scrollable}
 >
@@ -212,7 +211,7 @@
           {message.content.replace(systemPrompt, "")}
         </div>
       </div>
-    {:else if message.role === "agent" || message.role === "system"}
+    {:else if message.role === "agent" || (message.role === "system" && message.content !== null)}
       <div class="flex gap-2 chat group">
         {#if message.message_type === MessageTypeEnum.ERROR}
           <div class="rounded-full flex h-full items-center">

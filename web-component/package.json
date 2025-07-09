@@ -32,7 +32,7 @@
     "markdown-it": "^14.1.0",
     "path": "^0.12.7",
     "prismjs": "^1.30.0",
-    "sec-gemini": "^1.1.5",
+    "sec-gemini": "^1.1.6",
     "tailwindcss": "^4.1.6"
   }
 }

@@ -1,11 +1,13 @@
 <svelte:options customElement="sec-gem-chat" />
 
 <script lang="ts">
+  import DOMPurify from "dompurify";
   import SecGemini, {
     InteractiveSession,
     MessageTypeEnum,
     Streamer,
     type Message,
+    type ModelInfoInput,
     type PublicSessionFile,
     type PublicSessionOutput,
   } from "sec-gemini";
@@ -21,6 +23,7 @@
   import MaterialSymbolsDeleteOutline from "../icons/MaterialSymbolsDeleteOutline.svelte";
   import MaterialSymbolsFullscreenExit from "../icons/MaterialSymbolsFullscreenExit.svelte";
   import MaterialSymbolsFullscreen from "../icons/MaterialSymbolsFullscreen.svelte";
+  import MaterialSymbolsCheckCircleOutlineRounded from "../icons/MaterialSymbolsCheckCircleOutlineRounded.svelte";
 
   const {
     "session-id": sessionId,
@@ -33,6 +36,15 @@
     "session-prompt": initialPrompt,
     examples: examples,
   } = $props();
+
+  const handleModelClick = (model: string) => {
+    currentModel = modelList.find((item) => item.model_string === model) || {
+      model_string: "stable",
+      toolsets: [],
+      version: "",
+    };
+    currentModel = JSON.parse(JSON.stringify(currentModel));
+  };
 
   let isFull = $state(isFullscreen);
   let isOpen = $state(true);
@@ -51,6 +63,14 @@
 
   let currentApiKey = $state(apiKey || localStorage.getItem("p9_api_key"));
   let inputApiKey = $state("");
+  let currentModel:
+    | { model_string: "stable"; toolsets: []; version: "" }
+    | ModelInfoInput = $state({
+    model_string: "stable",
+    toolsets: [],
+    version: "",
+  });
+  let modelList: [] | ModelInfoInput[] = $state([]);
   let isKeySet = $derived(!!currentApiKey);
   let isLoading = $state(false);
   let isLoggingIn = $state(false);
@@ -84,6 +104,25 @@
     );
   });
 
+  function handleToggleAgent(toolsetName: string) {
+    const model = currentModel;
+    if (model && model.toolsets) {
+      const updatedToolsets = model.toolsets.map((toolset) => {
+        if (toolset.name === toolsetName) {
+          return {
+            ...toolset,
+            is_enabled: !toolset.is_enabled,
+          };
+        }
+        return toolset;
+      });
+      currentModel = {
+        ...model,
+        toolsets: updatedToolsets,
+      };
+    }
+  }
+
   function handlePromptChange() {}
 
   function setPrompt(prompt: string) {
@@ -91,6 +130,13 @@
   }
 
   async function handleFileUpload() {
+    if (!isSessionInitialized) {
+      if (sessionId) {
+        await resumeSession();
+      } else {
+        await createSession();
+      }
+    }
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.multiple = false;
@@ -139,26 +185,6 @@
       }
     } catch (error) {
       console.error(`Error detaching file "${fileName}":`, error);
-    }
-  }
-
-  async function switchSession(sessionId: string | undefined) {
-    if (sessionId) {
-      session = await secGemSDK.resumeSession(sessionId);
-      sessions = secGemSDK.getUserInfo()?.sessions;
-      //@ts-ignore
-      isSessionLogging = session._session.can_log;
-      //@ts-ignore
-      session._session.messages.length > 0 &&
-        //@ts-ignore
-        (messages = session._session.messages.filter(
-          (message: { message_type: string }) =>
-            message.message_type === "result" ||
-            message.message_type === "query"
-        ));
-      //@ts-ignore
-      files = session._session.files;
-      showSessionDropdown = false;
     }
   }
 
@@ -216,10 +242,17 @@
     }
   }
 
-  function handleSend(e: Event) {
+  async function handleSend(e: Event) {
     e.preventDefault();
     showPrompt = false;
     if (input_field.trim().length >= 3) {
+      if (!isSessionInitialized) {
+        if (sessionId) {
+          await resumeSession();
+        } else {
+          await createSession();
+        }
+      }
       const userMessage: Message = {
         id: crypto.randomUUID(),
         timestamp: Date.now() / 1000,
@@ -279,62 +312,22 @@
     }
   }
 
-  function clearApiKey() {
-    localStorage.removeItem("p9_api_key");
-    currentApiKey = "";
-    isKeySet = false;
-    messages = [
-      {
-        id: "initial-assistant-id",
-        timestamp: Date.now() / 1000,
-        message_type: "result",
-        role: "agent",
-        content: "How can I help you today?",
-        mime_type: "text/plain",
-      },
-    ];
-  }
-
   async function initializeSDK() {
-    let isResumedSession = false;
     try {
       isLoading = true;
       localStorage.setItem("p9_api_key", currentApiKey);
       secGemSDK = await SecGemini.create(currentApiKey);
-      if (sessionId) {
-        session = await secGemSDK.resumeSession(sessionId);
-        sessions = secGemSDK.getUserInfo()?.sessions;
-        isResumedSession = true;
-        //@ts-ignore
-        isSessionLogging = session._session.can_log;
-        //@ts-ignore
-        session._session.messages.length > 0 &&
-          //@ts-ignore
-          (messages = session._session.messages.filter(
-            (message: { message_type: string }) =>
-              message.message_type === "result" ||
-              message.message_type === "query"
-          ));
-        //@ts-ignore
-        files = session._session.files;
-      } else {
-        isLoading = true;
-        session = await secGemSDK.createSession({
-          name: sessionName,
-          description: sessionDescription,
-          logSession: Boolean(!incognito),
-          model: "stable",
-          language: "en-US",
-        });
-        console.log(session);
-        //@ts-ignore
-        isSessionLogging = session._session.can_log;
+      let user = secGemSDK.getUserInfo();
+      if (user) {
+        modelList = user.available_models || [];
       }
-      console.log("incognito", !isSessionLogging);
-
-      currentStreamer = await session.streamer(onmessage as any);
       isLoading = false;
-      isSessionInitialized = true;
+      if (sessionId) {
+        await resumeSession();
+      } else {
+        isSessionLogging = Boolean(!incognito);
+        currentModel = modelList[0];
+      }
     } catch (error) {
       console.error("Failed to initialize SDK:", error);
       errorMessage =
@@ -343,30 +336,64 @@
       isKeySet = false;
     }
   }
-  async function resetSession() {
+
+  async function createSession() {
+    isLoading = true;
+    session = await secGemSDK.createSession({
+      name: sessionName,
+      description: sessionDescription,
+      logSession: Boolean(!incognito),
+      model: currentModel || "stable",
+      language: "en-US",
+    });
+    console.log(session);
+    currentStreamer = await session.streamer(onmessage as any);
+    isLoading = false;
+    isSessionInitialized = true;
+  }
+
+  async function resumeSession(id?: string) {
     try {
-      isLoading = true;
-      session = await secGemSDK.createSession({
-        name: sessionName,
-        description: sessionDescription,
-        logSession: Boolean(!incognito),
-        model: "stable",
-        language: "en-US",
-      });
-      console.log(session);
+      session = await secGemSDK.resumeSession(id ? id : sessionId);
+      sessions = secGemSDK.getUserInfo()?.sessions;
+      //@ts-ignore
+      currentModel = session._session.model;
+      console.log(currentModel.model_string);
       //@ts-ignore
       isSessionLogging = session._session.can_log;
-      console.log("incognito", !isSessionLogging);
+      //@ts-ignore
+      session._session.messages.length > 0 &&
+        //@ts-ignore
+        (messages = session._session.messages.filter(
+          (message: { message_type: string }) =>
+            message.message_type === "result" ||
+            message.message_type === "query"
+        ));
+
+      thinkingMessages = 
+        // @ts-ignore
+        session._session.messages.filter(
+          (message: { message_type: string }) =>
+            message.message_type === "thinking"
+        );
+      //@ts-ignore
+      files = session._session.files;
       currentStreamer = await session.streamer(onmessage as any);
-      messages = [];
       isLoading = false;
+      isSessionInitialized = true;
+      errorMessage = "";
     } catch (error) {
-      console.error("Failed to initialize SDK:", error);
-      errorMessage =
-        "Failed to initialize chat. Please check your API key and try again.";
+      console.error("Error resuming session:", error);
+      errorMessage = "Failed to resume session. Please try again.";
       isLoading = false;
-      isKeySet = false;
+      isSessionInitialized = false;
     }
+  }
+
+  async function resetSession() {
+    isSessionInitialized = false;
+    messages = [];
+    initializeSDK();
   }
 
   async function toggleChat() {
@@ -444,13 +471,13 @@
     bind:this={dialog}
     class={`chatbot-container ${isFull ? "w-screen h-screen m-auto max-w-none" : "left-1/2 top-20 z-50 w-screen max-w-3xl h-[80vh] transform -translate-x-1/2 translate-y-0 rounded-3xl"}  max-h-none fixed inset-0 opacity-0 bg-base p-2  text-text backdrop:backdrop-blur-xs backdrop:bg-base/50 backdrop-blur-lg transition-[overlay,display,opacity] duration-300 transition-discrete backdrop:transition-[overlay,display,opacity] backdrop:duration-300 backdrop:transition-discrete open:block open:opacity-100 open:starting:opacity-0 overflow-clip`}
   >
-    <div class="flex flex-col h-full w-full p-4 pb-1 bg-base max-w-6xl mx-auto">
+    <div
+      class="flex flex-col h-full w-full p-4 pb-1 bg-base max-w-6xl mx-auto relative"
+    >
       <div
-        class="flex flex-col md:flex-row justify-between items-center py-2 gap-4 md:gap-0"
+        class="flex flex-col md:flex-row justify-between items-center py-2 pt-0 gap-4 md:gap-0"
       >
-        <h2
-          class="text-center text-text text-xl md:text-2xl font-bold inline-block"
-        >
+        <h2 class=" text-text text-xl md:text-2xl font-bold inline-block">
           Sec-Gemini
         </h2>
         {#if isKeySet}
@@ -465,39 +492,26 @@
               </button>
             {:else}
               <div class="relative ml-auto mr-2 my-auto">
-                <button
-                  class="p-2 text-sm h-auto w-auto flex sm:w-32 items-center justify-center gap-1 rounded-full bg-base border border-text/50 hover:bg-accent disabled:pointer-events-none disabled:hover:bg-transparent hover:cursor-pointer"
-                  onclick={() => (showSessionDropdown = !showSessionDropdown)}
-                  aria-haspopup="true"
-                  aria-expanded={showSessionDropdown}
+                <select
+                  class="w-full bg-base border border-text/50 rounded-md shadow-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-accent"
+                  value={sessionId}
+                  onchange={(e) => {
+                    if ((e.target as HTMLSelectElement).value === "reset") {
+                      resetSession();
+                    } else {
+                      resumeSession((e.target as HTMLSelectElement).value);
+                    }
+                  }}
                 >
-                  <span class="inline truncate">{sessionId}</span>
-                </button>
-
-                {#if showSessionDropdown}
-                  <div
-                    class="absolute right-0 mt-2 w-48 bg-base border border-text/50 rounded-md shadow-lg z-10"
-                  >
-                    <div class="py-1">
-                      {#each sessions ?? [] as session}
-                        <button
-                          class="block w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors"
-                          class:bg-accent={session.id === sessionId}
-                          onclick={() => switchSession(session.id)}
-                        >
-                          <span class="font-medium">{session.id}</span>
-                        </button>
-                      {/each}
-                      <hr class="my-1 border-text/20" />
-                      <button
-                        class="block w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors text-red-500"
-                        onclick={resetSession}
-                      >
-                        Reset Current Session
-                      </button>
-                    </div>
-                  </div>
-                {/if}
+                  {#each sessions ?? [] as session}
+                    <option value={session.id}>
+                      {session.id}
+                    </option>
+                  {/each}
+                  <option value="reset" class="text-red-500">
+                    Reset Current Session
+                  </option>
+                </select>
               </div>
             {/if}
             {#if systemPrompt}
@@ -510,7 +524,7 @@
               </button>
               {#if showPrompt}
                 <div
-                  class="absolute top-14 left-0 flex bg-accent rounded-xl p-2 z-50 border-base border"
+                  class="absolute top-14 left-0 flex bg-accent rounded-xl p-2 z-10 border-base border"
                 >
                   <textarea
                     class="sm:w-72 h-[4lh] bg-accent"
@@ -578,7 +592,7 @@
           </div>
           {#if errorMessage}
             <div
-              class="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-md text-sm"
+              class="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-md text-sm text-center"
             >
               {errorMessage}
             </div>
@@ -594,7 +608,40 @@
             )}
           />
         {/if}
-        {#if messages.length === 0}
+        <div class="flex w-full justify-between my-2 pr-6">
+          <div class="relative w-60">
+            <select
+              bind:value={currentModel.model_string}
+              onchange={(e: Event) =>
+                handleModelClick((e.target as HTMLSelectElement).value as any)}
+              disabled={!!isSessionInitialized}
+              class="w-full bg-accent-light rounded-md text-text text-sm px-3 py-2 pr-8 appearance-none hover:bg-accent-light focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-accent-light"
+            >
+              <option value={null} disabled>Select a model</option>
+              {#each modelList as model (model.model_string)}
+                <option value={model.model_string}>
+                  {model.model_string}
+                </option>
+              {/each}
+            </select>
+            {#if isSessionInitialized}
+              <MaterialSymbolsCheckCircleOutlineRounded
+                class="absolute right-2 top-1/2 transform -translate-y-1/2 translate-x-0 pointer-events-none text-text-muted"
+                size={1.2}
+              />
+            {/if}
+          </div>
+        </div>
+        {#if isLoading}
+          <div class="mx-auto w-full">
+            <div class="h-1 bg-accent overflow-hidden">
+              <div
+                class="h-full bg-blue-500 animate-progress origin-left"
+              ></div>
+            </div>
+          </div>
+        {/if}
+        {#if messages.length === 0 && !errorMessage}
           <div class="-mb-10">
             <p
               class="text-start bg-[linear-gradient(90deg,#217BFE_0%,#078EFB_33%,#AC87EB_67%,#EE4D5D_100%)] text-transparent tracking-wide w-fit bg-clip-text py-2 text-lg md:text-xl font-semibold inline-block"
@@ -603,14 +650,14 @@
             </p>
             <br />
             <p
-              class="text-start text-text-muted md:text-lg font-medium py-2 inline-block"
+              class="text-start text-text-muted md:text-lg font-medium py-1.5 inline-block"
             >
               How can I help you?
             </p>
             {#if examples && JSON.parse(examples).length > 0}
               <div class="flex flex-col gap-1 justify-center">
                 <p
-                  class="text-start text-text-muted md:text-lg font-medium py-2 inline-block"
+                  class="text-start text-text-muted md:text-lg font-medium py-1.5 inline-block"
                 >
                   Examples
                 </p>
@@ -745,7 +792,12 @@
             </div>
           {/if}
         </div>
-        <form class="flex items-end gap-2" onsubmit={handleSend}>
+        {#if errorMessage}
+          <div class="p-3 bg-red-100 text-red-700 rounded-md my-2 text-center">
+            {errorMessage}
+          </div>
+        {/if}
+        <form class="flex items-end gap-2 z-10" onsubmit={handleSend}>
           <div
             class={`flex-1 border ${isSessionLogging ? "border-neutral-500/80" : "border-purple"} bg-base rounded-3xl overflow-hidden`}
           >
@@ -761,13 +813,38 @@
               rows="1"
               disabled={isProcessing}
             ></textarea>
-            <div class="p-2 pb-1 flex justify-between">
-              <div class="flex gap-2 items-center min-h-10">
+            <div
+              class={`${currentModel.toolsets?.length === 0 ? "justify-end" : "justify-between"} p-2 pb-1 flex `}
+            >
+              <div class="flex items-center">
+                {#if currentModel?.toolsets?.length ?? 0 > 0}
+                  {#each currentModel?.toolsets ?? [] as toolset}
+                    <button
+                      title={toolset.description}
+                      onclick={() => handleToggleAgent(toolset.name)}
+                      disabled={Boolean(sessionId)}
+                      type="button"
+                      class={`${toolset.is_enabled ? "bg-accent" : "bg-transparent"} p-2 px-3 h-8 w-8 my-auto sm:h-auto sm:w-auto flex sm:min-w-28 items-center justify-center gap-1 rounded-full font-medium hover:bg-accent disabled:pointer-events-none disabled:hover:bg-transparent hover:cursor-pointer`}
+                    >
+                      <div
+                        class={`${toolset.is_enabled ? "text-text-blue" : "text-text-muted opacity-70"}`}
+                      >
+                        {@html DOMPurify.sanitize(toolset.vendor.svg)}
+                      </div>
+                      <span
+                        class={`w-8 sm:text-start sm:w-auto truncate ${toolset.is_enabled ? "text-text-blue" : "text-text-muted opacity-70"}`}
+                        >{toolset.name}</span
+                      >
+                    </button>
+                  {/each}
+                {/if}
+              </div>
+              <div class="p-2 flex gap-2 md:gap-4 justify-between items-center">
                 <button
                   onclick={handleFileUpload}
                   aria-label="add"
                   type="button"
-                  class="p-2 rounded-full bg-accent-light text-text disabled:opacity-20 disabled:cursor-not-allowed hover:cursor-pointer flex items-center justify-center"
+                  class="p-2 flex-shrink-0 h-10 w-10 rounded-full bg-accent-light text-text disabled:opacity-20 disabled:cursor-not-allowed hover:cursor-pointer flex items-center justify-center"
                   disabled={isProcessing}
                 >
                   <MaterialSymbolsAdd2Rounded
@@ -775,8 +852,6 @@
                     class="flex-shrink-0 text-text"
                   />
                 </button>
-              </div>
-              <div class="flex gap-2 justify-between">
                 {#if !isSessionLogging}
                   <div
                     class={"w-full p-1 sm:p-3 rounded-3xl text-purple text-sm flex items-center justify-start gap-2 font-medium"}
@@ -838,13 +913,8 @@
           class="text-center text-xs px-2 pb-0 pt-2 line-clamp-1 text-text-muted"
         >
           Prompts and responses will be used to improve Sec-Gemini. It can make
-          mistakes, so please double check everything. v0.69
+          mistakes, so please double check everything. v0.7
         </p>
-        {#if errorMessage}
-          <div class="p-3 bg-red-100 text-red-700 rounded-md mt-2">
-            {errorMessage}
-          </div>
-        {/if}
       {/if}
     </div>
   </dialog>
@@ -1001,6 +1071,7 @@
         --color-red-500: oklch(63.7% 0.237 25.331);
         --color-red-700: oklch(50.5% 0.213 27.518);
         --color-sky-500: oklch(68.5% 0.169 237.323);
+        --color-blue-500: oklch(62.3% 0.214 259.815);
         --color-gray-100: oklch(96.7% 0.003 264.542);
         --color-gray-200: oklch(92.8% 0.006 264.531);
         --color-gray-300: oklch(87.2% 0.01 258.338);
@@ -1029,6 +1100,7 @@
         --font-weight-semibold: 600;
         --font-weight-bold: 700;
         --tracking-wide: 0.025em;
+        --leading-relaxed: 1.625;
         --radius-md: 0.375rem;
         --radius-lg: 0.5rem;
         --radius-xl: 0.75rem;
@@ -1056,6 +1128,7 @@
         --color-yellow: #7b3306;
         --color-blue: #217bfe;
         --color-purple: #8028c3;
+        --animate-progress: indeterminateAnimation 1s infinite linear;
         --animate-background: background-move ease infinite;
         --animate-slidein: slidein 1s ease 300ms forwards;
         --animate-gradient: animatedgradient 6s ease infinite alternate;
@@ -1320,6 +1393,9 @@
       .top-20 {
         top: calc(var(--spacing) * 20);
       }
+      .top-22 {
+        top: calc(var(--spacing) * 22);
+      }
       .right-0 {
         right: calc(var(--spacing) * 0);
       }
@@ -1328,6 +1404,9 @@
       }
       .right-1\.5 {
         right: calc(var(--spacing) * 1.5);
+      }
+      .right-2 {
+        right: calc(var(--spacing) * 2);
       }
       .right-5 {
         right: calc(var(--spacing) * 5);
@@ -1388,6 +1467,9 @@
       }
       .my-1 {
         margin-block: calc(var(--spacing) * 1);
+      }
+      .my-2 {
+        margin-block: calc(var(--spacing) * 2);
       }
       .my-auto {
         margin-block: auto;
@@ -1998,6 +2080,9 @@
       .ml-2 {
         margin-left: calc(var(--spacing) * 2);
       }
+      .ml-3 {
+        margin-left: calc(var(--spacing) * 3);
+      }
       .ml-4 {
         margin-left: calc(var(--spacing) * 4);
       }
@@ -2016,14 +2101,14 @@
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 3;
-        line-clamp: 1;
+        line-clamp: 3;
       }
       .line-clamp-4 {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 4;
-        line-clamp: 1;
+        line-clamp: 4;
       }
       .block {
         display: block;
@@ -2051,6 +2136,9 @@
       }
       .aspect-square {
         aspect-ratio: 1 / 1;
+      }
+      .h-1 {
+        height: calc(var(--spacing) * 1);
       }
       .h-2 {
         height: calc(var(--spacing) * 2);
@@ -2081,6 +2169,9 @@
       }
       .h-auto {
         height: auto;
+      }
+      .h-fit {
+        height: fit-content;
       }
       .h-full {
         height: 100%;
@@ -2135,6 +2226,9 @@
       }
       .w-50 {
         width: calc(var(--spacing) * 50);
+      }
+      .w-60 {
+        width: calc(var(--spacing) * 60);
       }
       .w-\[1px\] {
         width: 1px;
@@ -2205,12 +2299,19 @@
       .origin-center {
         transform-origin: center;
       }
+      .origin-left {
+        transform-origin: left;
+      }
       .-translate-x-1 {
         --tw-translate-x: calc(var(--spacing) * -1);
         translate: var(--tw-translate-x) var(--tw-translate-y);
       }
       .-translate-x-1\/2 {
         --tw-translate-x: calc(calc(1 / 2 * 100%) * -1);
+        translate: var(--tw-translate-x) var(--tw-translate-y);
+      }
+      .translate-x-0 {
+        --tw-translate-x: calc(var(--spacing) * 0);
         translate: var(--tw-translate-x) var(--tw-translate-y);
       }
       .translate-x-4 {
@@ -2252,6 +2353,9 @@
       .animate-gradient {
         animation: var(--animate-gradient);
       }
+      .animate-progress {
+        animation: var(--animate-progress);
+      }
       .animate-pulse {
         animation: var(--animate-pulse);
       }
@@ -2269,6 +2373,9 @@
       }
       .resize-none {
         resize: none;
+      }
+      .appearance-none {
+        appearance: none;
       }
       .flex-col {
         flex-direction: column;
@@ -2314,6 +2421,17 @@
       }
       .gap-4 {
         gap: calc(var(--spacing) * 4);
+      }
+      .space-y-1 {
+        :where(& > :not(:last-child)) {
+          --tw-space-y-reverse: 0;
+          margin-block-start: calc(
+            calc(var(--spacing) * 1) * var(--tw-space-y-reverse)
+          );
+          margin-block-end: calc(
+            calc(var(--spacing) * 1) * calc(1 - var(--tw-space-y-reverse))
+          );
+        }
       }
       .space-y-4 {
         :where(& > :not(:last-child)) {
@@ -2436,12 +2554,6 @@
       .border-text {
         border-color: var(--color-text);
       }
-      .border-text\/20 {
-        border-color: color-mix(in srgb, #1b1c1d 20%, transparent);
-        @supports (color: color-mix(in lab, red, red)) {
-          border-color: color-mix(in oklab, var(--color-text) 20%, transparent);
-        }
-      }
       .border-text\/50 {
         border-color: color-mix(in srgb, #1b1c1d 50%, transparent);
         @supports (color: color-mix(in lab, red, red)) {
@@ -2468,6 +2580,9 @@
       }
       .bg-blue {
         background-color: var(--color-blue);
+      }
+      .bg-blue-500 {
+        background-color: var(--color-blue-500);
       }
       .bg-gray-100 {
         background-color: var(--color-gray-100);
@@ -2538,6 +2653,9 @@
       .px-4 {
         padding-inline: calc(var(--spacing) * 4);
       }
+      .px-5 {
+        padding-inline: calc(var(--spacing) * 5);
+      }
       .py-0 {
         padding-block: calc(var(--spacing) * 0);
       }
@@ -2559,8 +2677,17 @@
       .py-6 {
         padding-block: calc(var(--spacing) * 6);
       }
+      .pt-0 {
+        padding-top: calc(var(--spacing) * 0);
+      }
       .pt-2 {
         padding-top: calc(var(--spacing) * 2);
+      }
+      .pr-6 {
+        padding-right: calc(var(--spacing) * 6);
+      }
+      .pr-8 {
+        padding-right: calc(var(--spacing) * 8);
       }
       .pb-0 {
         padding-bottom: calc(var(--spacing) * 0);
@@ -2621,6 +2748,10 @@
       .text-\[12px\] {
         font-size: 12px;
       }
+      .leading-relaxed {
+        --tw-leading: var(--leading-relaxed);
+        line-height: var(--leading-relaxed);
+      }
       .font-bold {
         --tw-font-weight: var(--font-weight-bold);
         font-weight: var(--font-weight-bold);
@@ -2636,6 +2767,9 @@
       .tracking-wide {
         --tw-tracking: var(--tracking-wide);
         letter-spacing: var(--tracking-wide);
+      }
+      .whitespace-nowrap {
+        white-space: nowrap;
       }
       .\!text-text {
         color: var(--color-text) !important;
@@ -2837,6 +2971,17 @@
       }
       .transition-opacity {
         transition-property: opacity;
+        transition-timing-function: var(
+          --tw-ease,
+          var(--default-transition-timing-function)
+        );
+        transition-duration: var(
+          --tw-duration,
+          var(--default-transition-duration)
+        );
+      }
+      .transition-transform {
+        transition-property: transform, translate, scale, rotate;
         transition-timing-function: var(
           --tw-ease,
           var(--default-transition-timing-function)
@@ -3080,9 +3225,19 @@
             var(--tw-shadow);
         }
       }
+      .focus\:ring-accent {
+        &:focus {
+          --tw-ring-color: var(--color-accent);
+        }
+      }
       .focus\:ring-blue {
         &:focus {
           --tw-ring-color: var(--color-blue);
+        }
+      }
+      .focus\:ring-blue-500 {
+        &:focus {
+          --tw-ring-color: var(--color-blue-500);
         }
       }
       .focus\:ring-text {
@@ -3143,6 +3298,20 @@
       .disabled\:opacity-50 {
         &:disabled {
           opacity: 50%;
+        }
+      }
+      .disabled\:opacity-60 {
+        &:disabled {
+          opacity: 60%;
+        }
+      }
+      .disabled\:hover\:bg-accent-light {
+        &:disabled {
+          &:hover {
+            @media (hover: hover) {
+              background-color: var(--color-accent-light);
+            }
+          }
         }
       }
       .disabled\:hover\:bg-base {
@@ -3260,11 +3429,6 @@
           height: auto;
         }
       }
-      .sm\:w-32 {
-        @media (width >= 40rem) {
-          width: calc(var(--spacing) * 32);
-        }
-      }
       .sm\:w-72 {
         @media (width >= 40rem) {
           width: calc(var(--spacing) * 72);
@@ -3275,6 +3439,11 @@
           width: auto;
         }
       }
+      .sm\:min-w-28 {
+        @media (width >= 40rem) {
+          min-width: calc(var(--spacing) * 28);
+        }
+      }
       .sm\:min-w-32 {
         @media (width >= 40rem) {
           min-width: calc(var(--spacing) * 32);
@@ -3283,6 +3452,11 @@
       .sm\:p-3 {
         @media (width >= 40rem) {
           padding: calc(var(--spacing) * 3);
+        }
+      }
+      .sm\:text-start {
+        @media (width >= 40rem) {
+          text-align: start;
         }
       }
       .sm\:text-sm {
@@ -3666,6 +3840,10 @@
       inherits: false;
       initial-value: solid;
     }
+    @property --tw-leading {
+      syntax: "*";
+      inherits: false;
+    }
     @property --tw-font-weight {
       syntax: "*";
       inherits: false;
@@ -3875,6 +4053,17 @@
         background-position: 100% 50%;
       }
     }
+    @keyframes indeterminateAnimation {
+      0% {
+        transform: translateX(0) scaleX(0);
+      }
+      40% {
+        transform: translateX(0) scaleX(0.4);
+      }
+      100% {
+        transform: translateX(100%) scaleX(0.5);
+      }
+    }
     @keyframes button-pop {
       0% {
         transform: scale(0.99);
@@ -3913,6 +4102,7 @@
           --tw-skew-y: initial;
           --tw-space-y-reverse: 0;
           --tw-border-style: solid;
+          --tw-leading: initial;
           --tw-font-weight: initial;
           --tw-tracking: initial;
           --tw-shadow: 0 0 #0000;
