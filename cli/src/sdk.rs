@@ -151,7 +151,7 @@ impl Session {
     }
 
     pub async fn send(&mut self, prompt: &str) {
-        let message = MessageBuilder::new(MessageType::Query)
+        let message = MessageBuilder::new(self.id.clone(), MessageType::Query)
             .mime_type(Some("text/plain".to_string()))
             .content(Some(prompt.to_string()))
             .build();

@@ -514,7 +514,7 @@ fn exec_session_list(input: CommandInput<'_>) -> CommandOutput<'_> {
             }
             println!(
                 " created {} ago ({} messages)",
-                HumanDuration(Duration::from_secs(now() - session.create_time as u64)),
+                HumanDuration(Duration::from_secs_f64(now() - session.create_time)),
                 session.num_messages
             );
         }
