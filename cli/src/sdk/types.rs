@@ -80,16 +80,19 @@ api! {
     pub struct Message MessageBuilder {
         pub id: String = uuid4_short(),
         pub parent_id: String = ROOT_ID.to_string(),
+        pub session_id: String,
         pub turn: String = uuid4_short(),
         pub group: String = uuid4(),
         pub actor: String = "user".to_string(),
         pub role: Role = Role::User,
-        pub timestamp: u64 = now(),
+        pub created_at: f64 = now(),
         pub message_type: MessageType,
+        pub icon: Option<String> = None,
+        pub text_color: Option<String> = None,
         pub title: Option<String> = None,
         pub state: State = State::Start,
         pub content: Option<String> = None,
-        pub mime_type: Option<MimeType> = None,
+        pub mime_type: Option<MimeType> = Some("text/plain".to_string()),
         pub status_code: u16 = 200,
         pub status_message: String = "OK".to_string(),
         pub usage: Option<Usage> = None,
@@ -149,8 +152,8 @@ api! {
         pub turns: u64 = 0,
         pub name: String,
         pub description: String,
-        pub create_time: f64 = now() as f64,
-        pub update_time: f64 = now() as f64,
+        pub create_time: f64 = now(),
+        pub update_time: f64 = now(),
         pub num_messages: u64 = 0,
         pub messages: Vec<Message> = Vec::new(),
         pub usage: Usage = UsageBuilder::new().build(),
@@ -242,8 +245,8 @@ api! {
     }
 }
 
-pub fn now() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+pub fn now() -> f64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64()
 }
 
 fn uuid4() -> String {
