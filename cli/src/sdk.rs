@@ -151,10 +151,8 @@ impl Session {
     }
 
     pub async fn send(&mut self, prompt: &str) {
-        let message = MessageBuilder::new(MessageType::Query)
-            .mime_type(Some("text/plain".to_string()))
-            .content(Some(prompt.to_string()))
-            .build();
+        let message =
+            MessageBuilder::new(MessageType::Query).content(Some(prompt.to_string())).build();
         let message = serde_json::to_string(&message).unwrap();
         match self.state().await.sink.send(tungstenite::Message::text(message.clone())).await {
             Ok(()) => return,
