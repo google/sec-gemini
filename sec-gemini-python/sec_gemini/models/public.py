@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
 
 from time import time
 from typing import Optional
@@ -186,6 +187,20 @@ class PublicSession(BaseModel):
         default_factory=list,
         title="Files",
         description="The list of files uploaded to the session.",
+    )
+
+    logs_tables: list[PublicLogsTable] = Field(
+        default_factory=list,
+        title="Logs Tables",
+        description="The list of logs tables attached to the session",
+    )
+
+
+class PublicLogsTable(BaseModel):
+    logs_hash: str = Field(
+        ...,
+        title="Logs Hash",
+        description="The hash of the logs, which acts as identifier for the table storing the logs.",
     )
 
 
