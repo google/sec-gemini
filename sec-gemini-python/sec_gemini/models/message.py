@@ -43,12 +43,6 @@ class Message(BaseModel):
         ROOT_ID, title="Parent Message ID", description="The ID of the parent message."
     )
 
-    session_id: str = Field(
-        ...,
-        title="Session ID",
-        description="The session identifier is used to group messages that are part of the same session.",
-    )
-
     turn: str = Field(
         default_factory=lambda: uuid4().hex[:12],
         title="Conversation Turn",

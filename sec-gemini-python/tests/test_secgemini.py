@@ -424,7 +424,6 @@ async def query_via_websocket(secgemini_client: SecGemini, query: str) -> str:
     msg = Message(
         id=session.id,
         parent_id="3713",
-        session_id=session.id,
         role=Role.USER,
         mime_type=MimeType.TEXT,
         message_type=MessageType.QUERY,
