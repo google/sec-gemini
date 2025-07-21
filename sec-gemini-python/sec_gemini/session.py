@@ -17,16 +17,21 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
+import os
 import random
+import sys
 import traceback
 from base64 import b64encode
 from pathlib import Path
-from typing import AsyncIterator, Optional
+from typing import Any, AsyncIterator, Optional
 
+import httpx
 import websockets
 from rich.console import Console
 from rich.tree import Tree
+from tqdm import tqdm
 
 from .constants import DEFAULT_TTL
 from .enums import _EndPoints
@@ -38,7 +43,7 @@ from .models.feedback import Feedback
 from .models.message import Message
 from .models.modelinfo import ModelInfo
 from .models.opresult import OpResult, ResponseStatus
-from .models.public import PublicSession, PublicSessionFile, PublicUser
+from .models.public import PublicLogsTable, PublicSession, PublicSessionFile, PublicUser
 from .models.session_request import SessionRequest
 from .models.session_response import SessionResponse
 from .models.usage import Usage
@@ -161,6 +166,13 @@ class InteractiveSession:
         self._refresh_data()
         return self._session.files
 
+    @property
+    def logs_tables(self) -> list[PublicLogsTable]:
+        """Session logs"""
+        assert self._session is not None
+        self._refresh_data()
+        return self._session.logs_tables
+
     def _refresh_data(self) -> None:
         """Refresh the session"""
         if self._session is None:
@@ -265,6 +277,32 @@ class InteractiveSession:
 
         msg = f"[Session][DetachFile] {session_id=} {file_idx=}: OK"
         logging.debug(msg)
+        return True
+
+    def _attach_logs(
+        self,
+        logs_hash: str,
+    ) -> bool:
+        """Attach logs to the session. Returns True if success, False otherwise."""
+        assert self._session is not None
+
+        client = httpx.Client()
+        params = {
+            "session_id": self.id,
+            "logs_hash": logs_hash,
+        }
+
+        url = f"{self.http.base_url.rstrip('/')}{_EndPoints.ATTACH_LOGS.value}"
+        resp = client.post(url, params=params)
+        if resp.status_code != 200:
+            logging.error(
+                f"[Session][AttachLogs][HTTP]: {resp.status_code} {resp.content.decode('utf-8')}"
+            )
+            return False
+
+        msg = f"[Session][AttachLogs] session_id={self._session.id} {logs_hash=}: OK"
+        logging.debug(msg)
+
         return True
 
     def send_bug_report(self, bug: str, group_id: str = "") -> bool:
@@ -688,6 +726,65 @@ class InteractiveSession:
 
         return f"{random.choice(adjs)}-{random.choice(terms)}"
 
+    def upload_and_attach_logs(self, jsonl_path: Path) -> None:
+        # TODO: write this code around the existing NetworkClient, without using
+        # httpx directly.
+
+        SEC_GEMINI_LOGS_PROCESSOR_API_URL = os.environ.get(
+            "SEC_GEMINI_LOGS_PROCESSOR_API_URL"
+        )
+        if SEC_GEMINI_LOGS_PROCESSOR_API_URL is None:
+            print(
+                "ERROR: set the SEC_GEMINI_LOGS_PROCESSOR_API_URL environment variable"
+            )
+            sys.exit(1)
+
+        try:
+            logs_hash = _compute_file_hash(jsonl_path)
+            print(f"Computed hash for {jsonl_path}: {logs_hash}")
+
+            # Upload logs
+            with httpx.Client() as client:
+                params: dict[str, Any] = {
+                    "logs_hash": logs_hash,
+                    "can_log": self.can_log,
+                }
+                headers = {"Content-Type": "application/octet-stream"}
+
+                print(f"Starting upload with {logs_hash=} and {self.can_log=}")
+                response = client.post(
+                    f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/upload_logs",
+                    params=params,
+                    content=_get_file_content_with_progress_bar(jsonl_path),
+                    headers=headers,
+                    timeout=None,
+                )
+
+                # Raise an exception for 4xx/5xx responses
+                response.raise_for_status()
+
+                print(f"\nUpload complete! Message: {response.content.decode('utf-8')}")
+
+            # Attach logs to session
+            res = self._attach_logs(logs_hash)
+            if res is False:
+                raise Exception("Error when attach logs to session")
+
+        except httpx.HTTPStatusError as exc:
+            # An HTTP error occurred (e.g., 404 Not Found, 500 Server Error)
+            print(
+                f"HTTP Error: {exc.response.status_code} while requesting {exc.request.url!r}."
+            )
+            error_details = exc.response.json()
+            print(f"Server error message: {error_details}")
+
+        except httpx.RequestError as e:
+            print(f"An error occurred while requesting {e.request.url!r}.")
+            print(f"Error details: {e}")
+
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
     def __copy__(self) -> InteractiveSession:
         int_sess = InteractiveSession(
             user=self.user.model_copy(),
@@ -699,3 +796,26 @@ class InteractiveSession:
         if self._session is not None:
             int_sess._session = self._session.model_copy()
         return int_sess
+
+
+def _compute_file_hash(file_path: Path) -> str:
+    hasher = hashlib.sha256()
+    with file_path.open("rb") as f:
+        while chunk := f.read(4096):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def _get_file_content_with_progress_bar(file_path: Path):
+    """
+    this is a complete example with generated random bytes.
+    you can replace `io.BytesIO` with real file object.
+    """
+    total = file_path.stat().st_size
+    with tqdm(
+        ascii=True, unit_scale=True, unit="B", unit_divisor=1024, total=total
+    ) as bar:
+        with file_path.open("rb") as f:
+            while data := f.read(4096):
+                yield data
+                bar.update(len(data))
