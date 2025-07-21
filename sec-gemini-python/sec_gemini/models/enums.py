@@ -184,6 +184,19 @@ class MimeType(str, Enum):
     RTF = "application/rtf"
     ODT = "application/vnd.oasis.opendocument.text"
 
+    # Internal types used by the orchestrator to control the UI display
+    SG_GRAPH = "sec-gemini/graph"  # internal type used to represent a graph
+    SG_TIMELINE = "sec-gemini/timeline"  # internal type used to represent a timeline
+    SG_TABLE = "sec-gemini/table"  # internal type used to represent a table
+    SG_IMAGE = "sec-gemini/image"  # internal type used to represent an image / base64.
+    SG_CODE = "sec-gemini/code"  # internal type used to represent a code generation / execution block
+    SG_MARKDOWN = (
+        "sec-gemini/markdown"  # internal type used to represent a markdown block
+    )
+    SG_JSON = "sec-gemini/json"  # internal type used to represent a json block
+    SG_HTML = "sec-gemini/html"  # internal type used to represent an html block
+    SG_CANVAS = "sec-gemini/canvas"  # internal type used to represent a canvas block
+
 
 class State(str, Enum):
     UNDEFINED = "undefined"
