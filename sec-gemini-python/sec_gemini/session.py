@@ -537,7 +537,6 @@ class InteractiveSession:
             state=State.QUERY,
             message_type=MessageType.QUERY,
             mime_type=MimeType.TEXT,
-            session_id=self.id,
         )
         return message.set_content(prompt)
 
