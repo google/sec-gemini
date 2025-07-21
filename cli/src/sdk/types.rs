@@ -80,7 +80,6 @@ api! {
     pub struct Message MessageBuilder {
         pub id: String = uuid4_short(),
         pub parent_id: String = ROOT_ID.to_string(),
-        pub session_id: String,
         pub turn: String = uuid4_short(),
         pub group: String = uuid4(),
         pub actor: String = "user".to_string(),
