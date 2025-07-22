@@ -189,18 +189,21 @@ class PublicSession(BaseModel):
         description="The list of files uploaded to the session.",
     )
 
-    logs_tables: list[PublicLogsTable] = Field(
-        default_factory=list,
-        title="Logs Tables",
-        description="The list of logs tables attached to the session",
+    logs_table: PublicLogsTable | None = Field(
+        None,
+        title="Logs Table",
+        description="Logs table attached to the session, if any.",
     )
 
 
 class PublicLogsTable(BaseModel):
-    logs_hash: str = Field(
+    # Note: using an hash to identify the table is a security feature that
+    # guarantees that only people having access to the logs themselves have
+    # access to the table.
+    blake2s: str = Field(
         ...,
-        title="Logs Hash",
-        description="The hash of the logs, which acts as identifier for the table storing the logs.",
+        title="Blake2s hash",
+        description="The blake2s hash of the log file before upload. The hash key is 'secgemini'.",
     )
 
 
