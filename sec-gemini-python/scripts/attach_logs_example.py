@@ -37,7 +37,7 @@ async def main(jsonl_path: Path, enable_logging: bool) -> None:
 
     session.upload_and_attach_logs(jsonl_path)
 
-    print(session.logs_tables)
+    print(f"Logs table: {session.logs_table}")
     print("OK")
 
 
