@@ -183,6 +183,7 @@ impl Options {
             }
             let content = message.content.unwrap_or_default();
             match message.message_type {
+                MessageType::Result if message.status_code != 200 => (),
                 MessageType::Result if result.is_some() => log::warn!("multiple results"),
                 MessageType::Result => result = Some(content),
                 MessageType::Info => set_message(&progress, &content),
