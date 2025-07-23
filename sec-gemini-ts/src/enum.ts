@@ -37,6 +37,7 @@ enum EndPointsEnum {
 
 enum ResponseStatusEnum {
   OK = 200,
+  PARTIAL_CONTENT = 206,
   BAD_REQUEST = 400,
   NOT_FOUND = 404,
   AUTHENTICATION_ERROR = 401,
