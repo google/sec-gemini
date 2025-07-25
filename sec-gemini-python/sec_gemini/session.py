@@ -282,7 +282,7 @@ class InteractiveSession:
         logging.debug(msg)
         return True
 
-    def _attach_logs(
+    def attach_logs(
         self,
         logs_hash: str,
     ) -> bool:
@@ -821,7 +821,7 @@ class InteractiveSession:
                     )
 
             # Attach logs to session
-            res = self._attach_logs(logs_hash)
+            res = self.attach_logs(logs_hash)
             if res is False:
                 raise Exception("Error when attach logs to session")
 
