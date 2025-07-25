@@ -94,6 +94,8 @@ def mock_stable_model_info() -> ModelInfo:
                 description="A test toolset",
                 vendor=vendor,
                 is_enabled=True,
+                is_enabled_by_default=True,
+                is_enabled_by_default_in_incognito=False,
                 is_experimental=False,
             )
         ],
@@ -121,6 +123,8 @@ def mock_experimental_model_info() -> ModelInfo:
                 description="A test toolset",
                 vendor=vendor,
                 is_enabled=True,
+                is_enabled_by_default=True,
+                is_enabled_by_default_in_incognito=False,
                 is_experimental=True,
             )
         ],
