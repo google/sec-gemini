@@ -523,6 +523,20 @@ async def get_messages_from_ws_query(
     return messages
 
 
+@require_env_variable("SEC_GEMINI_API_KEY")
+def test_session_attach_logs(secgemini_client: SecGemini):
+    s = secgemini_client.create_session()
+    placeholder_logs_hash = "12345678"
+    s.attach_logs(placeholder_logs_hash)
+    resp = s.query(
+        "Do you have access to any logs_table? No need to call the logs_analysis_agent, "
+        "just tell me what's the content of the <logs_table> node. "
+        "Just output the result, nothing else."
+    )
+    content = resp.text().strip()
+    assert content == placeholder_logs_hash
+
+
 async def query_via_websocket(secgemini_client: SecGemini, query: str) -> str:
     session = secgemini_client.create_session()
 
