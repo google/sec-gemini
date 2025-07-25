@@ -57,9 +57,21 @@ class OptionalToolSet(BaseModel):
         ..., title="toolset Vendor", description="The vendor of the toolset."
     )
 
+    # This is deprecated, and will be removed in the future. Use is_enabled_by_default
     is_enabled: bool = Field(
         True, title="Is Enabled", description="Whether the toolset is enabled or not."
     )
+    is_enabled_by_default: bool = Field(
+        ...,
+        title="Is Bundle Enabled by default",
+        description="Whether the bundle is enabled by default or not.",
+    )
+    is_enabled_by_default_in_incognito: bool = Field(
+        ...,
+        title="Is Bundle Enabled by default in incognito mode?",
+        description="Whether this tool is enabled in incognito mode by default.",
+    )
+
     is_experimental: bool = Field(
         False,
         title="Is Experimental",
