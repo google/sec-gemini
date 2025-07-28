@@ -31,7 +31,7 @@ from utils import (
 )
 
 from sec_gemini import SecGemini
-from sec_gemini.models.enums import MessageType, MimeType, Role, State
+from sec_gemini.models.enums import MessageType, MimeType, ResponseStatus, Role, State
 from sec_gemini.models.message import Message
 from sec_gemini.models.public import PublicSession, PublicSessionFile, UserInfo
 from sec_gemini.session import InteractiveSession
@@ -413,6 +413,101 @@ async def test_query_with_virustotal_tool_malicious_ws(secgemini_client: SecGemi
     content = await query_via_websocket(secgemini_client, query)
     content = parse_secgemini_response(content)
     assert content == "malicious"
+
+
+@pytest.mark.asyncio
+@async_require_env_variable("SEC_GEMINI_API_KEY")
+async def test_check_ws_messages_without_streaming(secgemini_client: SecGemini):
+    query = "Tell me about CVE-2025-37991"
+
+    session = secgemini_client.create_session()
+
+    api_key = os.environ["SEC_GEMINI_API_KEY"]
+    session_id = session.id
+
+    msg = Message(
+        id=session.id,
+        parent_id="3713",
+        role=Role.USER,
+        mime_type=MimeType.TEXT,
+        message_type=MessageType.QUERY,
+        content=query,
+    )
+
+    uri = f"{secgemini_client.base_websockets_url}/v1/stream?api_key={api_key}&session_id={session_id}"
+    messages: list[Message] = []
+    async with websockets.connect(uri) as websocket:
+        await websocket.send(msg.model_dump_json())
+
+        try:
+            while True:
+                received_msg = Message(
+                    **json.loads(await asyncio.wait_for(websocket.recv(), timeout=30))
+                )
+                print(received_msg.model_dump())
+                messages.append(received_msg)
+                if (
+                    received_msg.message_type == MessageType.INFO
+                    and received_msg.state == State.END
+                ):
+                    break
+        except asyncio.TimeoutError:
+            print("Reached timeout without having received a State.END message")
+            raise
+        except Exception:
+            print(
+                f"Exception while sending/receiving messages. {traceback.format_exc()}"
+            )
+            raise
+
+    # Stats for message_type
+    result_num = 0
+    thinking_num = 0
+    info_num = 0
+    error_num = 0
+    other_num = 0
+    # Stats for state
+    end_num = 0
+    # Stats for status_code
+    partial_num = 0
+    # Other stats
+    info_end_num = 0
+    transfer_to_agent_num = 0
+    for message in messages:
+        message.status_code
+        if message.message_type == MessageType.RESULT:
+            result_num += 1
+        elif message.message_type == MessageType.THINKING:
+            thinking_num += 1
+        elif message.message_type == MessageType.INFO:
+            info_num += 1
+        elif message.message_type == MessageType.ERROR:
+            error_num += 1
+        else:
+            other_num += 1
+
+        if message.state == State.END:
+            end_num += 1
+
+        if message.status_code == ResponseStatus.PARTIAL_CONTENT.value:
+            partial_num += 1
+
+        if message.message_type == MessageType.INFO and message.state == State.END:
+            info_end_num += 1
+
+        if message.message_type == MessageType.INFO and message.content == "Transfer":
+            transfer_to_agent_num += 1
+
+    assert result_num == 1
+    assert thinking_num > 0
+    assert info_num > 0
+    assert error_num == 0
+    assert other_num == 0
+    assert end_num == 1
+    assert partial_num == 0
+    assert info_end_num == 1
+    assert transfer_to_agent_num > 0
+    print("OK")
 
 
 async def query_via_websocket(secgemini_client: SecGemini, query: str) -> str:
