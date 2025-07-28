@@ -419,46 +419,12 @@ async def test_query_with_virustotal_tool_malicious_ws(secgemini_client: SecGemi
 @async_require_env_variable("SEC_GEMINI_API_KEY")
 async def test_check_ws_messages_without_streaming(secgemini_client: SecGemini):
     query = "Tell me about CVE-2025-37991"
-
+    api_key = os.environ["SEC_GEMINI_API_KEY"]
     session = secgemini_client.create_session()
 
-    api_key = os.environ["SEC_GEMINI_API_KEY"]
-    session_id = session.id
-
-    msg = Message(
-        id=session.id,
-        parent_id="3713",
-        role=Role.USER,
-        mime_type=MimeType.TEXT,
-        message_type=MessageType.QUERY,
-        content=query,
+    messages = await get_messages_from_ws_query(
+        secgemini_client, session.id, query, api_key, stream=False
     )
-
-    uri = f"{secgemini_client.base_websockets_url}/v1/stream?api_key={api_key}&session_id={session_id}"
-    messages: list[Message] = []
-    async with websockets.connect(uri) as websocket:
-        await websocket.send(msg.model_dump_json())
-
-        try:
-            while True:
-                received_msg = Message(
-                    **json.loads(await asyncio.wait_for(websocket.recv(), timeout=30))
-                )
-                print(received_msg.model_dump())
-                messages.append(received_msg)
-                if (
-                    received_msg.message_type == MessageType.INFO
-                    and received_msg.state == State.END
-                ):
-                    break
-        except asyncio.TimeoutError:
-            print("Reached timeout without having received a State.END message")
-            raise
-        except Exception:
-            print(
-                f"Exception while sending/receiving messages. {traceback.format_exc()}"
-            )
-            raise
 
     # Stats for message_type
     result_num = 0
@@ -508,6 +474,53 @@ async def test_check_ws_messages_without_streaming(secgemini_client: SecGemini):
     assert info_end_num == 1
     assert transfer_to_agent_num > 0
     print("OK")
+
+
+async def get_messages_from_ws_query(
+    secgemini_client: SecGemini,
+    session_id: str,
+    query: str,
+    api_key: str,
+    stream: bool,
+) -> list[Message]:
+    msg = Message(
+        id=session_id,
+        parent_id="3713",
+        role=Role.USER,
+        mime_type=MimeType.TEXT,
+        message_type=MessageType.QUERY,
+        content=query,
+    )
+
+    uri = f"{secgemini_client.base_websockets_url}/v1/stream?api_key={api_key}&session_id={session_id}"
+    if stream:
+        uri += "&stream=1"
+    messages: list[Message] = []
+    async with websockets.connect(uri) as websocket:
+        await websocket.send(msg.model_dump_json())
+
+        try:
+            while True:
+                received_msg = Message(
+                    **json.loads(await asyncio.wait_for(websocket.recv(), timeout=30))
+                )
+                print(received_msg.model_dump())
+                messages.append(received_msg)
+                if (
+                    received_msg.message_type == MessageType.INFO
+                    and received_msg.state == State.END
+                ):
+                    break
+        except asyncio.TimeoutError:
+            print("Reached timeout without having received a State.END message")
+            raise
+        except Exception:
+            print(
+                f"Exception while sending/receiving messages. {traceback.format_exc()}"
+            )
+            raise
+
+    return messages
 
 
 async def query_via_websocket(secgemini_client: SecGemini, query: str) -> str:
