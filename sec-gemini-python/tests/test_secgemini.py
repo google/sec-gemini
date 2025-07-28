@@ -502,6 +502,8 @@ async def test_check_ws_messages_with_streaming(secgemini_client: SecGemini):
     result_non_partial_num = 0
     result_agent_done_num = 0
     transfer_to_agent_num = 0
+    partial_result_messages_concat = ""
+    partial_thinking_messages_concat = ""
     for message in messages:
         if message.message_type == MessageType.RESULT:
             result_num += 1
@@ -517,23 +519,45 @@ async def test_check_ws_messages_with_streaming(secgemini_client: SecGemini):
         if message.state == State.END:
             end_num += 1
 
-        if message.status_code == ResponseStatus.PARTIAL_CONTENT.value:
+        if message.status_code == ResponseStatus.PARTIAL_CONTENT:
+            assert message.content is not None
             partial_num += 1
+            if message.message_type == MessageType.RESULT:
+                partial_result_messages_concat += message.content
+            elif message.message_type == MessageType.THINKING:
+                partial_thinking_messages_concat += message.content
 
         if message.message_type == MessageType.INFO and message.state == State.END:
             info_end_num += 1
 
         if (
             message.message_type == MessageType.RESULT
-            and message.status_code == ResponseStatus.OK.value
+            and message.status_code == ResponseStatus.OK
         ):
             result_non_partial_num += 1
 
         if (
             message.message_type == MessageType.RESULT
-            and message.state == State.AGENT_DONE
+            and message.status_code == ResponseStatus.OK
         ):
             result_agent_done_num += 1
+            assert message.content is not None
+            if len(partial_result_messages_concat) > 0:
+                # There were partial result messages; the concatenation of such
+                # partial messages should match the complete message.
+                assert message.content == partial_result_messages_concat
+                partial_result_messages_concat = ""
+
+        if (
+            message.message_type == MessageType.THINKING
+            and message.status_code == ResponseStatus.OK
+        ):
+            assert message.content is not None
+            if len(partial_thinking_messages_concat) > 0:
+                # There were partial thinking messages; the concatenation of such
+                # partial messages should match the complete message.
+                assert message.content == partial_thinking_messages_concat
+                partial_thinking_messages_concat = ""
 
         if message.message_type == MessageType.INFO and message.content == "Transfer":
             transfer_to_agent_num += 1
@@ -580,7 +604,7 @@ async def get_messages_from_ws_query(
                 received_msg = Message(
                     **json.loads(await asyncio.wait_for(websocket.recv(), timeout=30))
                 )
-                print(received_msg.model_dump())
+                # print(received_msg.model_dump())
                 messages.append(received_msg)
                 if (
                     received_msg.message_type == MessageType.INFO
