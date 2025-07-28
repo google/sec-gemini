@@ -790,23 +790,28 @@ class InteractiveSession:
                         jsonl_path, chunk_size=10_000_000
                     ):
                         log_lines, unused_buffer = parse_chunk(chunk, unused_buffer)
-                        if len(log_lines) > 0:
-                            if DEBUG:
-                                print(
-                                    f"Uploading {len(log_lines)} log lines with {logs_hash=} and {self.can_log=}"
-                                )
 
-                            payload: dict[str, Any] = {
-                                "logs_hash": logs_hash,
-                                "can_log": self.can_log,
-                                "log_lines": log_lines,
-                            }
-                            response = client.post(
-                                f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/upload_logs",
-                                json=payload,
-                                headers=headers,
-                                timeout=None,
+                        if len(log_lines) == 0:
+                            assert unused_buffer == ""
+                            # Nothing else to process
+                            continue
+
+                        if DEBUG:
+                            print(
+                                f"Uploading {len(log_lines)} log lines with {logs_hash=} and {self.can_log=}"
                             )
+
+                        payload: dict[str, Any] = {
+                            "logs_hash": logs_hash,
+                            "can_log": self.can_log,
+                            "log_lines": log_lines,
+                        }
+                        response = client.post(
+                            f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/upload_logs",
+                            json=payload,
+                            headers=headers,
+                            timeout=None,
+                        )
 
                         # Raise an exception for 4xx/5xx responses
                         response.raise_for_status()
