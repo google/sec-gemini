@@ -162,7 +162,7 @@ export type Message = {
   /**
    * The status code of the message. 2xx is Okay, 4xx is a client error, 5xx is a server error.
    */
-  status_code?: number;
+  status_code?: ResponseStatus;
   /**
    * Explain status code reason.
    */

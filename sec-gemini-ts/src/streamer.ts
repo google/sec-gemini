@@ -26,16 +26,20 @@ const DEFAULT_CONFIG = {
   PING_INTERVAL: 20000, // ms
 };
 
-interface StreamerConfig {
+export interface StreamerConfig {
   maxReconnectAttempts?: number;
   initialReconnectDelay?: number;
   connectionTimeout?: number;
   pingInterval?: number;
   onReconnect?: ReconnectCallback;
   onConnectionStatusChange?: ConnectionStatusCallback;
+  // True if the backend should use streaming (e.g. SSE) to send the response.
+  // If so, the response may include PARTIAL_CONTENT messages, which should
+  // always be followed by a final aggregate message.
+  stream?: boolean;
 }
 
-class Streamer {
+export class Streamer {
   private ws: WebSocket | null = null;
   private readonly url: string;
   private readonly userOnOpen: (() => void) | null;
@@ -115,7 +119,8 @@ class Streamer {
     const path = EndPointsEnum.STREAM;
     const endpointPath = path.startsWith('/') ? path.substring(1) : path;
     const baseUrlClean = websocketUrl.replace(/\/$/, '');
-    this.url = `${baseUrlClean}/${endpointPath}?api_key=${this.apiKey}&session_id=${this.sessionID}`;
+    const useStreaming = config.stream ? 'true' : 'false';
+    this.url = `${baseUrlClean}/${endpointPath}?api_key=${this.apiKey}&session_id=${this.sessionID}&stream=${useStreaming}`;
 
     console.debug('Streamer: Target URL:', this.url);
   }
@@ -536,5 +541,3 @@ class Streamer {
     }
   }
 } // End of Streamer class
-
-export default Streamer;

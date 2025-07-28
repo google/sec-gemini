@@ -15,8 +15,8 @@
  */
 
 import HttpClient from './http';
-import InteractiveSession from './session';
-import Streamer from './streamer';
+import { StreamOptions, InteractiveSession } from './session';
+import { Streamer } from './streamer';
 
 // Manual enums (Ensure these are still relevant or update as needed)
 import { EndPointsEnum, ResponseStatusEnum } from './enum';
@@ -397,6 +397,7 @@ export { SecGemini as default };
 // Export core classes and types for SDK users
 export {
   // Classes
+  StreamOptions, // Options for InteractiveSession
   InteractiveSession,
   Streamer, // Assuming Streamer is still needed and updated
   // Core Types

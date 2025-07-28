@@ -16,7 +16,7 @@
 
 import randomUUID from './uuid';
 import HttpClient from './http';
-import Streamer from './streamer';
+import { StreamerConfig, Streamer } from './streamer';
 import { generateSessionName } from './sessionNameGenerator'; // Import the name generator
 
 // Manual enums (Ensure these are up-to-date)
@@ -90,10 +90,14 @@ async function uint8ArrayToBase64(uint8array: Uint8Array): Promise<string> {
 // --- Session Class ---
 
 // Alias for Streamer options
-interface StreamOptions {
+export interface StreamOptions {
   reconnect?: boolean;
   maxRetries?: number;
   delay?: number;
+  // True if the backend should use streaming (e.g. SSE) to send the response.
+  // If so, the response may include PARTIAL_CONTENT messages, which should
+  // always be followed by a final aggregate message.
+  stream?: boolean;
 }
 
 /**
@@ -102,7 +106,7 @@ interface StreamOptions {
  * file attachments, and feedback.
  * Should be created via `SecGemini.createSession()` or `SecGemini.resumeSession()`.
  */
-class InteractiveSession {
+export class InteractiveSession {
   // Dependencies injected by SecGemini client
   private user: PublicUser;
   private http: HttpClient;
@@ -411,6 +415,10 @@ class InteractiveSession {
     // const initialMessage = this._buildPromptMessage(query);
     // Pass initialMessage to Streamer or call a streamer.send() method.
 
+    const config: StreamerConfig = {
+      // TODO: set other field based on options.
+      stream: options.stream,
+    };
     const streamer = await Streamer.create(
       onmessage,
       onopen,
@@ -418,8 +426,8 @@ class InteractiveSession {
       onclose,
       this.websocketURL, // Use the URL from SecGemini client
       this.id,
-      this.apiKey
-      // Pass options to Streamer if it supports them: , options
+      this.apiKey,
+      config
     );
     return streamer;
   }
@@ -835,5 +843,3 @@ class InteractiveSession {
     console.log(`--- End Visualization ---`);
   }
 }
-
-export default InteractiveSession;

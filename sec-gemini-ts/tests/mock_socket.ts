@@ -35,6 +35,7 @@ function getMockSocket(
   if (url.startsWith('ws://badurl')) {
     throw new DOMException('Bad URL.');
   }
+  const stream = url.endsWith('stream=true');
   const mockSocket = {
     _additionalErrorListeners: <Array<Function>>[],
     _additionalOpenListeners: <Array<Function>>[],
@@ -73,8 +74,9 @@ function getMockSocket(
       mockSocket.onclose(new CloseEvent('close', { code, reason }));
     },
     send: (msg: string) => {
-      const response = getSocketResponseMessage(msg);
-      mockSocket.onmessage(response);
+      for (const response of getSocketResponseMessage(msg, stream)) {
+        mockSocket.onmessage(response);
+      }
     },
     ping: pingFn,
     onopen: () => {},

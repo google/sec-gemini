@@ -15,13 +15,31 @@
  */
 
 import WebSocket from 'isomorphic-ws';
-import Streamer from '../src/streamer';
+import { StreamerConfig, Streamer } from '../src/streamer';
 import { MessageTypeEnum, StateEnum } from '../src/secgeminienums';
+import { ResponseStatusEnum } from '../src/enum';
 import { getMockSocket, CloseEvent as SocketCloseEvent } from './mock_socket';
 
 // Method to create a response message that should be returned on the web socket. This can be spied on.
-let getSocketResponseMessage = jest.fn((req: string): string | object => {
-  return { data: JSON.stringify({ data: `Message received: ${req}`, message_type: MessageTypeEnum.RESULT }) };
+let getSocketResponseMessage = jest.fn((req: string, stream: boolean): string[] | object[] => {
+  const msgs: any = [];
+  if (stream) {
+    msgs.push({
+      data: JSON.stringify({
+        data: '',
+        message_type: MessageTypeEnum.RESULT,
+        status_code: ResponseStatusEnum.PARTIAL_CONTENT,
+      }),
+    });
+  }
+  msgs.push({
+    data: JSON.stringify({
+      data: `Message received: ${req}`,
+      message_type: MessageTypeEnum.RESULT,
+      status_code: ResponseStatusEnum.OK,
+    }),
+  });
+  return msgs;
 });
 
 // Helpers that allow tests to directly interact with the web socket object created by Streamer.
@@ -30,6 +48,8 @@ let openSocket = () => {};
 let closeSocket = (code: number, reason: string) => {};
 let errorSocket = (message: string) => {};
 const pingFn = jest.fn((f: Function) => {});
+// Tracks the URL of the most recently opened socket. Make sure to reset before each test.
+let openedUrl = '';
 // Mock needs to be in module scope.
 jest.mock('isomorphic-ws', () => {
   console.log('Creating mock WebSocket');
@@ -45,6 +65,7 @@ jest.mock('isomorphic-ws', () => {
         closeSocket = socketMocks.closeSocket;
         errorSocket = socketMocks.errorSocket;
         mockSocket = socketMocks.mockSocket;
+        openedUrl = url;
         return socketMocks.mockSocket;
       }
     ),
@@ -60,7 +81,7 @@ crypto.randomUUID = jest.fn(() => {
 jest.useFakeTimers();
 
 // Variables to use as arguments to Streamer.create.
-const onmessage = jest.fn(() => {});
+const onmessage = jest.fn((event: any) => {});
 const onopen = jest.fn(() => {});
 const onerror = jest.fn(() => {});
 const onclose = jest.fn(() => {});
@@ -70,6 +91,7 @@ const apiKey = 'fakeAPIKey';
 const config = {
   onConnectionStatusChange: jest.fn((status: string) => {}),
   onReconnect: jest.fn((status: boolean, attempts: number) => {}),
+  stream: false,
 };
 describe('Streamer', () => {
   afterEach(() => {
@@ -78,12 +100,14 @@ describe('Streamer', () => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
     jest.clearAllTimers();
+    openedUrl = '';
   });
   afterAll(() => {
     openSocket = () => {};
     closeSocket = (code: number, reason: string) => {};
     jest.resetAllMocks();
     jest.clearAllTimers();
+    openedUrl = '';
   });
   test('should connect to and disconnect from server', async () => {
     const streamerPromise: Promise<Streamer> = Streamer.create(
@@ -102,6 +126,7 @@ describe('Streamer', () => {
     const streamer = await streamerPromise;
     expect(onerror).toHaveBeenCalledTimes(0);
     // Check connection.
+    expect(openedUrl).toBe('ws://12345/v1/stream?api_key=fakeAPIKey&session_id=abcde&stream=false');
     expect(onopen).toHaveBeenCalled();
     expect(streamer.isConnected()).toBe(true);
     // Fast forward and check heartbeat.
@@ -216,13 +241,73 @@ describe('Streamer', () => {
     expect(onmessage).toHaveBeenCalledWith({
       data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"Hello SecGemini!"}',
       message_type: 'result',
+      status_code: ResponseStatusEnum.OK,
     });
     // Send second message.
     streamer.send('How are you?');
     expect(onmessage).toHaveBeenCalledWith({
       data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"How are you?"}',
       message_type: 'result',
+      status_code: ResponseStatusEnum.OK,
     });
+    expect(onmessage).toHaveBeenCalledTimes(2);
+
+    // Close.
+    streamer.close();
+
+    // Check connection callbacks.
+    expect(config.onConnectionStatusChange.mock.calls).toEqual([['connecting'], ['connected'], ['disconnected']]);
+  });
+
+  test('should receive streaming messages', async () => {
+    const streamConfig = {
+      onConnectionStatusChange: config.onConnectionStatusChange,
+      onReconnect: config.onReconnect,
+      stream: true,
+    };
+    const streamerPromise = Streamer.create(
+      onmessage,
+      onopen,
+      onerror,
+      onclose,
+      websocketUrl,
+      sessionID,
+      apiKey,
+      streamConfig
+    );
+    openSocket();
+    const streamer = await streamerPromise;
+    expect(onopen).toHaveBeenCalled();
+    streamer.send('Hello SecGemini!');
+    expect(onmessage.mock.calls).toEqual([
+      [
+        {
+          data: '',
+          message_type: 'result',
+          status_code: ResponseStatusEnum.PARTIAL_CONTENT,
+        },
+      ],
+      [
+        {
+          data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"Hello SecGemini!"}',
+          message_type: 'result',
+          status_code: ResponseStatusEnum.OK,
+        },
+      ],
+    ]);
+    // Send second message.
+    streamer.send('How are you?');
+    expect(onmessage.mock.calls[2][0]).toEqual({
+      data: '',
+      message_type: 'result',
+      status_code: ResponseStatusEnum.PARTIAL_CONTENT,
+    });
+    expect(onmessage.mock.calls[3][0]).toEqual({
+      data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"How are you?"}',
+      message_type: 'result',
+      status_code: ResponseStatusEnum.OK,
+    });
+    expect(onmessage).toHaveBeenCalledTimes(4);
 
     // Close.
     streamer.close();
@@ -299,9 +384,11 @@ describe('Streamer', () => {
     const streamer = await streamerPromise;
     // Try to send a message.
     getSocketResponseMessage.mockImplementationOnce((req: string) => {
-      return {
-        data: Buffer.from(JSON.stringify({ data: `Message received: ${req}`, message_type: MessageTypeEnum.RESULT })),
-      };
+      return [
+        {
+          data: Buffer.from(JSON.stringify({ data: `Message received: ${req}`, message_type: MessageTypeEnum.RESULT })),
+        },
+      ];
     });
     streamer.send('send Buffer');
     expect(onmessage).toHaveBeenCalledWith({
@@ -331,7 +418,7 @@ describe('Streamer', () => {
     openSocket();
     const streamer = await streamerPromise;
     // Send message.
-    getSocketResponseMessage.mockReturnValueOnce('bad response');
+    getSocketResponseMessage.mockReturnValueOnce(['bad response']);
     streamer.send('send bad response');
     expect(onerror).toHaveBeenCalledWith(new Error('Streamer: Received message of unknown type: undefined'));
     expect(onmessage).not.toHaveBeenCalled();
@@ -357,9 +444,11 @@ describe('Streamer', () => {
     openSocket();
     const streamer = await streamerPromise;
     // Send message.
-    getSocketResponseMessage.mockReturnValueOnce({
-      data: JSON.stringify({ status_message: 'not found', message_type: MessageTypeEnum.ERROR }),
-    });
+    getSocketResponseMessage.mockReturnValueOnce([
+      {
+        data: JSON.stringify({ status_message: 'not found', message_type: MessageTypeEnum.ERROR }),
+      },
+    ]);
     streamer.send('Hello SecGemini!');
     expect(onerror).toHaveBeenCalledWith(new Error('Session not found on server'));
     expect(onclose).toHaveBeenCalledWith(new SocketCloseEvent('close', { code: 4001, reason: 'Session Not Found' }));
@@ -386,6 +475,7 @@ describe('Streamer', () => {
     expect(onmessage).toHaveBeenCalledWith({
       data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"First request!"}',
       message_type: 'result',
+      status_code: ResponseStatusEnum.OK,
     });
     expect(onmessage).toHaveBeenCalledTimes(1);
     // In real-world situations, the server will send 'end' messages to signal to the client to close the connection.
@@ -399,6 +489,7 @@ describe('Streamer', () => {
     expect(onmessage).toHaveBeenCalledWith({
       data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"Second request!"}',
       message_type: 'result',
+      status_code: ResponseStatusEnum.OK,
     });
 
     // Close.

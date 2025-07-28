@@ -14,15 +14,33 @@
  * limitations under the License.
  */
 
-import InteractiveSession from '../src/session';
+import { StreamOptions, InteractiveSession } from '../src/session';
 import { MessageTypeEnum } from '../src/secgeminienums';
 import { getMockSocket, CloseEvent as SocketCloseEvent } from './mock_socket';
 import { PublicSessionFile, PublicUser } from '../src/secgeminitypes';
 import HttpClient from '../src/http';
+import { ResponseStatusEnum } from '../src/enum';
 
 // Method to create a response message that should be returned on the web socket. This can be spied on.
-let getSocketResponseMessage = jest.fn((req: string): string | object => {
-  return { data: JSON.stringify({ data: `Message received: ${req}`, message_type: MessageTypeEnum.RESULT }) };
+let getSocketResponseMessage = jest.fn((req: string, stream: boolean): string[] | object[] => {
+  const msgs: any = [];
+  if (stream) {
+    msgs.push({
+      data: JSON.stringify({
+        data: '',
+        message_type: MessageTypeEnum.RESULT,
+        status_code: ResponseStatusEnum.PARTIAL_CONTENT,
+      }),
+    });
+  }
+  msgs.push({
+    data: JSON.stringify({
+      data: `Message received: ${req}`,
+      message_type: MessageTypeEnum.RESULT,
+      status_code: ResponseStatusEnum.OK,
+    }),
+  });
+  return msgs;
 });
 
 // Helpers that allow tests to directly interact with the web socket object created by Streamer.
@@ -30,6 +48,8 @@ let openSocket = () => {};
 let closeSocket = (code: number, reason: string) => {};
 let errorSocket = (message: string) => {};
 const pingFn = jest.fn((f: Function) => {});
+// Tracks the URL of the most recently opened socket. Make sure to reset before each test.
+let openedUrl = '';
 // Mock needs to be in module scope.
 jest.mock('isomorphic-ws', () => {
   console.log('Creating mock WebSocket');
@@ -44,6 +64,7 @@ jest.mock('isomorphic-ws', () => {
         openSocket = socketMocks.openSocket;
         closeSocket = socketMocks.closeSocket;
         errorSocket = socketMocks.errorSocket;
+        openedUrl = url;
         return socketMocks.mockSocket;
       }
     ),
@@ -103,12 +124,14 @@ describe('Session', () => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
     jest.clearAllTimers();
+    openedUrl = '';
   });
   afterAll(() => {
     openSocket = () => {};
     closeSocket = (code: number, reason: string) => {};
     jest.resetAllMocks();
     jest.clearAllTimers();
+    openedUrl = '';
   });
   test('should throw error when registering session', async () => {
     // Throw error during post request to register session.
@@ -163,6 +186,38 @@ describe('Session', () => {
     const streamerPromise = session.streamer(onmessage, onopen, onerror, onclose);
     openSocket();
     const streamer = await streamerPromise;
+    expect(openedUrl).toBe('ws://12345/v1/stream?api_key=fakeAPIKey1&session_id=a-b-c-d-e&stream=false');
+    expect(streamer.isConnected()).toBe(true);
+    streamer.close();
+    expect(streamer.isConnected()).toBe(false);
+  });
+  test('should connect to streamer and use streaming mode', async () => {
+    const register = session.register({
+      ttl: 301,
+      model: model,
+      name: 'sessionName',
+      description: 'sessionDescription',
+      language: 'en',
+    });
+    expect(register).resolves.not.toThrow();
+
+    await register;
+    expect(registerSession).toHaveBeenCalledWith({
+      id: 'a-b-c-d-e',
+      user_id: 'user1',
+      model: { model_string: 'fakeModel', version: 'v1', use_experimental: false, toolsets: [] },
+      ttl: 301,
+      name: 'sessionName',
+      description: 'sessionDescription',
+      can_log: true,
+      language: 'en',
+    });
+
+    const streamOptions: StreamOptions = { stream: true };
+    const streamerPromise = session.streamer(onmessage, onopen, onerror, onclose, streamOptions);
+    openSocket();
+    const streamer = await streamerPromise;
+    expect(openedUrl).toBe('ws://12345/v1/stream?api_key=fakeAPIKey1&session_id=a-b-c-d-e&stream=true');
     expect(streamer.isConnected()).toBe(true);
     streamer.close();
     expect(streamer.isConnected()).toBe(false);
