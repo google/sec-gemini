@@ -32,7 +32,7 @@ from utils import (
 
 from sec_gemini import SecGemini
 from sec_gemini.models.enums import MessageType, MimeType, ResponseStatus, Role, State
-from sec_gemini.models.message import Message
+from sec_gemini.models.message import ROOT_ID, Message
 from sec_gemini.models.public import PublicSession, PublicSessionFile, UserInfo
 from sec_gemini.session import InteractiveSession
 
@@ -476,6 +476,82 @@ async def test_check_ws_messages_without_streaming(secgemini_client: SecGemini):
     print("OK")
 
 
+@pytest.mark.asyncio
+@async_require_env_variable("SEC_GEMINI_API_KEY")
+async def test_check_ws_messages_with_streaming(secgemini_client: SecGemini):
+    query = "Tell me about CVE-2025-37991"
+    api_key = os.environ["SEC_GEMINI_API_KEY"]
+    session = secgemini_client.create_session()
+
+    messages = await get_messages_from_ws_query(
+        secgemini_client, session.id, query, api_key, stream=True
+    )
+
+    # Stats for message_type
+    result_num = 0
+    thinking_num = 0
+    info_num = 0
+    error_num = 0
+    other_num = 0
+    # Stats for state
+    end_num = 0
+    # Stats for status_code
+    partial_num = 0
+    # Other stats
+    info_end_num = 0
+    result_non_partial_num = 0
+    result_agent_done_num = 0
+    transfer_to_agent_num = 0
+    for message in messages:
+        if message.message_type == MessageType.RESULT:
+            result_num += 1
+        elif message.message_type == MessageType.THINKING:
+            thinking_num += 1
+        elif message.message_type == MessageType.INFO:
+            info_num += 1
+        elif message.message_type == MessageType.ERROR:
+            error_num += 1
+        else:
+            other_num += 1
+
+        if message.state == State.END:
+            end_num += 1
+
+        if message.status_code == ResponseStatus.PARTIAL_CONTENT.value:
+            partial_num += 1
+
+        if message.message_type == MessageType.INFO and message.state == State.END:
+            info_end_num += 1
+
+        if (
+            message.message_type == MessageType.RESULT
+            and message.status_code == ResponseStatus.OK.value
+        ):
+            result_non_partial_num += 1
+
+        if (
+            message.message_type == MessageType.RESULT
+            and message.state == State.AGENT_DONE
+        ):
+            result_agent_done_num += 1
+
+        if message.message_type == MessageType.INFO and message.content == "Transfer":
+            transfer_to_agent_num += 1
+
+    assert result_num > 0
+    assert thinking_num > 0
+    assert info_num > 0
+    assert error_num == 0
+    assert other_num == 0
+    assert end_num == 1
+    assert partial_num > 0
+    assert info_end_num == 1
+    assert result_non_partial_num == 1
+    assert result_agent_done_num == 1
+    assert transfer_to_agent_num > 0
+    print("OK")
+
+
 async def get_messages_from_ws_query(
     secgemini_client: SecGemini,
     session_id: str,
@@ -485,7 +561,7 @@ async def get_messages_from_ws_query(
 ) -> list[Message]:
     msg = Message(
         id=session_id,
-        parent_id="3713",
+        parent_id=ROOT_ID,
         role=Role.USER,
         mime_type=MimeType.TEXT,
         message_type=MessageType.QUERY,
