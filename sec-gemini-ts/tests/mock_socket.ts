@@ -85,11 +85,11 @@ function getMockSocket(
     onmessage: (event: WebSocket.MessageEvent) => {},
   };
   // Set global variable to send socket's send function so that it can be spied on.
-  const openSocket = () => {
+  const openSocket = async () => {
     mockSocket.readyState = originalWebSocket.OPEN;
-    mockSocket.onopen();
+    await mockSocket.onopen();
     for (const handler of mockSocket._additionalOpenListeners) {
-      handler();
+      await handler();
     }
   };
   const closeSocket = (code: number, reason: string) => {

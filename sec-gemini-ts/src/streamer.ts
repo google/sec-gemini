@@ -68,7 +68,7 @@ export class Streamer {
   private connectionTimeoutId: number | NodeJS.Timeout | null = null;
   private pingIntervalId: number | NodeJS.Timeout | null = null;
 
-  public static async create(
+  public static create(
     onmessage: UserOnMessageCallback,
     onopen: (() => void) | null = null,
     onerror: ((error: Error) => void) | null = null, // Expect Error object
@@ -77,17 +77,15 @@ export class Streamer {
     sessionID: string,
     apiKey: string,
     config: StreamerConfig = {}
-  ): Promise<Streamer> {
+  ): Streamer {
     if (!websocketUrl.match(/^wss?:\/\//)) {
       throw new Error(`Invalid WebSocket URL: ${websocketUrl}. Must start with ws:// or wss://`);
     }
     const streamer = new Streamer(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
 
-    return new Promise<Streamer>((resolve, reject) => {
-      streamer.attemptConnection(() => {
-        resolve(streamer);
-      }, reject);
-    });
+    // Streamer will not attempt a connection until the client sends a message (see 'send').
+    streamer.serverClosed = true;
+    return streamer;
   }
 
   private constructor(
@@ -151,7 +149,7 @@ export class Streamer {
     } catch (error) {
       console.error('Streamer: Error creating WebSocket instance.', error);
       this.updateConnectionStatus('error');
-      this.notifyError(error instanceof Error ? error : new Error('WebSocket constructor failed'));
+      this.notifyError(error instanceof Error ? error : new Error('WebSocket constructor failed: ' + error));
       throw error;
     }
   }
@@ -173,15 +171,17 @@ export class Streamer {
   public async send(prompt: string, parentId?: string): Promise<void> {
     const state = this.ws ? this.ws.readyState : '';
     if (this.serverClosed) {
+      this.messageQueue.push({ prompt, parentId });
       this.attemptConnection(
         () => {},
         (error) => {
           console.error('Streamer: Error reopening connection to server:', error);
-          this.notifyError(error instanceof Error ? error : new Error('Failed to reopen connection to send message'));
+          this.notifyError(
+            error instanceof Error ? error : new Error('Failed to reopen connection to send message: ' + error)
+          );
         }
       );
       console.debug('Streamer: Reconnecting and queuing message during reconnect:', prompt.substring(0, 30) + '...');
-      this.messageQueue.push({ prompt, parentId });
       return;
     }
     if (this.isReconnecting || state === WebSocket.CONNECTING) {
@@ -214,6 +214,11 @@ export class Streamer {
       console.error('Streamer: Error sending message:', error);
       this.notifyError(error instanceof Error ? error : new Error('Failed to send message'));
     }
+  }
+
+  private gracefullyClose(reason: string = 'Normal closure'): void {
+    this.close(1000, reason);
+    this.serverClosed = true;
   }
 
   public close(code: number = 1000, reason: string = 'Normal closure'): void {
@@ -250,19 +255,24 @@ export class Streamer {
     }
   }
 
-  private onOpen(/*event: WebSocket.OpenEvent*/): void {
+  private async onOpen(/*event: WebSocket.OpenEvent*/): Promise<void> {
     console.info('Streamer: WebSocket connection opened.');
     this.resetReconnectionState();
     this.updateConnectionStatus('connected');
     this.clearConnectionTimeout();
     this.setupHeartbeat();
-    this.processMessageQueue();
+    const messageQueueSuccessPromise = this.processMessageQueue();
     if (this.userOnOpen) {
       try {
         this.userOnOpen();
       } catch (e) {
         console.error('Err in onOpen', e);
       }
+    }
+    const messageQueueSuccess = await messageQueueSuccessPromise;
+    if (!messageQueueSuccess) {
+      // Normally, after receiving the last message from the backend,
+      this.gracefullyClose('No valid messages were sent.');
     }
   }
 
@@ -293,8 +303,7 @@ export class Streamer {
         return;
       }
       if (message.message_type === MessageTypeEnum.INFO && message.state == StateEnum.END) {
-        this.close(1000, 'Server Response Complete');
-        this.serverClosed = true;
+        this.gracefullyClose('Server Response Complete');
         return;
       }
       this.userOnMessage(message);
@@ -476,18 +485,23 @@ export class Streamer {
     }, delay);
   }
 
-  private async processMessageQueue(): Promise<void> {
+  private async processMessageQueue(): Promise<boolean> {
     console.debug(`Streamer: Processing message queue (${this.messageQueue.length} items)...`);
     const processingQueue = [...this.messageQueue];
     this.messageQueue = [];
+    const numMessages = processingQueue.length;
 
+    let failedCount = 0;
     const sendPromises = processingQueue.map((msg) =>
       this.send(msg.prompt, msg.parentId).catch((error) => {
+        this.notifyError(error instanceof Error ? error : new Error('Unknown error processing message'));
         console.error('Streamer: Failed to send queued message:', error);
+        failedCount += 1;
       })
     );
     await Promise.allSettled(sendPromises);
     console.debug('Streamer: Message queue processed.');
+    return numMessages > 0 && failedCount < numMessages;
   }
 
   private resetReconnectionState(): void {

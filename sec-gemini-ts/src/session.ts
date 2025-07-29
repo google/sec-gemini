@@ -399,13 +399,13 @@ export class InteractiveSession {
    * @returns An AsyncIterableIterator yielding Message objects.
    * @throws Error if the session is not initialized or the query is empty.
    */
-  public async streamer(
+  public streamer(
     onmessage: (message: Message) => void,
     onopen: (() => void) | null = null,
     onerror: ((error: Error) => void) | null = null,
     onclose: (() => void) | null = null,
     options: StreamOptions = {} // Options still not used here by default Streamer
-  ): Promise<Streamer> {
+  ): Streamer {
     this._ensureInitialized();
     // Note: Original Python code sends the initial query message via WebSocket.
     // The Streamer class needs to handle this initial message sending.
@@ -419,7 +419,7 @@ export class InteractiveSession {
       // TODO: set other field based on options.
       stream: options.stream,
     };
-    const streamer = await Streamer.create(
+    return Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -429,7 +429,6 @@ export class InteractiveSession {
       this.apiKey,
       config
     );
-    return streamer;
   }
 
   /**

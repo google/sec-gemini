@@ -183,9 +183,10 @@ describe('Session', () => {
       language: 'en',
     });
 
-    const streamerPromise = session.streamer(onmessage, onopen, onerror, onclose);
+    const streamer = session.streamer(onmessage, onopen, onerror, onclose);
+    // Send a message so that streamer actually opens the WebSocket connection.
+    streamer.send('Hello');
     openSocket();
-    const streamer = await streamerPromise;
     expect(openedUrl).toBe('ws://12345/v1/stream?api_key=fakeAPIKey1&session_id=a-b-c-d-e&stream=false');
     expect(streamer.isConnected()).toBe(true);
     streamer.close();
@@ -214,9 +215,10 @@ describe('Session', () => {
     });
 
     const streamOptions: StreamOptions = { stream: true };
-    const streamerPromise = session.streamer(onmessage, onopen, onerror, onclose, streamOptions);
+    const streamer = session.streamer(onmessage, onopen, onerror, onclose, streamOptions);
+    // Send a message so that streamer actually opens the WebSocket connection.
+    streamer.send('Hello');
     openSocket();
-    const streamer = await streamerPromise;
     expect(openedUrl).toBe('ws://12345/v1/stream?api_key=fakeAPIKey1&session_id=a-b-c-d-e&stream=true');
     expect(streamer.isConnected()).toBe(true);
     streamer.close();

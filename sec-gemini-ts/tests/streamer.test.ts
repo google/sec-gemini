@@ -83,7 +83,7 @@ jest.useFakeTimers();
 // Variables to use as arguments to Streamer.create.
 const onmessage = jest.fn((event: any) => {});
 const onopen = jest.fn(() => {});
-const onerror = jest.fn(() => {});
+const onerror = jest.fn((err) => {});
 const onclose = jest.fn(() => {});
 const websocketUrl = 'ws://12345';
 const sessionID = 'abcde';
@@ -109,8 +109,9 @@ describe('Streamer', () => {
     jest.clearAllTimers();
     openedUrl = '';
   });
+
   test('should connect to and disconnect from server', async () => {
-    const streamerPromise: Promise<Streamer> = Streamer.create(
+    const streamer: Streamer = Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -120,10 +121,10 @@ describe('Streamer', () => {
       apiKey,
       config
     );
+    // Send message, so that Streamer will try to connect to a WebSocket.
+    streamer.send('Hello');
     // Need to call the open callback, which mimics the WebSocket interface sending an open event.
     openSocket();
-    // Check creation.
-    const streamer = await streamerPromise;
     expect(onerror).toHaveBeenCalledTimes(0);
     // Check connection.
     expect(openedUrl).toBe('ws://12345/v1/stream?api_key=fakeAPIKey&session_id=abcde&stream=false');
@@ -142,23 +143,15 @@ describe('Streamer', () => {
     expect(config.onConnectionStatusChange.mock.calls).toEqual([['connecting'], ['connected'], ['disconnected']]);
   });
 
-  test('should handle bad URL', async () => {
-    const streamer: Promise<Streamer> = Streamer.create(
-      onmessage,
-      onopen,
-      onerror,
-      onclose,
-      '12345',
-      sessionID,
-      apiKey,
-      config
-    );
-    await expect(streamer).rejects.toThrow();
+  test('should handle bad URL', () => {
+    expect(() => {
+      Streamer.create(onmessage, onopen, onerror, onclose, 'this is a poorly formed URL', sessionID, apiKey, config);
+    }).toThrow();
     expect(onerror).toHaveBeenCalledTimes(0);
   });
 
   test('should fail to connect to server', async () => {
-    const streamer: Promise<Streamer> = Streamer.create(
+    const streamer: Streamer = Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -168,29 +161,23 @@ describe('Streamer', () => {
       apiKey,
       config
     );
-    await expect(streamer).rejects.toEqual(new DOMException('Bad URL'));
-    expect(onerror).toHaveBeenCalledTimes(1);
+    // Send message, so that Streamer will try to connect to a WebSocket.
+    streamer.send('Hello');
+    expect(onerror).toHaveBeenCalledTimes(2);
+    expect(onerror.mock.calls[0][0]).toEqual(Error('WebSocket constructor failed: Error: Bad URL.'));
+    expect(onerror).toHaveBeenCalledWith(Error('Failed to reopen connection to send message: Error: Bad URL.'));
   });
 
   test('should attempt to reconnect to server', async () => {
-    const streamerPromise = Streamer.create(
-      onmessage,
-      onopen,
-      onerror,
-      onclose,
-      websocketUrl,
-      sessionID,
-      apiKey,
-      config
-    );
+    const streamer = Streamer.create(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
+    streamer.send('hello');
     openSocket();
-    const streamer = await streamerPromise;
     // Check connection is open.
-    expect(onopen).toHaveBeenCalled();
+    expect(onopen).toHaveBeenCalledTimes(1);
     expect(streamer.isConnected()).toBe(true);
     // Close.
     closeSocket(1001, 'Going Away');
-    expect(onclose).toHaveBeenCalled();
+    expect(onclose).toHaveBeenCalledTimes(1);
     // Check connection is closed.
     expect(streamer.isConnected()).toBe(false);
     // Fast forward to try and reconnect.
@@ -200,9 +187,12 @@ describe('Streamer', () => {
     expect(onerror).toHaveBeenCalled();
     // Fast forward to try and reconnect.
     jest.runAllTimers();
-    openSocket();
-    expect(onopen).toHaveBeenCalled();
+    const openPromise = openSocket();
+    expect(onopen).toHaveBeenCalledTimes(2);
     expect(streamer.isConnected()).toBe(true);
+    // Awaiting after checking if connected, because after opening and
+    // processing messages, the streamer will disconnect the WebSocket.
+    await openPromise;
 
     // Check connection callbacks.
     expect(config.onConnectionStatusChange.mock.calls).toEqual([
@@ -215,6 +205,7 @@ describe('Streamer', () => {
       ['reconnecting'],
       ['connecting'],
       ['connected'],
+      ['disconnected'],
     ]);
     expect(config.onReconnect.mock.calls).toEqual([
       [false, 1],
@@ -224,20 +215,10 @@ describe('Streamer', () => {
 
   // TODO: send message with parent ID.
   test('should send and receive messages', async () => {
-    const streamerPromise = Streamer.create(
-      onmessage,
-      onopen,
-      onerror,
-      onclose,
-      websocketUrl,
-      sessionID,
-      apiKey,
-      config
-    );
-    openSocket();
-    const streamer = await streamerPromise;
-    expect(onopen).toHaveBeenCalled();
+    const streamer = Streamer.create(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
     streamer.send('Hello SecGemini!');
+    openSocket();
+    expect(onopen).toHaveBeenCalled();
     expect(onmessage).toHaveBeenCalledWith({
       data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"Hello SecGemini!"}',
       message_type: 'result',
@@ -265,7 +246,7 @@ describe('Streamer', () => {
       onReconnect: config.onReconnect,
       stream: true,
     };
-    const streamerPromise = Streamer.create(
+    const streamer = Streamer.create(
       onmessage,
       onopen,
       onerror,
@@ -275,10 +256,9 @@ describe('Streamer', () => {
       apiKey,
       streamConfig
     );
-    openSocket();
-    const streamer = await streamerPromise;
-    expect(onopen).toHaveBeenCalled();
     streamer.send('Hello SecGemini!');
+    openSocket();
+    expect(onopen).toHaveBeenCalled();
     expect(onmessage.mock.calls).toEqual([
       [
         {
@@ -317,24 +297,14 @@ describe('Streamer', () => {
   });
 
   test('should gracefully handle failed messages', async () => {
-    const streamerPromise = Streamer.create(
-      onmessage,
-      onopen,
-      onerror,
-      onclose,
-      websocketUrl,
-      sessionID,
-      apiKey,
-      config
-    );
-    openSocket();
-    const streamer = await streamerPromise;
-    expect(onopen).toHaveBeenCalled();
+    const streamer = Streamer.create(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
     // Try to send bad message.
     getSocketResponseMessage.mockImplementationOnce(() => {
       throw new Error('Received bad message in web socket.');
     });
     streamer.send('bad message');
+    openSocket();
+    expect(onopen).toHaveBeenCalled();
     expect(onerror).toHaveBeenCalledWith(new Error('Received bad message in web socket.'));
 
     expect(onmessage).not.toHaveBeenCalled();
@@ -347,20 +317,13 @@ describe('Streamer', () => {
   });
 
   test('should gracefully handle bad prompts', async () => {
-    const streamerPromise = Streamer.create(
-      onmessage,
-      onopen,
-      onerror,
-      onclose,
-      websocketUrl,
-      sessionID,
-      apiKey,
-      config
-    );
-    openSocket();
-    const streamer = await streamerPromise;
-    const sendRes = streamer.send('');
-    expect(sendRes).rejects.toEqual(new Error('Invalid prompt: must be a non-empty string'));
+    const streamer = Streamer.create(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
+    streamer.send('');
+    await openSocket();
+    expect(onopen).toHaveBeenCalled();
+    expect(onclose).toHaveBeenCalled();
+    expect(onmessage).not.toHaveBeenCalled();
+    expect(onerror).toHaveBeenCalledWith(new Error('Invalid prompt: must be a non-empty string'));
 
     // Close.
     streamer.close();
@@ -370,18 +333,7 @@ describe('Streamer', () => {
   });
 
   test('should handle Buffer responses', async () => {
-    const streamerPromise = Streamer.create(
-      onmessage,
-      onopen,
-      onerror,
-      onclose,
-      websocketUrl,
-      sessionID,
-      apiKey,
-      config
-    );
-    openSocket();
-    const streamer = await streamerPromise;
+    const streamer = Streamer.create(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
     // Try to send a message.
     getSocketResponseMessage.mockImplementationOnce((req: string) => {
       return [
@@ -391,6 +343,7 @@ describe('Streamer', () => {
       ];
     });
     streamer.send('send Buffer');
+    openSocket();
     expect(onmessage).toHaveBeenCalledWith({
       data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"send Buffer"}',
       message_type: 'result',
@@ -404,22 +357,12 @@ describe('Streamer', () => {
   });
 
   test('should gracefully handle bad responses', async () => {
-    const streamerPromise = Streamer.create(
-      onmessage,
-      onopen,
-      onerror,
-      onclose,
-      websocketUrl,
-      sessionID,
-      apiKey,
-      config
-    );
+    const streamer = Streamer.create(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
+    getSocketResponseMessage.mockReturnValueOnce(['bad response']);
+    // Send message.
+    streamer.send('send bad response');
     // Need to call the open callback, which mimics the WebSocket interface sending an open event.
     openSocket();
-    const streamer = await streamerPromise;
-    // Send message.
-    getSocketResponseMessage.mockReturnValueOnce(['bad response']);
-    streamer.send('send bad response');
     expect(onerror).toHaveBeenCalledWith(new Error('Streamer: Received message of unknown type: undefined'));
     expect(onmessage).not.toHaveBeenCalled();
 
@@ -431,25 +374,15 @@ describe('Streamer', () => {
   });
 
   test('should handle "not found" status message from web socket', async () => {
-    const streamerPromise = Streamer.create(
-      onmessage,
-      onopen,
-      onerror,
-      onclose,
-      websocketUrl,
-      sessionID,
-      apiKey,
-      config
-    );
-    openSocket();
-    const streamer = await streamerPromise;
-    // Send message.
+    const streamer = Streamer.create(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
     getSocketResponseMessage.mockReturnValueOnce([
       {
         data: JSON.stringify({ status_message: 'not found', message_type: MessageTypeEnum.ERROR }),
       },
     ]);
+    // Send message.
     streamer.send('Hello SecGemini!');
+    openSocket();
     expect(onerror).toHaveBeenCalledWith(new Error('Session not found on server'));
     expect(onclose).toHaveBeenCalledWith(new SocketCloseEvent('close', { code: 4001, reason: 'Session Not Found' }));
 
@@ -458,20 +391,10 @@ describe('Streamer', () => {
   });
 
   test('should handle "response complete" messages, and be able to send more messages', async () => {
-    const streamerPromise = Streamer.create(
-      onmessage,
-      onopen,
-      onerror,
-      onclose,
-      websocketUrl,
-      sessionID,
-      apiKey,
-      config
-    );
-    openSocket();
-    const streamer = await streamerPromise;
-    expect(onopen).toHaveBeenCalled();
+    const streamer = Streamer.create(onmessage, onopen, onerror, onclose, websocketUrl, sessionID, apiKey, config);
     streamer.send('First request!');
+    openSocket();
+    expect(onopen).toHaveBeenCalled();
     expect(onmessage).toHaveBeenCalledWith({
       data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"First request!"}',
       message_type: 'result',
@@ -486,6 +409,7 @@ describe('Streamer', () => {
     expect(onmessage).toHaveBeenCalledTimes(1);
     // Manually open the socket (mimics the web socket being opened).
     openSocket();
+    expect(onmessage).toHaveBeenCalledTimes(2);
     expect(onmessage).toHaveBeenCalledWith({
       data: 'Message received: {"id":"a-b-c-d-e","parent_id":"3713","role":"user","mime_type":"text/plain","message_type":"query","content":"Second request!"}',
       message_type: 'result',
