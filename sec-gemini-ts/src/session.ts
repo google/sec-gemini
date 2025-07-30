@@ -101,6 +101,18 @@ export interface StreamOptions {
 }
 
 /**
+ * Represents an interface that can be used to recreate an InteractiveSession.
+ */
+export interface InteractiveSessionData {
+  user: PublicUser;
+  httpUrl: string;
+  websocketURL: string;
+  apiKey: string;
+  session: PublicSessionOutput;
+  initialLogPreference: boolean;
+}
+
+/**
  * Represents an interactive SecGemini session.
  * Manages session state, communication (generation, streaming),
  * file attachments, and feedback.
@@ -135,6 +147,23 @@ export class InteractiveSession {
     this.websocketURL = websocketURL;
     this.apiKey = apiKey;
     this.initialLogPreference = logSessionPreference; // Store initial preference
+  }
+
+  /**
+   * Given all relevant session data, this function creates an
+   * InteractiveSession.
+   */
+  public static from(data: InteractiveSessionData): InteractiveSession {
+    const httpClient = new HttpClient(data.httpUrl, data.apiKey);
+    const interactiveSession = new InteractiveSession(
+      data.user,
+      httpClient,
+      data.websocketURL,
+      data.apiKey,
+      data.initialLogPreference
+    );
+    interactiveSession._session = data.session;
+    return interactiveSession;
   }
 
   // --- Public Getters for Session State ---
