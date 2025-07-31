@@ -107,7 +107,7 @@ describe('SecGeminiSDK', () => {
   });
   test('should create session', async () => {
     // Create SecGemini instance.
-    const sdkPromise = SecGemini.create('fakeAPIKey1', 'http://google.com', 'ws://12345');
+    const sdkPromise = SecGemini.create('fakeAPIKey1', 'http://google.com', 'ws://12345', 'http://example.com');
     expect(sdkPromise).resolves.not.toThrow();
     const sdk = await sdkPromise;
 
@@ -137,6 +137,7 @@ describe('SecGeminiSDK', () => {
       },
       apiKey: 'fakeAPIKey1',
       http: { apiKey: 'fakeAPIKey1', baseUrl: 'http://google.com' },
+      logsHttp: { apiKey: 'fakeAPIKey1', baseUrl: 'http://example.com'},
       initialLogPreference: true,
       user: { id: '12345', org_id: 'security' },
       websocketURL: 'ws://12345',

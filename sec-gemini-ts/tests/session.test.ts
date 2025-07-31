@@ -44,10 +44,10 @@ let getSocketResponseMessage = jest.fn((req: string, stream: boolean): string[] 
 });
 
 // Helpers that allow tests to directly interact with the web socket object created by Streamer.
-let openSocket = () => {};
-let closeSocket = (code: number, reason: string) => {};
-let errorSocket = (message: string) => {};
-const pingFn = jest.fn((f: Function) => {});
+let openSocket = () => { };
+let closeSocket = (code: number, reason: string) => { };
+let errorSocket = (message: string) => { };
+const pingFn = jest.fn((f: Function) => { });
 // Tracks the URL of the most recently opened socket. Make sure to reset before each test.
 let openedUrl = '';
 // Mock needs to be in module scope.
@@ -79,7 +79,7 @@ crypto.randomUUID = jest.fn(() => {
 
 jest.useFakeTimers();
 
-let registerSession = jest.fn((body: object) => {});
+let registerSession = jest.fn((body: object) => { });
 
 function _checkHeaders(init: RequestInit) {
   if (init.method !== 'GET' && init.method !== 'POST') {
@@ -99,15 +99,15 @@ global.fetch = jest.fn(async (input: string | URL | Request, init?: RequestInit)
   throw new Error(`Uncaught fetch request: ${input}, ${JSON.stringify(init)}`);
 });
 
-const onmessage = jest.fn(() => {});
-const onopen = jest.fn(() => {});
-const onerror = jest.fn(() => {});
-const onclose = jest.fn(() => {});
+const onmessage = jest.fn(() => { });
+const onopen = jest.fn(() => { });
+const onerror = jest.fn(() => { });
+const onclose = jest.fn(() => { });
 const websocketUrl = 'ws://12345';
 const apiKey = 'fakeAPIKey1';
 const config = {
-  onConnectionStatusChange: jest.fn((status: string) => {}),
-  onReconnect: jest.fn((status: boolean, attempts: number) => {}),
+  onConnectionStatusChange: jest.fn((status: string) => { }),
+  onReconnect: jest.fn((status: boolean, attempts: number) => { }),
 };
 const model = { model_string: 'fakeModel', version: 'v1', use_experimental: false, toolsets: [] };
 
@@ -116,19 +116,20 @@ describe('Session', () => {
   beforeEach(() => {
     const user = <PublicUser>{ id: 'user1' };
     const httpClient = new HttpClient('http://google.com', apiKey);
-    session = new InteractiveSession(user, httpClient, websocketUrl, apiKey, true /*logSession*/);
+    const logsHttpClient = new HttpClient('http://example.com', apiKey);
+    session = new InteractiveSession(user, httpClient, websocketUrl, apiKey, logsHttpClient, true /*logSession*/);
   });
   afterEach(() => {
-    openSocket = () => {};
-    closeSocket = (code: number, reason: string) => {};
+    openSocket = () => { };
+    closeSocket = (code: number, reason: string) => { };
     jest.clearAllMocks();
     jest.restoreAllMocks();
     jest.clearAllTimers();
     openedUrl = '';
   });
   afterAll(() => {
-    openSocket = () => {};
-    closeSocket = (code: number, reason: string) => {};
+    openSocket = () => { };
+    closeSocket = (code: number, reason: string) => { };
     jest.resetAllMocks();
     jest.clearAllTimers();
     openedUrl = '';
@@ -503,4 +504,81 @@ describe('Session', () => {
       '{"session_id":"a-b-c-d-e","type":"user_feedback","score":1,"comment":"feedback comment","group_id":"groupId2"}',
     ]);
   });
+
+
+  test('should attach logs to a session', async () => {
+    await session.register({
+      ttl: 301,
+      model: model,
+      name: 'sessionName',
+      description: 'sessionDescription',
+      language: 'en',
+    });
+    let logsReq: URL | undefined;
+    (global.fetch as jest.Mock).mockImplementationOnce(
+      async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        _checkHeaders(init!);
+        if (
+          (input as string).startsWith('http://example.com/v1/session/attach_logs') &&
+          init!.method === 'POST'
+        ) {
+          logsReq = (input as URL);
+          return new Response(JSON.stringify({ ok: true, status_code: 200 }));
+        }
+        throw new Error(`Invalid request: ${input}`);
+      }
+    );
+
+    const attachPromise = session.attachLogs('log-hash-123');
+    await expect(attachPromise).resolves.toBe(true);
+    expect(logsReq).toBe('http://example.com/v1/session/attach_logs?session_id=a-b-c-d-e&logs_hash=log-hash-123');
+  });
+
+  test('should resume a session', async () => {
+    const sessionData = {
+      id: 'a-b-c-d-e',
+      user_id: 'user1',
+      model: model,
+      ttl: 301,
+      name: 'resumedSession',
+      description: 'resumed description',
+      can_log: true,
+      language: 'en',
+      messages: [],
+      files: [],
+    };
+    (global.fetch as jest.Mock).mockImplementationOnce(
+      async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        _checkHeaders(init!);
+        if (input === 'http://google.com/v1/session/get?session_id=a-b-c-d-e' && init!.method === 'GET') {
+          return new Response(JSON.stringify(sessionData));
+        }
+        throw new Error(`Invalid request: ${input}`);
+      }
+    );
+
+    const resumePromise = session.resume('a-b-c-d-e');
+    await expect(resumePromise).resolves.toBe(true);
+    expect(session.id).toBe('a-b-c-d-e');
+    expect(session.name).toBe('resumedSession');
+  });
+
+  test('should fail to resume a session that does not exist', async () => {
+    (global.fetch as jest.Mock).mockImplementationOnce(
+      async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        _checkHeaders(init!);
+        if (input === 'http://google.com/v1/session/get?session_id=non-existent' && init!.method === 'GET') {
+          return new Response(JSON.stringify({}), { status: 200 }); // API returns null body for not found
+
+        }
+        throw new Error(`Invalid request: ${input}`);
+      }
+    );
+
+    const resumePromise = session.resume('non-existent');
+    await expect(resumePromise).rejects.toThrow("Session is not initialized or ID is missing.");
+  });
+
+
+
 });

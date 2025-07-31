@@ -60,6 +60,8 @@ import {
 // Define Constants for URLs
 const DEFAULT_BASE_URL = 'https://api.secgemini.google';
 const DEFAULT_WS_URL = 'wss://api.secgemini.google';
+// FIXME: Update to the correct logs URL after dns update.
+const DEFAULT_LOGS_URL = 'https://logs-processor-693234985864.us-central1.run.app';
 const DEFAULT_TTL = 86400; // Default session TTL in seconds
 
 /**
@@ -71,7 +73,9 @@ export class SecGemini {
   private apiKey: string;
   private baseURL: string;
   private websocketsURL: string;
+  private logsUrl: string;
   private httpClient: HttpClient;
+  private logsHttpClient: HttpClient;
 
   // Store fetched user and model information
   private userInfo: UserInfo | null = null;
@@ -82,7 +86,7 @@ export class SecGemini {
   /**
    * Private constructor. Use the static `SecGemini.create()` method for instantiation.
    */
-  private constructor(apiKey: string, baseURL: string, websocketsURL: string) {
+  private constructor(apiKey: string, baseURL: string, websocketsURL: string, logsUrl: string) {
     if (!apiKey) {
       throw new Error('API Key is required. Provide it directly or set SEC_GEMINI_API_KEY environment variable.');
     }
@@ -91,6 +95,7 @@ export class SecGemini {
     // Ensure URLs don't have trailing slashes
     this.baseURL = (baseURL || DEFAULT_BASE_URL).replace(/\/$/, '');
     this.websocketsURL = (websocketsURL || DEFAULT_WS_URL).replace(/\/$/, '');
+    this.logsUrl = (logsUrl || DEFAULT_LOGS_URL).replace(/\/$/, '');
 
     // Validate URLs
     if (!this.baseURL.match(/^https?:\/\//)) {
@@ -101,6 +106,7 @@ export class SecGemini {
     }
 
     this.httpClient = new HttpClient(this.baseURL, this.apiKey);
+    this.logsHttpClient = new HttpClient(this.logsUrl, this.apiKey);
   }
 
   /**
@@ -116,9 +122,10 @@ export class SecGemini {
   public static async create(
     apiKey: string = '',
     baseURL: string = '',
-    websocketsURL: string = ''
+    websocketsURL: string = '',
+    logsUrl: string = ''
   ): Promise<SecGemini> {
-    const sdk = new SecGemini(apiKey, baseURL, websocketsURL);
+    const sdk = new SecGemini(apiKey, baseURL, websocketsURL, logsUrl);
 
     try {
       // Fetch user info and available models
@@ -203,6 +210,10 @@ export class SecGemini {
 
   public getWebsocketsUrl(): string {
     return this.websocketsURL;
+  }
+
+  public getLogsUrl(): string {
+    return this.logsUrl;
   }
 
   /**
@@ -325,7 +336,9 @@ export class SecGemini {
       this.httpClient,
       this.websocketsURL, // Pass the correct websocket URL
       this.apiKey,
-      logSession // Pass initial logging preference
+      this.logsHttpClient,
+      logSession, // Pass initial logging preference
+
     );
 
     // --- Register the Session ---
@@ -366,7 +379,8 @@ export class SecGemini {
       this.user,
       this.httpClient,
       this.websocketsURL,
-      this.apiKey
+      this.apiKey,
+      this.logsHttpClient,
       // logSession preference is determined by the resumed session's state
     );
 

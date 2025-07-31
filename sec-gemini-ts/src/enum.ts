@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+// Main enpoint for the SecGemini API.
 enum EndPointsEnum {
   // users
   USER_INFO = '/v1/user/info',
@@ -35,6 +36,12 @@ enum EndPointsEnum {
   DETACH_FILE = '/v1/session/detach_file',
 }
 
+// Logs endpoint for the SecGemini API.
+enum LogsEndPointsEnum {
+  // logs
+    ATTACH_LOGS = '/v1/session/attach_logs',
+}
+
 enum ResponseStatusEnum {
   OK = 200,
   PARTIAL_CONTENT = 206,
@@ -47,4 +54,4 @@ enum ResponseStatusEnum {
   INTERNAL_ERROR = 500,
 }
 
-export { EndPointsEnum, ResponseStatusEnum };
+export { EndPointsEnum, LogsEndPointsEnum, ResponseStatusEnum };
