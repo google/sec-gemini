@@ -706,8 +706,6 @@ export class InteractiveSession {
         undefined,
         { params }
       );
-
-      console.warn('response', resp);
       if (!resp || !resp.ok || resp.status_code !== ResponseStatusEnum.OK) {
         const errorMsg = `Attaching logs failed: ${
           resp?.status_message || 'Unknown API error'
