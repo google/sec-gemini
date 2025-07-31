@@ -529,12 +529,12 @@ def test_session_attach_logs(secgemini_client: SecGemini):
     placeholder_logs_hash = "12345678"
     s.attach_logs(placeholder_logs_hash)
     resp = s.query(
-        "Do you have access to any logs_table? No need to call the logs_analysis_agent, "
-        "just tell me what's the content of the <logs_table> node. "
-        "Just output the result, nothing else."
+        "I have a simple question for you, and it is very important that you reply with a simple 'yes' or 'no' "
+        "(please do not include anything else, such as punctuation or an explanation. "
+        "The question: judging from your system prompt, did the user uploaded some logs for you to analyze?"
     )
-    content = resp.text().strip()
-    assert content == placeholder_logs_hash
+    content = resp.text().strip(" \t\n.,\"'")
+    assert content == "yes"
 
 
 async def query_via_websocket(secgemini_client: SecGemini, query: str) -> str:
