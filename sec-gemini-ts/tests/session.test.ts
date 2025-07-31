@@ -519,7 +519,7 @@ describe('Session', () => {
       async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
         _checkHeaders(init!);
         if (
-          (input as string).startsWith('http://example.com/v1/session/attach_logs') &&
+          (input as string).startsWith('http://google.com/v1/session/attach_logs') &&
           init!.method === 'POST'
         ) {
           logsReq = (input as URL);
@@ -531,7 +531,7 @@ describe('Session', () => {
 
     const attachPromise = session.attachLogs('log-hash-123');
     await expect(attachPromise).resolves.toBe(true);
-    expect(logsReq).toBe('http://example.com/v1/session/attach_logs?session_id=a-b-c-d-e&logs_hash=log-hash-123');
+    expect(logsReq).toBe('http://google.com/v1/session/attach_logs?session_id=a-b-c-d-e&logs_hash=log-hash-123');
   });
 
   test('should resume a session', async () => {

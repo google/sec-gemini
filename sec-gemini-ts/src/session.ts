@@ -688,6 +688,11 @@ export class InteractiveSession {
 
 
   // -- Logs --
+  public async uploadAndAttachLogs(logs: Uint8Array): Promise<boolean> {
+    this._ensureInitialized();
+    throw 'not implemented yet';
+    return false;
+  }
 
   public async attachLogs(logsHash: string): Promise<boolean> {
     this._ensureInitialized();
@@ -696,7 +701,7 @@ export class InteractiveSession {
       logs_hash: logsHash,
     };
     try {
-      const resp = await this.logsHttp.post<OpResult>(
+      const resp = await this.http.post<OpResult>(
         LogsEndPointsEnum.ATTACH_LOGS,
         undefined,
         { params }
