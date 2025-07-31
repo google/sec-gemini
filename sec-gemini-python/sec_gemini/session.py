@@ -294,9 +294,12 @@ class InteractiveSession:
             "session_id": self.id,
             "logs_hash": logs_hash,
         }
+        headers = {
+            "x-api-key": self.api_key,
+        }
 
         url = f"{self.http.base_url.rstrip('/')}{_EndPoints.ATTACH_LOGS.value}"
-        resp = client.post(url, params=params)
+        resp = client.post(url, params=params, headers=headers)
         if resp.status_code != 200:
             logging.error(
                 f"[Session][AttachLogs][HTTP]: {resp.status_code} {resp.content.decode('utf-8')}"
