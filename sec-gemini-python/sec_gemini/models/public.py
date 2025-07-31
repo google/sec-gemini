@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
 
 from time import time
 from typing import Optional
@@ -186,6 +187,23 @@ class PublicSession(BaseModel):
         default_factory=list,
         title="Files",
         description="The list of files uploaded to the session.",
+    )
+
+    logs_table: PublicLogsTable | None = Field(
+        None,
+        title="Logs Table",
+        description="Logs table attached to the session, if any.",
+    )
+
+
+class PublicLogsTable(BaseModel):
+    # Note: using an hash to identify the table is a security feature that
+    # guarantees that only people having access to the logs themselves have
+    # access to the table.
+    blake2s: str = Field(
+        ...,
+        title="Blake2s hash",
+        description="The blake2s hash of the log file before upload. The hash key is 'secgemini'.",
     )
 
 
