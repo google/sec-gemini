@@ -502,7 +502,7 @@ async def get_messages_from_ws_query(
         try:
             while True:
                 received_msg = Message(
-                    **json.loads(await asyncio.wait_for(websocket.recv(), timeout=30))
+                    **json.loads(await asyncio.wait_for(websocket.recv(), timeout=60))
                 )
                 # print(received_msg.model_dump())
                 messages.append(received_msg)
