@@ -10,7 +10,7 @@ on:
     paths:
       - 'sec-gemini-python/**'
   schedule:
-    - cron: "42 */6 * * *"
+    - cron: "42 */3 * * *"
         
 permissions:
   contents: read
