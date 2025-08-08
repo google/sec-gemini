@@ -17,16 +17,22 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
+import os
 import random
+import sys
 import traceback
 from base64 import b64encode
 from pathlib import Path
-from typing import AsyncIterator, Optional
+from typing import Any, AsyncIterator, Optional
 
+import httpx
 import websockets
 from rich.console import Console
 from rich.tree import Tree
+from tqdm import tqdm
 
 from .constants import DEFAULT_TTL
 from .enums import _EndPoints
@@ -38,10 +44,12 @@ from .models.feedback import Feedback
 from .models.message import Message
 from .models.modelinfo import ModelInfo
 from .models.opresult import OpResult, ResponseStatus
-from .models.public import PublicSession, PublicSessionFile, PublicUser
+from .models.public import PublicLogsTable, PublicSession, PublicSessionFile, PublicUser
 from .models.session_request import SessionRequest
 from .models.session_response import SessionResponse
 from .models.usage import Usage
+
+DEBUG = False
 
 
 class InteractiveSession:
@@ -161,6 +169,13 @@ class InteractiveSession:
         self._refresh_data()
         return self._session.files
 
+    @property
+    def logs_table(self) -> PublicLogsTable | None:
+        """Session logs table, if any"""
+        assert self._session is not None
+        self._refresh_data()
+        return self._session.logs_table
+
     def _refresh_data(self) -> None:
         """Refresh the session"""
         if self._session is None:
@@ -265,6 +280,35 @@ class InteractiveSession:
 
         msg = f"[Session][DetachFile] {session_id=} {file_idx=}: OK"
         logging.debug(msg)
+        return True
+
+    def attach_logs(
+        self,
+        logs_hash: str,
+    ) -> bool:
+        """Attach logs to the session. Returns True if success, False otherwise."""
+        assert self._session is not None
+
+        client = httpx.Client()
+        params = {
+            "session_id": self.id,
+            "logs_hash": logs_hash,
+        }
+        headers = {
+            "x-api-key": self.api_key,
+        }
+
+        url = f"{self.http.base_url.rstrip('/')}{_EndPoints.ATTACH_LOGS.value}"
+        resp = client.post(url, params=params, headers=headers)
+        if resp.status_code != 200:
+            logging.error(
+                f"[Session][AttachLogs][HTTP]: {resp.status_code} {resp.content.decode('utf-8')}"
+            )
+            return False
+
+        msg = f"[Session][AttachLogs] session_id={self._session.id} {logs_hash=}: OK"
+        logging.debug(msg)
+
         return True
 
     def send_bug_report(self, bug: str, group_id: str = "") -> bool:
@@ -688,6 +732,126 @@ class InteractiveSession:
 
         return f"{random.choice(adjs)}-{random.choice(terms)}"
 
+    def upload_and_attach_logs(self, jsonl_path: Path) -> None:
+        # TODO: write this code around the existing NetworkClient, without using
+        # httpx directly.
+
+        SEC_GEMINI_LOGS_PROCESSOR_API_URL = os.environ.get(
+            "SEC_GEMINI_LOGS_PROCESSOR_API_URL"
+        )
+        if SEC_GEMINI_LOGS_PROCESSOR_API_URL is None:
+            print(
+                "ERROR: set the SEC_GEMINI_LOGS_PROCESSOR_API_URL environment variable"
+            )
+            sys.exit(1)
+
+        try:
+            logs_hash = _compute_file_hash(jsonl_path)
+            print(f"Computed info for {jsonl_path}: {logs_hash=}")
+
+            # Upload logs
+            with httpx.Client() as client:
+                params: dict[str, Any] = {
+                    "logs_hash": logs_hash,
+                    "can_log": self.can_log,
+                }
+                headers = {
+                    "x-api-key": self.api_key,
+                }
+
+                print(f"Creating logs table {logs_hash=} and {self.can_log=}")
+                response = client.post(
+                    f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/create_logs_table",
+                    params=params,
+                    headers=headers,
+                    timeout=None,
+                )
+                # Raise an exception for 4xx/5xx responses
+                response.raise_for_status()
+
+                try:
+                    response_content = response.json()
+                    if response_content.get("table_created", False) is True:
+                        # Table was just created, let's proceed with the uploads.
+                        upload_logs = True
+                    else:
+                        upload_logs = False
+                        print(
+                            f"Skipping upload as the table already existed: {response_content}"
+                        )
+                except json.JSONDecodeError:
+                    print(f"ERROR: Could not parse response as JSON: {response}")
+                    return
+
+                inserted_log_lines = 0
+                if upload_logs:
+                    # Read the file in chunks, extract lines (without parsing each
+                    # individual line), and upload them to the logs processor
+                    # backend.
+                    unused_buffer = ""
+                    for chunk in _read_file_chunks_with_progress_bar(
+                        jsonl_path, chunk_size=10_000_000
+                    ):
+                        log_lines, unused_buffer = parse_chunk(chunk, unused_buffer)
+
+                        if len(log_lines) == 0:
+                            assert unused_buffer == ""
+                            # Nothing else to process
+                            continue
+
+                        if DEBUG:
+                            print(
+                                f"Uploading {len(log_lines)} log lines with {logs_hash=} and {self.can_log=}"
+                            )
+
+                        payload: dict[str, Any] = {
+                            "logs_hash": logs_hash,
+                            "can_log": self.can_log,
+                            "log_lines": log_lines,
+                        }
+                        response = client.post(
+                            f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/upload_logs",
+                            json=payload,
+                            headers=headers,
+                            timeout=None,
+                        )
+
+                        # Raise an exception for 4xx/5xx responses
+                        response.raise_for_status()
+
+                        response_content = response.json()
+
+                        inserted_log_lines += response_content.get(
+                            "inserted_log_lines", 0
+                        )
+                    print(
+                        f"\nUpload complete! Inserted a total of {inserted_log_lines} log lines."
+                    )
+
+            # Attach logs to session
+            res = self.attach_logs(logs_hash)
+            if res is False:
+                raise Exception("Error when attach logs to session")
+
+        except httpx.HTTPStatusError as exc:
+            # An HTTP error occurred (e.g., 404 Not Found, 500 Server Error)
+            print(
+                f"HTTP Error: {exc.response.status_code} while requesting {exc.request.url!r}."
+            )
+            try:
+                error_details = exc.response.json()
+                print(f"Server error message: {error_details}")
+            except json.JSONDecodeError:
+                print(f"ERROR: Could not parse response as JSON: {exc.response}")
+                return
+
+        except httpx.RequestError as e:
+            print(f"An error occurred while requesting {e.request.url!r}.")
+            print(f"Error details: {e}")
+
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}. {traceback.format_exc()}")
+
     def __copy__(self) -> InteractiveSession:
         int_sess = InteractiveSession(
             user=self.user.model_copy(),
@@ -699,3 +863,44 @@ class InteractiveSession:
         if self._session is not None:
             int_sess._session = self._session.model_copy()
         return int_sess
+
+
+def _compute_file_hash(file_path: Path) -> str:
+    print("Computing file hash...")
+    hasher = hashlib.blake2s(key=b"secgemini")
+    with file_path.open("rb") as f:
+        while chunk := f.read(4096):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def _read_file_chunks_with_progress_bar(file_path: Path, chunk_size: int = 4096):
+    """
+    Read file chunks, with a progress bar.
+    """
+
+    total = file_path.stat().st_size
+    with tqdm(
+        ascii=True, unit_scale=True, unit="B", unit_divisor=1024, total=total
+    ) as bar:
+        with file_path.open("rb") as f:
+            while data := f.read(chunk_size):
+                yield data
+                bar.update(len(data))
+
+
+def parse_chunk(chunk: bytes, unused_buffer: str) -> tuple[list[str], str]:
+    data = unused_buffer + chunk.decode("utf-8")
+    lines: list[str] = data.splitlines(keepends=True)
+
+    if len(lines) == 0:
+        return [], ""
+
+    # The last line might be incomplete, so we save it for the next chunk
+    last_line = lines[-1]
+    if len(last_line) > 0 and last_line[-1] != "\n":
+        unused_buffer = lines.pop()
+    else:
+        unused_buffer = ""
+
+    return lines, unused_buffer

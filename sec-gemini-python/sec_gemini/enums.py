@@ -50,3 +50,4 @@ class _EndPoints(str, Enum):
     # files
     ATTACH_FILE = "/v1/session/attach_file"
     DETACH_FILE = "/v1/session/detach_file"
+    ATTACH_LOGS = "/v1/session/attach_logs"
