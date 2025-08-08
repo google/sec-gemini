@@ -285,39 +285,39 @@ def test_session_attachments_apis(
         assert len(session.files) == test_file_idx + 1
     check_session_files(session.files, test_files_infos)
 
-    detach_res = session.detach_file(session.id, 3)
+    detach_res = session.detach_file(3)
     assert detach_res is False
     check_session_files(session.files, test_files_infos)
 
-    detach_res = session.detach_file(session.id, -1)
+    detach_res = session.detach_file(-1)
     assert detach_res is False
     check_session_files(session.files, test_files_infos)
 
-    detach_res = session.detach_file(session.id, 1)
+    detach_res = session.detach_file(1)
     test_files_infos.pop(1)
     assert detach_res is True
     check_session_files(session.files, test_files_infos)
 
-    detach_res = session.detach_file(session.id, 2)
+    detach_res = session.detach_file(2)
     assert detach_res is False
     check_session_files(session.files, test_files_infos)
 
-    detach_res = session.detach_file(session.id, 0)
+    detach_res = session.detach_file(0)
     test_files_infos.pop(0)
     assert detach_res is True
     check_session_files(session.files, test_files_infos)
 
-    detach_res = session.detach_file(session.id, 1)
+    detach_res = session.detach_file(1)
     assert detach_res is False
     check_session_files(session.files, test_files_infos)
 
-    detach_res = session.detach_file(session.id, 0)
+    detach_res = session.detach_file(0)
     test_files_infos.pop(0)
     assert detach_res is True
     check_session_files(session.files, test_files_infos)
     assert len(session.files) == 0
 
-    detach_res = session.detach_file(session.id, 0)
+    detach_res = session.detach_file(0)
     assert detach_res is False
 
 
