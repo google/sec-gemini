@@ -872,7 +872,7 @@ def _compute_file_hash(file_path: Path) -> str:
     if '.gz' in file_path.suffixes:
         file_opener = gzip.open(file_path, "rb")
     else:
-        file_opener = lambda: file_path.open("rb")
+        file_opener = file_path.open("rb")
     with file_opener as f:
         while chunk := f.read(4096):
             hasher.update(chunk)
