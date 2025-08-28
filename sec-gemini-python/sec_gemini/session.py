@@ -889,7 +889,7 @@ def _read_file_chunks_with_progress_bar(file_path: Path, chunk_size: int = 4096)
             # We must seek to the end to get the uncompressed size
             total = f.seek(0, os.SEEK_END)
     else:
-        file_opener = lambda: file_path.open("rb")
+        file_opener = file_path.open("rb")
         total = file_path.stat().st_size
     with tqdm(
         ascii=True, unit_scale=True, unit="B", unit_divisor=1024, total=total
