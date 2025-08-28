@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import gzip
 import hashlib
 import json
 import logging
@@ -868,7 +869,11 @@ class InteractiveSession:
 def _compute_file_hash(file_path: Path) -> str:
     print("Computing file hash...")
     hasher = hashlib.blake2s(key=b"secgemini")
-    with file_path.open("rb") as f:
+    if '.gz' in file_path.suffixes:
+        file_opener = gzip.open(file_path, "rb")
+    else:
+        file_opener = lambda: file_path.open("rb")
+    with file_opener as f:
         while chunk := f.read(4096):
             hasher.update(chunk)
     return hasher.hexdigest()
@@ -878,12 +883,18 @@ def _read_file_chunks_with_progress_bar(file_path: Path, chunk_size: int = 4096)
     """
     Read file chunks, with a progress bar.
     """
-
-    total = file_path.stat().st_size
+    if '.gz' in file_path.suffixes:
+        file_opener = gzip.open(file_path, "rb")
+        with gzip.open(file_path, "rb") as f:
+            # We must seek to the end to get the uncompressed size
+            total = f.seek(0, os.SEEK_END)
+    else:
+        file_opener = lambda: file_path.open("rb")
+        total = file_path.stat().st_size
     with tqdm(
         ascii=True, unit_scale=True, unit="B", unit_divisor=1024, total=total
     ) as bar:
-        with file_path.open("rb") as f:
+        with file_opener as f:
             while data := f.read(chunk_size):
                 yield data
                 bar.update(len(data))
