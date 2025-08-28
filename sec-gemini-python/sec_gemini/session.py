@@ -886,8 +886,8 @@ def _read_file_chunks_with_progress_bar(file_path: Path, chunk_size: int = 4096)
     if '.gz' in file_path.suffixes:
         file_opener = gzip.open(file_path, "rb")
         with gzip.open(file_path, "rb") as f:
-            # We must seek to the end to get the uncompressed size
-            total = f.seek(0, os.SEEK_END)
+            # We must read to the end to get the uncompressed size
+            total = len(f.read())
     else:
         file_opener = file_path.open("rb")
         total = file_path.stat().st_size
