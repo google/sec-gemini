@@ -733,23 +733,22 @@ class InteractiveSession:
         return f"{random.choice(adjs)}-{random.choice(terms)}"
 
     def upload_and_attach_logs(self, jsonl_path: Path) -> None:
-        # TODO: write this code around the existing NetworkClient, without using
-        # httpx directly.
-
         SEC_GEMINI_LOGS_PROCESSOR_API_URL = os.environ.get(
             "SEC_GEMINI_LOGS_PROCESSOR_API_URL"
         )
         if SEC_GEMINI_LOGS_PROCESSOR_API_URL is None:
-            print(
-                "ERROR: set the SEC_GEMINI_LOGS_PROCESSOR_API_URL environment variable"
+            logging.error(
+                "SEC_GEMINI_LOGS_PROCESSOR_API_URL environment variable not set. Please set it."
             )
             sys.exit(1)
 
         try:
             logs_hash = _compute_file_hash(jsonl_path)
-            print(f"Computed info for {jsonl_path}: {logs_hash=}")
+            logging.info(f"Computed info for {jsonl_path}: {logs_hash=}")
 
             # Upload logs
+            # TODO: can we write this around the existing NetworkClient, without
+            # using httpx directly.
             with httpx.Client() as client:
                 params: dict[str, Any] = {
                     "logs_hash": logs_hash,
@@ -759,7 +758,7 @@ class InteractiveSession:
                     "x-api-key": self.api_key,
                 }
 
-                print(f"Creating logs table {logs_hash=} and {self.can_log=}")
+                logging.info(f"Creating logs table {logs_hash=} and {self.can_log=}")
                 response = client.post(
                     f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/create_logs_table",
                     params=params,
@@ -776,11 +775,13 @@ class InteractiveSession:
                         upload_logs = True
                     else:
                         upload_logs = False
-                        print(
+                        logging.warning(
                             f"Skipping upload as the table already existed: {response_content}"
                         )
                 except json.JSONDecodeError:
-                    print(f"ERROR: Could not parse response as JSON: {response}")
+                    logging.error(
+                        f"ERROR: Could not parse response as JSON: {response}"
+                    )
                     return
 
                 inserted_log_lines = 0
@@ -799,10 +800,9 @@ class InteractiveSession:
                             # Nothing else to process
                             continue
 
-                        if DEBUG:
-                            print(
-                                f"Uploading {len(log_lines)} log lines with {logs_hash=} and {self.can_log=}"
-                            )
+                        logging.info(
+                            f"Uploading {len(log_lines)} log lines with {logs_hash=} and {self.can_log=}"
+                        )
 
                         payload: dict[str, Any] = {
                             "logs_hash": logs_hash,
@@ -824,7 +824,7 @@ class InteractiveSession:
                         inserted_log_lines += response_content.get(
                             "inserted_log_lines", 0
                         )
-                    print(
+                    logging.info(
                         f"\nUpload complete! Inserted a total of {inserted_log_lines} log lines."
                     )
 
@@ -835,22 +835,25 @@ class InteractiveSession:
 
         except httpx.HTTPStatusError as exc:
             # An HTTP error occurred (e.g., 404 Not Found, 500 Server Error)
-            print(
+            logging.error(
                 f"HTTP Error: {exc.response.status_code} while requesting {exc.request.url!r}."
             )
             try:
                 error_details = exc.response.json()
-                print(f"Server error message: {error_details}")
+                logging.error(f"Server error message: {error_details}")
             except json.JSONDecodeError:
-                print(f"ERROR: Could not parse response as JSON: {exc.response}")
+                logging.error(f"Could not parse response as JSON: {exc.response}")
                 return
 
         except httpx.RequestError as e:
-            print(f"An error occurred while requesting {e.request.url!r}.")
-            print(f"Error details: {e}")
+            logging.error(
+                f"An error occurred while requesting {e.request.url!r}. Error details: {e}"
+            )
 
         except Exception as e:
-            print(f"An unexpected error occurred: {e}. {traceback.format_exc()}")
+            logging.error(
+                f"An unexpected error occurred: {e}. {traceback.format_exc()}"
+            )
 
     def __copy__(self) -> InteractiveSession:
         int_sess = InteractiveSession(
