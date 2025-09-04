@@ -75,7 +75,6 @@ class InteractiveSession:
     def id(self) -> str:
         """Session ID"""
         assert self._session is not None
-        self._refresh_data()
         return self._session.id
 
     @property
