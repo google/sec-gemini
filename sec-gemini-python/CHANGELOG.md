@@ -1,5 +1,11 @@
 Change Log
 
+# [1.1.4] - 2025-09-04
+## Changed
+- Added APIs to upload/attach/process logs.
+- Removed the `session_id` argument from the `delete()` API as unnecessary.
+- Updated/tweaked timeouts for websockets APIs.
+
 # [1.1.1] - 2025-05-06
 
 ## Changed
