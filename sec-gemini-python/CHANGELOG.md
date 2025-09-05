@@ -1,5 +1,9 @@
 Change Log
 
+# [1.1.5] - 2025-09-05
+## New
+- Added option to specify custom fields mapping when uploading logs.
+
 # [1.1.4] - 2025-09-04
 ## Changed
 - Added APIs to upload/attach/process logs.

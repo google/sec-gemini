@@ -2081,7 +2081,7 @@ wheels = [
 
 [[package]]
 name = "sec-gemini"
-version = "1.1.4"
+version = "1.1.5"
 source = { virtual = "." }
 dependencies = [
     { name = "asyncio" },
