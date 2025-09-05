@@ -2,6 +2,7 @@ tmp/
 .DS_Store
 .env
 .venv
+*.swp
 
 // JS
 node_modules/
