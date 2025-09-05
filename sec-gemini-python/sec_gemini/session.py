@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import logging
 import os
 import random
 import sys
@@ -37,6 +36,7 @@ from tqdm import tqdm
 from .constants import DEFAULT_TTL
 from .enums import _EndPoints
 from .http import NetworkClient
+from .logger import get_logger
 from .models.attachment import Attachment
 from .models.detach_file_request import DetachFileRequest
 from .models.enums import FeedbackType, MessageType, MimeType, Role, State
@@ -50,6 +50,8 @@ from .models.session_response import SessionResponse
 from .models.usage import Usage
 
 DEBUG = False
+
+log = get_logger()
 
 
 class InteractiveSession:
@@ -186,11 +188,11 @@ class InteractiveSession:
         session = self.fetch_session(session_id)
         if session is not None:
             self._session = session
-            logging.info(
+            log.info(
                 "[Session][Resume]: Session {%s} (%s) resumed", session.id, session.name
             )
             return True
-        logging.error("[Session][Resume]: Session %s not found", session_id)
+        log.error("[Session][Resume]: Session %s not found", session_id)
         return False
 
     def attach_file_from_disk(self, file_path: str) -> Optional[PublicSessionFile]:
@@ -229,28 +231,28 @@ class InteractiveSession:
 
         resp = self.http.post(_EndPoints.ATTACH_FILE.value, attachment)
         if not resp.ok:
-            logging.error(f"[Session][AttachFile][HTTP]: {resp.error_message}")
+            log.error(f"[Session][AttachFile][HTTP]: {resp.error_message}")
             return None
 
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
-            logging.error(f"[Session][AttachFile][Session]: {op_result.status_message}")
+            log.error(f"[Session][AttachFile][Session]: {op_result.status_message}")
             return None
 
         if op_result.data is None:
-            logging.error("[Session][AttachFile][Session]: op_result.data is None")
+            log.error("[Session][AttachFile][Session]: op_result.data is None")
             return None
 
         try:
             public_session_file = PublicSessionFile(**op_result.data)
         except Exception:
-            logging.error(
+            log.error(
                 f"Exception when parsing PublicSessionFile. {traceback.format_exc()}"
             )
             return None
 
         msg = f"[Session][AttachFile] session_id={self._session.id} {public_session_file.sha256}: OK"
-        logging.debug(msg)
+        log.debug(msg)
 
         return public_session_file
 
@@ -268,17 +270,17 @@ class InteractiveSession:
         )
         if not resp.ok:
             error_msg = f"[Session][DetachFile][HTTP]: {resp.error_message}"
-            logging.error(error_msg)
+            log.error(error_msg)
             return False
 
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
             error_msg = f"[Session][DetachFile][HTTP]: {op_result.status_message}"
-            logging.error(error_msg)
+            log.error(error_msg)
             return False
 
         msg = f"[Session][DetachFile] session_id={self.id}, {file_idx=}: OK"
-        logging.debug(msg)
+        log.debug(msg)
         return True
 
     def attach_logs(
@@ -300,13 +302,13 @@ class InteractiveSession:
         url = f"{self.http.base_url.rstrip('/')}{_EndPoints.ATTACH_LOGS.value}"
         resp = client.post(url, params=params, headers=headers)
         if resp.status_code != 200:
-            logging.error(
+            log.error(
                 f"[Session][AttachLogs][HTTP]: {resp.status_code} {resp.content.decode('utf-8')}"
             )
             return False
 
         msg = f"[Session][AttachLogs] session_id={self._session.id} {logs_hash=}: OK"
-        logging.debug(msg)
+        log.debug(msg)
 
         return True
 
@@ -339,12 +341,12 @@ class InteractiveSession:
 
         resp = self.http.post(_EndPoints.SEND_FEEDBACK.value, feedback)
         if not resp.ok:
-            logging.error(f"[Session][Feedback][HTTP]: {resp.error_message}")
+            log.error(f"[Session][Feedback][HTTP]: {resp.error_message}")
             return False
 
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
-            logging.error(f"[Session][Feedback][Session]: {op_result.status_message}")
+            log.error(f"[Session][Feedback][Session]: {op_result.status_message}")
             return False
         return True
 
@@ -366,11 +368,11 @@ class InteractiveSession:
 
         resp = self.http.post(_EndPoints.UPDATE_SESSION.value, self._session)
         if not resp.ok:
-            logging.error("[Session][Update][HTTP]: %s", resp.error_message)
+            log.error("[Session][Update][HTTP]: %s", resp.error_message)
             return False
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
-            logging.error("[Session][Update][Session]: %s", op_result.status_message)
+            log.error("[Session][Update][Session]: %s", op_result.status_message)
             return False
         return True
 
@@ -380,12 +382,12 @@ class InteractiveSession:
 
         resp = self.http.post(_EndPoints.DELETE_SESSION.value, self._session)
         if not resp.ok:
-            logging.error("[Session][Delete][HTTP]: %s", resp.error_message)
+            log.error("[Session][Delete][HTTP]: %s", resp.error_message)
             return False
 
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
-            logging.error("[Session][Delete][Session]: %s", op_result.status_message)
+            log.error("[Session][Delete][Session]: %s", op_result.status_message)
             return False
 
         self._session = None
@@ -472,16 +474,16 @@ class InteractiveSession:
 
         resp = self.http.post(_EndPoints.REGISTER_SESSION.value, session)
         if not resp.ok:
-            logging.error("[Session][Register][HTTP]: %s", resp.error_message)
+            log.error("[Session][Register][HTTP]: %s", resp.error_message)
             return False
 
         op_result = OpResult(**resp.data)
         if op_result.status_code != ResponseStatus.OK:
-            logging.error("[Session][Register][Session]: %s", op_result.status_message)
+            log.error("[Session][Register][Session]: %s", op_result.status_message)
             return False
 
         self._session = session
-        logging.info(
+        log.info(
             "[Session][Register][Session]: Session %s (%s) registered",
             session.id,
             session.name,
@@ -501,13 +503,13 @@ class InteractiveSession:
 
         if not resp.ok:
             error_msg = f"[Session][Generate][HTTP]: {resp.error_message}"
-            logging.error(error_msg)
+            log.error(error_msg)
             raise Exception(error_msg)
 
         session_resp = SessionResponse(**resp.data)
         if session_resp.status_code != ResponseStatus.OK:
             error_msg = f"[Session][Generate][Response] {session_resp.status_code}:{session_resp.status_message}"
-            logging.error(error_msg)
+            log.error(error_msg)
             raise Exception(error_msg)
         return session_resp
 
@@ -538,7 +540,7 @@ class InteractiveSession:
                             data = await ws.recv(decode=True)
                             msg = Message.from_json(data)
                             if msg.status_code != ResponseStatus.OK:
-                                logging.error(
+                                log.error(
                                     "[Session][Stream][Response] %d:%s",
                                     msg.status_code,
                                     msg.status_message,
@@ -546,10 +548,10 @@ class InteractiveSession:
                                 break
                             yield msg
                         except Exception as e:
-                            logging.error("[Session][Stream][Error]: %s", repr(e))
+                            log.error("[Session][Stream][Error]: %s", repr(e))
                             break
             except Exception as e:
-                logging.error(f"Connection attempt {attempt + 1} failed: {e}")
+                log.error(f"Connection attempt {attempt + 1} failed: {e}")
                 if attempt == max_retries - 1:
                     raise e
                 await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
@@ -563,14 +565,14 @@ class InteractiveSession:
         )
         if not resp.ok:
             error_msg = f"[Session][Resume][HTTP]: {resp.error_message}"
-            logging.error(error_msg)
+            log.error(error_msg)
             raise Exception(error_msg)
 
         try:
             session = PublicSession(**resp.data)
         except Exception as e:
             error_msg = f"[Session][Resume][Session]: {e!r} - {resp.data}"
-            logging.error(error_msg)
+            log.error(error_msg)
             raise Exception(error_msg)
         return session
 
@@ -759,14 +761,14 @@ class InteractiveSession:
             "SEC_GEMINI_LOGS_PROCESSOR_API_URL"
         )
         if SEC_GEMINI_LOGS_PROCESSOR_API_URL is None:
-            logging.error(
+            log.error(
                 "SEC_GEMINI_LOGS_PROCESSOR_API_URL environment variable not set. Please set it."
             )
             sys.exit(1)
 
         try:
             logs_hash = _compute_file_hash(jsonl_path)
-            logging.info(f"Computed info for {jsonl_path}: {logs_hash=}")
+            log.info(f"Computed info for {jsonl_path}: {logs_hash=}")
 
             # Upload logs
             # TODO: can we write this around the existing NetworkClient, without
@@ -780,7 +782,7 @@ class InteractiveSession:
                     "x-api-key": self.api_key,
                 }
 
-                logging.info(f"Creating logs table {logs_hash=} and {self.can_log=}")
+                log.info(f"Creating logs table {logs_hash=} and {self.can_log=}")
                 response = client.post(
                     f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/create_logs_table",
                     params=params,
@@ -797,13 +799,11 @@ class InteractiveSession:
                         upload_logs = True
                     else:
                         upload_logs = False
-                        logging.warning(
+                        log.warning(
                             f"Skipping upload as the table already existed: {response_content}"
                         )
                 except json.JSONDecodeError:
-                    logging.error(
-                        f"ERROR: Could not parse response as JSON: {response}"
-                    )
+                    log.error(f"ERROR: Could not parse response as JSON: {response}")
                     return
 
                 inserted_log_lines = 0
@@ -822,7 +822,7 @@ class InteractiveSession:
                             # Nothing else to process
                             continue
 
-                        logging.info(
+                        log.info(
                             f"Uploading {len(log_lines)} log lines with {logs_hash=} and {self.can_log=}"
                         )
 
@@ -848,7 +848,7 @@ class InteractiveSession:
                         inserted_log_lines += response_content.get(
                             "inserted_log_lines", 0
                         )
-                    logging.info(
+                    log.info(
                         f"\nUpload complete! Inserted a total of {inserted_log_lines} log lines."
                     )
 
@@ -859,25 +859,23 @@ class InteractiveSession:
 
         except httpx.HTTPStatusError as exc:
             # An HTTP error occurred (e.g., 404 Not Found, 500 Server Error)
-            logging.error(
+            log.error(
                 f"HTTP Error: {exc.response.status_code} while requesting {exc.request.url!r}."
             )
             try:
                 error_details = exc.response.json()
-                logging.error(f"Server error message: {error_details}")
+                log.error(f"Server error message: {error_details}")
             except json.JSONDecodeError:
-                logging.error(f"Could not parse response as JSON: {exc.response}")
+                log.error(f"Could not parse response as JSON: {exc.response}")
                 return
 
         except httpx.RequestError as e:
-            logging.error(
+            log.error(
                 f"An error occurred while requesting {e.request.url!r}. Error details: {e}"
             )
 
         except Exception as e:
-            logging.error(
-                f"An unexpected error occurred: {e}. {traceback.format_exc()}"
-            )
+            log.error(f"An unexpected error occurred: {e}. {traceback.format_exc()}")
 
     def __copy__(self) -> InteractiveSession:
         int_sess = InteractiveSession(
@@ -893,12 +891,14 @@ class InteractiveSession:
 
 
 def _compute_file_hash(file_path: Path) -> str:
-    print("Computing file hash...")
+    log.debug("Computing file hash...")
     hasher = hashlib.blake2s(key=b"secgemini")
     with file_path.open("rb") as f:
         while chunk := f.read(4096):
             hasher.update(chunk)
-    return hasher.hexdigest()
+    file_hash = hasher.hexdigest()
+    log.debug(f"File hash: {file_hash}")
+    return file_hash
 
 
 def _read_file_chunks_with_progress_bar(file_path: Path, chunk_size: int = 4096):
