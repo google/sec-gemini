@@ -831,7 +831,7 @@ class InteractiveSession:
                             "can_log": self.can_log,
                             "log_lines": log_lines,
                         }
-                        if custom_fields_mapping is not None:
+                        if custom_fields_mapping:
                             payload["custom_fields_mapping"] = custom_fields_mapping
                         response = client.post(
                             f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/upload_logs",
