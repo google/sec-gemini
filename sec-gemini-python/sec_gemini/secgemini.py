@@ -26,12 +26,14 @@ from rich.table import Table
 from .constants import DEFAULT_TTL
 from .enums import _URLS, _EndPoints
 from .http import NetworkClient
+from .logger import get_logger
 from .models.modelinfo import ModelInfo
 from .models.public import PublicSession, UserInfo
 from .session import InteractiveSession
 
 load_dotenv()
-logging.basicConfig(level=logging.WARNING)
+
+log = get_logger()
 
 
 class SecGemini:
@@ -43,6 +45,8 @@ class SecGemini:
         base_url: Optional[str] = None,
         base_websockets_url: Optional[str] = None,
         console_width: int = 500,
+        verbose: bool = False,
+        debug: bool = False,
     ):
         """Initializes the SecGemini API client.
 
@@ -55,7 +59,16 @@ class SecGemini:
             base_websockets_url: Websockets base_url. Defaults to online server.
 
             console_width: Console width for displaying tables. Defaults to 500.
+
+            verbose: enable INFO-level logs.
+
+            debug: enable DEBUG-level logs.
         """
+
+        if verbose:
+            log.setLevel(logging.INFO)
+        if debug:
+            log.setLevel(logging.DEBUG)
 
         if base_url is None:
             base_url = os.getenv("SEC_GEMINI_API_HTTP_URL", "").strip()
