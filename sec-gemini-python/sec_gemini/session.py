@@ -731,7 +731,30 @@ class InteractiveSession:
 
         return f"{random.choice(adjs)}-{random.choice(terms)}"
 
-    def upload_and_attach_logs(self, jsonl_path: Path) -> None:
+    def upload_and_attach_logs(
+        self, jsonl_path: Path, custom_fields_mapping: dict[str, str] | None = None
+    ) -> None:
+        """Uploads a JSONL log file and attaches it to the current session.
+
+        This method reads a log file where each line is a valid JSON object
+        (JSONL format), uploads it to create a new data table, and then
+        associates that table with the current analysis session for querying.
+
+        Args:
+            jsonl_path (Path): The local file system path to the JSONL log file
+                to be uploaded.
+            custom_fields_mapping (dict[str, str] | None): An optional
+                dictionary to rename fields from the source log file to new
+                destination names in the resulting table. The dictionary must be
+                in the format `{'destination_field': 'source_field'}`. For
+                example, `{'id': '_id'}` would rename the `_id` field
+                from the JSONL file to `id` in the table. If None, no
+                fields are renamed. Defaults to None.
+
+        Returns:
+            None
+        """
+
         SEC_GEMINI_LOGS_PROCESSOR_API_URL = os.environ.get(
             "SEC_GEMINI_LOGS_PROCESSOR_API_URL"
         )
@@ -808,6 +831,8 @@ class InteractiveSession:
                             "can_log": self.can_log,
                             "log_lines": log_lines,
                         }
+                        if custom_fields_mapping is not None:
+                            payload["custom_fields_mapping"] = custom_fields_mapping
                         response = client.post(
                             f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/upload_logs",
                             json=payload,
