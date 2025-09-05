@@ -53,7 +53,7 @@ async def main(
     if len(custom_fields_mapping) > 0:
         print(f"Parsed custom fields mapping: {custom_fields_mapping}")
 
-    sg = SecGemini()
+    sg = SecGemini(debug=True)
     print("SecGemini object instantiated correctly")
 
     session = sg.create_session(enable_logging=enable_logging)
