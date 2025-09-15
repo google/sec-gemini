@@ -1,5 +1,5 @@
 ---
-title: How to guide for our webcomponent
+title: How-To Guide for the Sec-Gemini Web Component
 description: Learn how to install on your site
 ---
 

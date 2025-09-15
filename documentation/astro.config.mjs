@@ -29,7 +29,7 @@ export default defineConfig({
               ]
             },
             { label: "Vanilla JS Example", slug: "guides/vanilla" },
-            { label: "Webcomponent Example", slug: "guides/webcomponent" },
+            { label: "Web Component Example", slug: "guides/webcomponent" },
           ],
         },
         {
