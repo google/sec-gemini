@@ -766,7 +766,9 @@ class InteractiveSession:
 
         if self.logs_processor_api_url is None:
             log.error(
-                "SEC_GEMINI_LOGS_PROCESSOR_API_URL environment variable not set. Please set it."
+                "Please set a valid logs processor API URL, "
+                "by passing logs_processor_api_url to SecGemini() or "
+                "setting the SEC_GEMINI_LOGS_PROCESSOR_API_URL environment variable."
             )
             sys.exit(1)
 
