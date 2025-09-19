@@ -64,12 +64,19 @@ class InteractiveSession:
         base_websockets_url: str,
         api_key: str,
         enable_logging: bool = True,
+        logs_processor_api_url: str | None = None,
     ):
         self.user = user
         self.base_url = base_url
         self.websocket_url = base_websockets_url
         self.api_key = api_key
         self.enable_logging = enable_logging
+        if logs_processor_api_url is None:
+            self.logs_processor_api_url = os.environ.get(
+                "SEC_GEMINI_LOGS_PROCESSOR_API_URL"
+            )
+        else:
+            self.logs_processor_api_url = logs_processor_api_url
         self.http = NetworkClient(self.base_url, self.api_key)
         self._session: Optional[PublicSession] = None  # session object
 
@@ -757,10 +764,7 @@ class InteractiveSession:
             None
         """
 
-        SEC_GEMINI_LOGS_PROCESSOR_API_URL = os.environ.get(
-            "SEC_GEMINI_LOGS_PROCESSOR_API_URL"
-        )
-        if SEC_GEMINI_LOGS_PROCESSOR_API_URL is None:
+        if self.logs_processor_api_url is None:
             log.error(
                 "SEC_GEMINI_LOGS_PROCESSOR_API_URL environment variable not set. Please set it."
             )
@@ -784,7 +788,7 @@ class InteractiveSession:
 
                 log.info(f"Creating logs table {logs_hash=} and {self.can_log=}")
                 response = client.post(
-                    f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/create_logs_table",
+                    f"{self.logs_processor_api_url}/create_logs_table",
                     params=params,
                     headers=headers,
                     timeout=None,
@@ -834,7 +838,7 @@ class InteractiveSession:
                         if custom_fields_mapping:
                             payload["custom_fields_mapping"] = custom_fields_mapping
                         response = client.post(
-                            f"{SEC_GEMINI_LOGS_PROCESSOR_API_URL}/upload_logs",
+                            f"{self.logs_processor_api_url}/upload_logs",
                             json=payload,
                             headers=headers,
                             timeout=None,
