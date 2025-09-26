@@ -1,3 +1,4 @@
+
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,29 +16,24 @@
 
 from enum import Enum
 
-
 class FeedbackType(str, Enum):
     """Type of feedback that can be sent to the system."""
 
     USER_FEEDBACK = "user_feedback"
     BUG_REPORT = "bug_report"
 
-
 class VectorDistance(str, Enum):
     COSINE = "COSINE"
     DOT_PRODUCT = "DOT_PRODUCT"
     EUCLIDEAN = "EUCLIDEAN"
 
-
 class UserType(str, Enum):
     "User type"
-
-    UI = "ui"  # user interface
+    UI = "ui"   # user interface
     USER = "user"  # system user
     ADMIN = "admin"  # admin user
     SYSTEM = "system"  # orchestrator system user
-    SERVICE = "service"  # microservice
-
+    SERVICE = "service" # microservice
 
 class ResponseStatus(int, Enum):
     # 2xx Success
@@ -102,18 +98,14 @@ class ResponseStatus(int, Enum):
     NOT_EXTENDED = 510
     NETWORK_AUTHENTICATION_REQUIRED = 511
 
-
 class Role(str, Enum):
     "Describe the role associated with the completion"
-
     USER = "user"
     AGENT = "agent"
-    SYSTEM = "system"  # those are not returned to the user
-
+    SYSTEM = "system"   # those are not returned to the user
 
 class MimeType(str, Enum):
     "Completion type"
-
     TEXT = "text/plain"
     MARKDOWN = "text/markdown"
     SERIALIZED_JSON = "text/serialized-json"
@@ -136,6 +128,7 @@ class MimeType(str, Enum):
     # VIDEO
     WEBM = "video/webm"
     MP4 = "video/mp4"
+
 
     # CODE
     C = "text/c"
@@ -164,6 +157,7 @@ class MimeType(str, Enum):
     JSON = "application/json"
     JSONL = "application/jsonl"
 
+
     # COMPRESSED
     # NOTE: Gemini does not support compressed files
     # ZIP = "application/zip"
@@ -190,18 +184,15 @@ class MimeType(str, Enum):
     SG_TABLE = "sec-gemini/table"  # internal type used to represent a table
     SG_IMAGE = "sec-gemini/image"  # internal type used to represent an image / base64.
     SG_CODE = "sec-gemini/code"  # internal type used to represent a code generation / execution block
-    SG_MARKDOWN = (
-        "sec-gemini/markdown"  # internal type used to represent a markdown block
-    )
+    SG_MARKDOWN = "sec-gemini/markdown"  # internal type used to represent a markdown block
     SG_JSON = "sec-gemini/json"  # internal type used to represent a json block
     SG_HTML = "sec-gemini/html"  # internal type used to represent an html block
     SG_CANVAS = "sec-gemini/canvas"  # internal type used to represent a canvas block
 
-
 class State(str, Enum):
     UNDEFINED = "undefined"
 
-    START = "start"  # turn started
+    START  = "start"  # turn started
     END = "end"  # turn completed
 
     QUERY = "query"  # user query
@@ -233,14 +224,12 @@ class MessageType(str, Enum):
     RESULT = "result"  # result message
     SOURCE = "source"  # cite a source used during the generation
     DEBUG = "debug"  # debug message
-    INFO = "info"  # transient info message only used in streaming
+    INFO = "info"   # transient info message only used in streaming
     ERROR = "error"  # error message
     THINKING = "thinking"  # thinking message that persist in the thinking panel
 
     # mutation messages
-    UPDATE = (
-        "update"  # update message that modify the output. e.g grounding or new fact
-    )
+    UPDATE = "update"  # update message that modify the output. e.g grounding or new fact
     DELETE = "delete"  # Ask to delete a previous message by id
 
     # User actions
@@ -249,3 +238,8 @@ class MessageType(str, Enum):
 
     # User messages
     QUERY = "query"
+
+
+    # Local tool messages
+    LOCAL_TOOL_CALL = "local_tool_call"
+    LOCAL_TOOL_RESULT = "local_tool_result"

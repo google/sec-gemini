@@ -1,3 +1,4 @@
+
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 
 
 from typing import Optional
@@ -32,10 +34,11 @@ class Attachment(BaseModel):
         title="Filename",
         description="The name of the file.",
     )
+
     mime_type: Optional[str] = Field(
         None,
         title="Mime Type",
-        description="The mime type of the file. This is used as a hint, and it may be ignored.",
+        description="The mime type of the file. This is used as a hint, and it may be overridden.",
         deprecated=True,
     )
 
