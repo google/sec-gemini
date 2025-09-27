@@ -38,6 +38,7 @@ class _EndPoints(str, Enum):
     # messages
     GENERATE = "/v1/session/generate"
     STREAM = "/v1/stream"
+    TOOLS = "/v1/tools"
 
     # sessions
     REGISTER_SESSION = "/v1/session/register"

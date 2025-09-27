@@ -25,6 +25,7 @@ from .usage import Usage
 from .message import Message
 from .enums import State
 from .modelinfo import ModelInfo
+from .local_tool import LocalTool
 
 class PublicUserVendor(BaseModel):
     name: str = Field(..., title="Vendor Name")
@@ -131,6 +132,9 @@ class PublicSession(BaseModel):
 
     logs_table: PublicLogsTable | None = Field(None, title="Logs Table",
                                                description="Logs table attached to the session, if any.",)
+
+    local_tools: list[LocalTool] = Field(default_factory=list, title="Local Tools",
+                                         description="The list of local tools available for this session.")
 
 
 class PublicLogsTable(BaseModel):

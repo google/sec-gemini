@@ -211,7 +211,7 @@ export type HttpValidationError = {
  * LocalTool
  * Normalized representation of a tool/function.
  */
-export type LocalTool = {
+export type LocalToolInput = {
     /**
      * Name
      * The unique name/identifier of the tool
@@ -225,11 +225,46 @@ export type LocalTool = {
     /**
      * Schema defining the input parameters
      */
-    parameters: Schema;
+    parameters: SchemaInput;
     /**
      * Schema defining the output/return value
      */
-    returns?: Schema | null;
+    returns?: SchemaInput | null;
+    /**
+     * Version
+     * Version identifier for this tool definition
+     */
+    version?: string | null;
+    /**
+     * Tags
+     * List of tags for categorization
+     */
+    tags?: Array<string> | null;
+};
+
+/**
+ * LocalTool
+ * Normalized representation of a tool/function.
+ */
+export type LocalToolOutput = {
+    /**
+     * Name
+     * The unique name/identifier of the tool
+     */
+    name: string;
+    /**
+     * Description
+     * Comprehensive description of what the tool does
+     */
+    description: string;
+    /**
+     * Schema defining the input parameters
+     */
+    parameters: SchemaOutput;
+    /**
+     * Schema defining the output/return value
+     */
+    returns?: SchemaOutput | null;
     /**
      * Version
      * Version identifier for this tool definition
@@ -838,6 +873,11 @@ export type PublicSessionInput = {
      * Logs table attached to the session, if any.
      */
     logs_table?: PublicLogsTable | null;
+    /**
+     * Local Tools
+     * The list of local tools available for this session.
+     */
+    local_tools?: Array<LocalToolInput>;
 };
 
 /**
@@ -933,6 +973,11 @@ export type PublicSessionOutput = {
      * Logs table attached to the session, if any.
      */
     logs_table?: PublicLogsTable | null;
+    /**
+     * Local Tools
+     * The list of local tools available for this session.
+     */
+    local_tools?: Array<LocalToolOutput>;
 };
 
 /**
@@ -1065,7 +1110,7 @@ export type Role = 'user' | 'agent' | 'system';
  * object](https://spec.openapis.org/oas/v3.0.3#schema-object). More fields may
  * be added in the future as needed.
  */
-export type Schema = {
+export type SchemaInput = {
     /**
      * Additional Properties
      * Optional. Can either be a boolean or an object; controls the presence of additional properties.
@@ -1076,7 +1121,7 @@ export type Schema = {
      * Optional. A map of definitions for use by `ref` Only allowed at the root of the schema.
      */
     defs?: {
-        [key: string]: Schema;
+        [key: string]: SchemaInput;
     } | null;
     /**
      * Ref
@@ -1087,7 +1132,7 @@ export type Schema = {
      * Any Of
      * Optional. The value should be validated against any (one or more) of the subschemas in the list.
      */
-    any_of?: Array<Schema> | null;
+    any_of?: Array<SchemaInput> | null;
     /**
      * Default
      * Optional. Default value of the data.
@@ -1116,7 +1161,7 @@ export type Schema = {
     /**
      * Optional. SCHEMA FIELDS FOR TYPE ARRAY Schema of the elements of Type.ARRAY.
      */
-    items?: Schema | null;
+    items?: SchemaInput | null;
     /**
      * Max Items
      * Optional. Maximum number of the elements for Type.ARRAY.
@@ -1172,7 +1217,145 @@ export type Schema = {
      * Optional. SCHEMA FIELDS FOR TYPE OBJECT Properties of Type.OBJECT.
      */
     properties?: {
-        [key: string]: Schema;
+        [key: string]: SchemaInput;
+    } | null;
+    /**
+     * Property Ordering
+     * Optional. The order of the properties. Not a standard field in open api spec. Only used to support the order of the properties.
+     */
+    property_ordering?: Array<string> | null;
+    /**
+     * Required
+     * Optional. Required properties of Type.OBJECT.
+     */
+    required?: Array<string> | null;
+    /**
+     * Title
+     * Optional. The title of the Schema.
+     */
+    title?: string | null;
+    /**
+     * Optional. The type of the data.
+     */
+    type?: Type | null;
+};
+
+/**
+ * Schema
+ * Schema is used to define the format of input/output data.
+ *
+ * Represents a select subset of an [OpenAPI 3.0 schema
+ * object](https://spec.openapis.org/oas/v3.0.3#schema-object). More fields may
+ * be added in the future as needed.
+ */
+export type SchemaOutput = {
+    /**
+     * Additional Properties
+     * Optional. Can either be a boolean or an object; controls the presence of additional properties.
+     */
+    additional_properties?: unknown | null;
+    /**
+     * Defs
+     * Optional. A map of definitions for use by `ref` Only allowed at the root of the schema.
+     */
+    defs?: {
+        [key: string]: SchemaOutput;
+    } | null;
+    /**
+     * Ref
+     * Optional. Allows indirect references between schema nodes. The value should be a valid reference to a child of the root `defs`. For example, the following schema defines a reference to a schema node named "Pet": type: object properties: pet: ref: #/defs/Pet defs: Pet: type: object properties: name: type: string The value of the "pet" property is a reference to the schema node named "Pet". See details in https://json-schema.org/understanding-json-schema/structuring
+     */
+    ref?: string | null;
+    /**
+     * Any Of
+     * Optional. The value should be validated against any (one or more) of the subschemas in the list.
+     */
+    any_of?: Array<SchemaOutput> | null;
+    /**
+     * Default
+     * Optional. Default value of the data.
+     */
+    default?: unknown | null;
+    /**
+     * Description
+     * Optional. The description of the data.
+     */
+    description?: string | null;
+    /**
+     * Enum
+     * Optional. Possible values of the element of primitive type with enum format. Examples: 1. We can define direction as : {type:STRING, format:enum, enum:["EAST", NORTH", "SOUTH", "WEST"]} 2. We can define apartment number as : {type:INTEGER, format:enum, enum:["101", "201", "301"]}
+     */
+    enum?: Array<string> | null;
+    /**
+     * Example
+     * Optional. Example of the object. Will only populated when the object is the root.
+     */
+    example?: unknown | null;
+    /**
+     * Format
+     * Optional. The format of the data. Supported formats: for NUMBER type: "float", "double" for INTEGER type: "int32", "int64" for STRING type: "email", "byte", etc
+     */
+    format?: string | null;
+    /**
+     * Optional. SCHEMA FIELDS FOR TYPE ARRAY Schema of the elements of Type.ARRAY.
+     */
+    items?: SchemaOutput | null;
+    /**
+     * Max Items
+     * Optional. Maximum number of the elements for Type.ARRAY.
+     */
+    max_items?: number | null;
+    /**
+     * Max Length
+     * Optional. Maximum length of the Type.STRING
+     */
+    max_length?: number | null;
+    /**
+     * Max Properties
+     * Optional. Maximum number of the properties for Type.OBJECT.
+     */
+    max_properties?: number | null;
+    /**
+     * Maximum
+     * Optional. Maximum value of the Type.INTEGER and Type.NUMBER
+     */
+    maximum?: number | null;
+    /**
+     * Min Items
+     * Optional. Minimum number of the elements for Type.ARRAY.
+     */
+    min_items?: number | null;
+    /**
+     * Min Length
+     * Optional. SCHEMA FIELDS FOR TYPE STRING Minimum length of the Type.STRING
+     */
+    min_length?: number | null;
+    /**
+     * Min Properties
+     * Optional. Minimum number of the properties for Type.OBJECT.
+     */
+    min_properties?: number | null;
+    /**
+     * Minimum
+     * Optional. SCHEMA FIELDS FOR TYPE INTEGER and NUMBER Minimum value of the Type.INTEGER and Type.NUMBER
+     */
+    minimum?: number | null;
+    /**
+     * Nullable
+     * Optional. Indicates if the value may be null.
+     */
+    nullable?: boolean | null;
+    /**
+     * Pattern
+     * Optional. Pattern of the Type.STRING to restrict a string to a regular expression.
+     */
+    pattern?: string | null;
+    /**
+     * Properties
+     * Optional. SCHEMA FIELDS FOR TYPE OBJECT Properties of Type.OBJECT.
+     */
+    properties?: {
+        [key: string]: SchemaOutput;
     } | null;
     /**
      * Property Ordering
@@ -1210,11 +1393,6 @@ export type SessionRequest = {
      * new query messages
      */
     messages: Array<MessageInput>;
-    /**
-     * Local Tools
-     * The list of local tools available for this session.
-     */
-    local_tools?: Array<LocalTool>;
 };
 
 /**

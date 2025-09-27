@@ -15,10 +15,8 @@
 
 
 from uuid import uuid4
-
 from pydantic import BaseModel, Field
 
-from .local_tool import LocalTool
 from .message import Message
 
 
@@ -31,7 +29,3 @@ class SessionRequest(BaseModel):
 
     messages: list[Message] = Field(..., title="Messages",
                                     description="new query messages")
-
-    local_tools: list[LocalTool] = Field(default_factory=list, title="Local Tools",
-                                         description="The list of local tools available for this session.")
-
