@@ -57,6 +57,7 @@ from .models.public import (
 from .models.session_request import SessionRequest
 from .models.session_response import SessionResponse
 from .models.usage import Usage
+from .utils import generate_session_name
 
 DEBUG = False
 
@@ -611,7 +612,7 @@ class InteractiveSession:
                                         return # Terminate on error
 
                                     yield msg
-                                    
+
                                     if msg.state == State.END:
                                         return # Terminate gracefully
 
@@ -625,7 +626,7 @@ class InteractiveSession:
                                         await tools_ws.send(tool_output_message.model_dump_json())
                                     else:
                                         log.warning(f"Received unexpected message on tools channel: {msg.message_type}")
-                                    
+
                                     # Add a new listening task for the tools websocket
                                     tasks[asyncio.create_task(tools_ws.recv())] = tools_ws
 
@@ -682,13 +683,8 @@ class InteractiveSession:
             return error_message
         try:
             dmegs = f"Executing tool '{tool_name}' with args: {tool_args}"
-            log.debug(dmegs)
-            rprint(f"[yellow]{dmegs}[/yellow]")
-
-            log.info(f"Executing tool '{tool_name}'")
-            tool_output = tool_function(**tool_args)
-            rprint(f"[green]output:[/green] {tool_output}")
-
+            log.info(dmegs)
+            tool_output = str(tool_function(**tool_args))
             output_message = Message(
                 role=Role.USER,
                 message_type=MessageType.LOCAL_TOOL_RESULT,
@@ -700,6 +696,7 @@ class InteractiveSession:
             return output_message
         except Exception as e:
             msg = f"Tool '{tool_name}' execution failed: {e}"
+            rprint(f"[red]{msg}[/red]")
             log.warning(msg)
             error_message = Message(
                 role=Role.USER,
@@ -742,151 +739,8 @@ class InteractiveSession:
 
     def _generate_session_name(self) -> str:
         """Generates a unique  cybersecurity session themed name."""
+        return generate_session_name()
 
-        terms = [
-            "firewall",
-            "xss",
-            "sql-injection",
-            "csrf",
-            "dos",
-            "botnet",
-            "rsa",
-            "aes",
-            "sha",
-            "hmac",
-            "xtea",
-            "twofish",
-            "serpent",
-            "dh",
-            "ecc",
-            "dsa",
-            "pgp",
-            "vpn",
-            "tor",
-            "dns",
-            "tls",
-            "ssl",
-            "https",
-            "ssh",
-            "sftp",
-            "snmp",
-            "ldap",
-            "kerberos",
-            "oauth",
-            "bcrypt",
-            "scrypt",
-            "argon2",
-            "pbkdf2",
-            "ransomware",
-            "trojan",
-            "rootkit",
-            "keylogger",
-            "adware",
-            "spyware",
-            "worm",
-            "virus",
-            "antivirus",
-            "sandbox",
-            "ids",
-            "ips",
-            "honeybot",
-            "honeypot",
-            "siem",
-            "nids",
-            "hids",
-            "waf",
-            "dast",
-            "sast",
-            "vulnerability",
-            "exploit",
-            "0day",
-            "logjam",
-            "heartbleed",
-            "shellshock",
-            "poodle",
-            "spectre",
-            "meltdown",
-            "rowhammer",
-            "sca",
-            "padding",
-            "oracle",
-        ]
-
-        adjs = [
-            "beautiful",
-            "creative",
-            "dangerous",
-            "elegant",
-            "fancy",
-            "gorgeous",
-            "handsome",
-            "intelligent",
-            "jolly",
-            "kind",
-            "lovely",
-            "magnificent",
-            "nice",
-            "outstanding",
-            "perfect",
-            "quick",
-            "reliable",
-            "smart",
-            "talented",
-            "unique",
-            "vibrant",
-            "wonderful",
-            "young",
-            "zany",
-            "amazing",
-            "brave",
-            "calm",
-            "delightful",
-            "eager",
-            "faithful",
-            "gentle",
-            "happy",
-            "incredible",
-            "jovial",
-            "keen",
-            "lucky",
-            "merry",
-            "nice",
-            "optimistic",
-            "proud",
-            "quiet",
-            "reliable",
-            "scary",
-            "thoughtful",
-            "upbeat",
-            "victorious",
-            "witty",
-            "zealous",
-            "adorable",
-            "brilliant",
-            "charming",
-            "daring",
-            "eager",
-            "fearless",
-            "graceful",
-            "honest",
-            "intelligent",
-            "jolly",
-            "kind",
-            "lively",
-            "modest",
-            "nice",
-            "optimistic",
-            "proud",
-            "quiet",
-            "reliable",
-            "silly",
-            "thoughtful",
-            "upbeat",
-            "victorious",
-            "witty",
-        ]
-
-        return f"{random.choice(adjs)}-{random.choice(terms)}"
 
     def upload_and_attach_logs(
         self, jsonl_path: Path, custom_fields_mapping: dict[str, str] | None = None

@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import sys
 from pathlib import Path
@@ -12,111 +13,190 @@ from sec_gemini.models.local_tool import LocalTool
 import json
 from typing import Callable, Literal, get_args
 
-def create_function_from_spec(spec: dict) -> Callable:
-    """
-    Parses an OpenAI tool specification and dynamically creates a Python function.
+def list_dir(path: str = ".") -> list[str]:
+    """List files in a directory."""
+    p = Path(path)
+    return [str(f) for f in p.iterdir()]
 
-    Args:
-        spec: A dictionary representing the OpenAI tool JSON specification.
+def read_file(file_path: str) -> str:
+    """Read the content of a file."""
+    p = Path(file_path)
+    if not p.is_file():
+        return f"Error: {file_path} is not a valid file."
+    return p.read_text()
 
-    Returns:
-        A callable Python function object with proper signature, type hints,
-        and docstring.
-    """
-    if spec.get("type") != "function" or "function" not in spec:
-        raise ValueError("Invalid tool spec: 'type' must be 'function' and 'function' key must exist.")
+def grep_file(file_path: str, search_term: str) -> list[str]:
+    """Search for a term in a file and return matching lines."""
+    p = Path(file_path)
+    if not p.is_file():
+        return [f"Error: {file_path} is not a valid file."]
+    with p.open() as f:
+        return [line.strip() for line in f if search_term in line]
 
-    func_details = spec["function"]
-    func_name = func_details["name"]
-    func_description = func_details.get("description", "")
+def write_file(file_path: str, content: str) -> str:
+    """Write content to a file."""
+    p = Path(file_path)
+    try:
+        p.write_text(content)
+        return f"Successfully wrote to {file_path}"
+    except Exception as e:
+        return f"Error writing to file: {e}"
 
-    parameters = func_details.get("parameters", {})
-    props = parameters.get("properties", {})
-    required_params = parameters.get("required", [])
+def append_file(file_path: str, content: str) -> str:
+    """Append content to a file."""
+    p = Path(file_path)
+    try:
+        with p.open("a") as f:
+            f.write(content)
+        return f"Successfully appended to {file_path}"
+    except Exception as e:
+        return f"Error appending to file: {e}"
 
-    # A mapping from JSON schema types to Python types
-    type_mapping = {
-        "string": "str",
-        "number": "float",
-        "integer": "int",
-        "boolean": "bool",
-        "array": "list",
-        "object": "dict",
-    }
+def delete_file(file_path: str) -> str:
+    """Delete a file."""
+    p = Path(file_path)
+    if not p.is_file():
+        return f"Error: {file_path} is not a valid file."
+    try:
+        p.unlink()
+        return f"Successfully deleted {file_path}"
+    except Exception as e:
+        return f"Error deleting file: {e}"
 
-    # --- 1. Construct the function signature ---
-    param_strings = []
-    arg_docstrings = ["Args:"]
+def list_processes() -> list[str]:
+    """List the current running processes."""
+    import subprocess
+    try:
+        result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
+        return result.stdout.splitlines()
+    except Exception as e:
+        return [f"Error listing processes: {e}"]
 
-    # Use a local scope to define Literal types for enums
-    local_scope = {"Literal": Literal}
-
-    for name, details in props.items():
-        param_type = details.get("type")
-
-        # Handle enums by creating a Literal type
-        if "enum" in details:
-            enum_name = f"{name.capitalize()}Enum"
-            enum_values = tuple(details["enum"])
-            local_scope[enum_name] = Literal[enum_values]
-            python_type = enum_name
-
-            # Add enum choices to the parameter description
-            enum_choices = f"Must be one of: {', '.join(map(repr, enum_values))}."
-            details["description"] = f"{details.get('description', '')} {enum_choices}".strip()
+def get_ip() -> str:
+    """Get the IP address of the machine."""
+    import subprocess
+    import platform
+    try:
+        if platform.system() == "Windows":
+            result = subprocess.run(['ipconfig'], capture_output=True, text=True, check=True)
         else:
-            python_type = type_mapping.get(param_type, "Any")
+            result = subprocess.run(['ifconfig'], capture_output=True, text=True, check=True)
+        return result.stdout
+    except Exception as e:
+        return f"Error getting IP address: {e}"
 
-        # Build the docstring for the argument
-        arg_docstrings.append(f"    {name} ({python_type}): {details.get('description', '')}")
-
-        # Determine if the parameter is required or optional (has a default)
-        if name in required_params:
-            param_strings.append(f"{name}: {python_type}")
+def get_route() -> str:
+    """Get the routing table of the machine."""
+    import subprocess
+    import platform
+    try:
+        if platform.system() == "Windows":
+            result = subprocess.run(['route', 'print'], capture_output=True, text=True, check=True)
         else:
-            param_strings.append(f"{name}: {python_type} = None")
+            result = subprocess.run(['netstat', '-rn'], capture_output=True, text=True, check=True)
+        return result.stdout
+    except Exception as e:
+        return f"Error getting routing table: {e}"
 
-    signature = ", ".join(param_strings)
+def get_os_info() -> str:
+    """Get the OS information of the machine."""
+    import platform
+    return f"System: {platform.system()}, Release: {platform.release()}, Version: {platform.version()}"
 
-    # --- 2. Construct the full function code string ---
-    full_docstring = f'"""{func_description}\n\n{"\n".join(arg_docstrings)}\n"""'
+def sha256_file(file_path: str) -> str:
+    """Calculate the SHA256 hash of a file."""
+    import hashlib
+    p = Path(file_path)
+    if not p.is_file():
+        return f"Error: {file_path} is not a valid file."
+    try:
+        hasher = hashlib.sha256()
+        with p.open("rb") as f:
+            buf = f.read(65536)
+            while len(buf) > 0:
+                hasher.update(buf)
+                buf = f.read(65536)
+        return hasher.hexdigest()
+    except Exception as e:
+        return f"Error calculating SHA256: {e}"
 
-    # The function body can be a placeholder
-    function_body = "    pass"
+def tail_file(file_path: str, n_lines: int = 10) -> list[str]:
+    """Return the last N lines of a file."""
+    p = Path(file_path)
+    if not p.is_file():
+        return [f"Error: {file_path} is not a valid file."]
+    try:
+        with p.open() as f:
+            lines = f.readlines()
+        return [line.strip() for line in lines[-n_lines:]]
+    except Exception as e:
+        return [f"Error reading file: {e}"]
 
-    code_string = f"def {func_name}({signature}):\n{full_docstring}\n{function_body}"
+def head_file(file_path: str, n_lines: int = 10) -> list[str]:
+    """Return the first N lines of a file."""
+    p = Path(file_path)
+    if not p.is_file():
+        return [f"Error: {file_path} is not a valid file."]
+    try:
+        with p.open() as f:
+            lines = [next(f) for _ in range(n_lines)]
+        return [line.strip() for line in lines]
+    except StopIteration:
+        # If the file has fewer than n_lines, we'll get a StopIteration
+        with p.open() as f:
+            return [line.strip() for line in f.readlines()]
+    except Exception as e:
+        return [f"Error reading file: {e}"]
 
-    print("--- Generated Python Code ---")
-    print(code_string)
-    print("---------------------------\n")
+def regex_search_file(file_path: str, pattern: str) -> list[str]:
+    """Search for a regex pattern in a file and return matching lines."""
+    import re
+    p = Path(file_path)
+    if not p.is_file():
+        return [f"Error: {file_path} is not a valid file."]
+    try:
+        matches = []
+        with p.open() as f:
+            for line in f:
+                if re.search(pattern, line):
+                    matches.append(line.strip())
+        return matches
+    except Exception as e:
+        return [f"Error searching file: {e}"]
 
-    # --- 3. Execute the code string to create the function ---
-    # We pass the local_scope which contains our dynamically created Enum types
-    exec_scope = {}
-    exec(code_string, local_scope, exec_scope)
+def get_disk_size(path: str = ".") -> str:
+    """Get the total and free disk space for a given path."""
+    import shutil
+    try:
+        total, used, free = shutil.disk_usage(path)
+        return f"Total: {total // (2**30)} GiB, Used: {used // (2**30)} GiB, Free: {free // (2**30)} GiB"
+    except Exception as e:
+        return f"Error getting disk size: {e}"
 
-    return exec_scope[func_name]
-
-# Define a simple tool
-def get_weather(city: str) -> str:
-    """Gets the weather for a given city."""
-    city = city.lower().strip()
-    if city == "new york" or city == "new york city" or city == "nyc":
-        return "27C and sunny"
-    elif city == "london":
-        return "12C and cloudy"
-    else:
-        return "unknown"
+toolist = [
+    list_dir, read_file, grep_file, write_file, append_file, delete_file, 
+    list_processes, get_ip, get_route, get_os_info, sha256_file, 
+    tail_file, head_file, regex_search_file, get_disk_size
+]
 
 async def main():
-    # Simple command-line prompt: join all args, or use a default
-    prompt = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "what is the weather in new york?"
+    parser = argparse.ArgumentParser(description="A script that uses SecGemini to interact with local tools.")
+    parser.add_argument("prompt", nargs="?", default="which files are in my current dir ?", help="The prompt to send to the model.")
+    parser.add_argument("-l", "--list-tools", action="store_true", help="List available tools and their descriptions.")
+    args = parser.parse_args()
 
+    if args.list_tools:
+        print("Available tools:")
+        for tool in toolist:
+            print(f"  - {tool.__name__}: {tool.__doc__}")
+        return
+
+    prompt = args.prompt
     sg = SecGemini(base_url="http://localhost:8000", base_websockets_url="ws://localhost:8000")
     print("SecGemini object instantiated correctly")
 
     # Create a session with the local tool
-    session = sg.create_session(tools=[get_weather])
+    session = sg.create_session(tools=toolist)
     print("Session created successfully with local tool")
 
     # Query the model with the prompt from the command line
