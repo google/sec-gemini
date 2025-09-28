@@ -3,6 +3,7 @@ import asyncio
 import sys
 from pathlib import Path
 import rich
+from rich.markdown import Markdown
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sec_gemini import SecGemini, State
@@ -174,8 +175,8 @@ def get_disk_size(path: str = ".") -> str:
         return f"Error getting disk size: {e}"
 
 toolist = [
-    list_dir, read_file, grep_file, write_file, append_file, delete_file, 
-    list_processes, get_ip, get_route, get_os_info, sha256_file, 
+    list_dir, read_file, grep_file, write_file, append_file, delete_file,
+    list_processes, get_ip, get_route, get_os_info, sha256_file,
     tail_file, head_file, regex_search_file, get_disk_size
 ]
 
@@ -204,7 +205,17 @@ async def main():
         if message.mime_type == MimeType.SERIALIZED_JSON:
             try:
                 content = json.loads(message.content)
-                rich.print(content)
+                if 'tool_name' in content:
+                    tool_name = content['tool_name']
+                    tool_args = content.get('args')
+                    if not tool_args:
+                        tool_args = content.get('tool_args', [])
+
+                    argstr = ", ".join(f"{k}={v!r}" for k, v in tool_args.items())
+
+                    rich.print(f"[green][bold]{tool_name}[/bold]\n{argstr}[/green]")
+                else:
+                    rich.print(content)
             except json.JSONDecodeError:
                 rich.print(f"[bold red]Failed to decode JSON:[/bold red] {message.content}")
         elif message.state.value == State.END.value:
@@ -213,7 +224,8 @@ async def main():
         elif message.message_type.value == MessageType.INFO.value:
             rich.print(f"[blue]info: {message.get_content()}")
         else:
-            rich.print(f"[white]{message.content}")
+            md = Markdown(message.content)
+            rich.print("[white]", md)
 
 if __name__ == "__main__":
     asyncio.run(main())
