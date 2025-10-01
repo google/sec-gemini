@@ -767,7 +767,7 @@ class InteractiveSession:
         if self.logs_processor_api_url is None:
             log.error(
                 "Logs processor API URL required: explictly pass it or set env"
-                " variable SEC_GEMINI_LOGS_PROCESSOR_API_URL (e.g in .env)."
+                " variable SEC_GEMINI_LOGS_PROCESSOR_API_URL (e.g., in .env)."
             )
             sys.exit(1)
 
