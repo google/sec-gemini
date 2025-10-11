@@ -11,6 +11,8 @@ config.toml
 keys.json
 workdir/
 tmp/
+dev/
+
 *.pyc
 __pycache__/
 .ipynb_checkpoints

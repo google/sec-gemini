@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-from typing import List
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -32,6 +31,6 @@ class SessionRequest(BaseModel):
         description="The Session ID (UUID4) this request belongs to.",
     )
 
-    messages: List[Message] = Field(
+    messages: list[Message] = Field(
         ..., title="Messages", description="new query messages"
     )
