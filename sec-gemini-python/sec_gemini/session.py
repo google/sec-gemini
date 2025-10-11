@@ -19,9 +19,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from json import tool
 import os
-import random
 import sys
 import traceback
 from base64 import b64encode
@@ -30,11 +28,11 @@ from typing import Any, AsyncIterator, Callable, Optional
 
 import httpx
 import websockets
+from mcp.server.fastmcp.tools import Tool
+from rich import print as rprint
 from rich.console import Console
 from rich.tree import Tree
 from tqdm import tqdm
-from mcp.server.fastmcp.tools import Tool
-from rich import print as rprint
 
 from .constants import DEFAULT_TTL
 from .enums import _EndPoints
@@ -478,14 +476,19 @@ class InteractiveSession:
                     local_tool = LocalTool.from_dict(mcp_tool.model_dump())
                     self._local_tool_functions[local_tool.name] = tool
                     local_tools.append(local_tool)
-                    log.info(f"Registered local tool: {local_tool.name} - {local_tool.description}")
+                    log.info(
+                        f"Registered local tool: {local_tool.name} - {local_tool.description}"
+                    )
                 else:
-                    log.warning(f"Invalid tool type: {type(tool)}. Only callables are supported.")
+                    log.warning(
+                        f"Invalid tool type: {type(tool)}. Only callables are supported."
+                    )
 
         if mcp_servers:
             for server in mcp_servers:
-                raise NotImplementedError(f"Remote tools from MCP server '{server}' are not yet supported.")
-
+                raise NotImplementedError(
+                    f"Remote tools from MCP server '{server}' are not yet supported."
+                )
 
         if isinstance(model, ModelInfo):
             model_info = model
@@ -569,7 +572,6 @@ class InteractiveSession:
 
         return session_resp
 
-
     async def stream(self, prompt: str) -> AsyncIterator[Message]:
         """Streaming Generation/Completion Request"""
         if not prompt:
@@ -581,9 +583,10 @@ class InteractiveSession:
         max_retries = 5
         for attempt in range(max_retries):
             try:
-                async with websockets.connect(main_ws_url) as main_ws, \
-                           websockets.connect(tools_ws_url) as tools_ws:
-
+                async with (
+                    websockets.connect(main_ws_url) as main_ws,
+                    websockets.connect(tools_ws_url) as tools_ws,
+                ):
                     # Send the initial prompt to the main stream
                     message = self._build_prompt_message(prompt)
                     await main_ws.send(message.model_dump_json())
@@ -591,13 +594,12 @@ class InteractiveSession:
                     # Create initial listening tasks
                     tasks = {
                         asyncio.create_task(main_ws.recv()): main_ws,
-                        asyncio.create_task(tools_ws.recv()): tools_ws
+                        asyncio.create_task(tools_ws.recv()): tools_ws,
                     }
 
                     while tasks:
                         done, pending = await asyncio.wait(
-                            tasks.keys(),
-                            return_when=asyncio.FIRST_COMPLETED
+                            tasks.keys(), return_when=asyncio.FIRST_COMPLETED
                         )
 
                         for task in done:
@@ -608,30 +610,44 @@ class InteractiveSession:
 
                                 if ws == main_ws:
                                     if msg.status_code != ResponseStatus.OK:
-                                        log.error("[Session][Stream][Response] %d:%s", msg.status_code, msg.status_message)
-                                        return # Terminate on error
+                                        log.error(
+                                            "[Session][Stream][Response] %d:%s",
+                                            msg.status_code,
+                                            msg.status_message,
+                                        )
+                                        return  # Terminate on error
 
                                     yield msg
 
                                     if msg.state == State.END:
-                                        return # Terminate gracefully
+                                        return  # Terminate gracefully
 
                                     # Add a new listening task for the main websocket
                                     tasks[asyncio.create_task(main_ws.recv())] = main_ws
 
                                 elif ws == tools_ws:
                                     if msg.message_type == MessageType.LOCAL_TOOL_CALL:
-                                        log.info(f"Received tool call: {msg.get_content()}")
+                                        log.info(
+                                            f"Received tool call: {msg.get_content()}"
+                                        )
                                         tool_output_message = self._execute_tool(msg)
-                                        await tools_ws.send(tool_output_message.model_dump_json())
+                                        await tools_ws.send(
+                                            tool_output_message.model_dump_json()
+                                        )
                                     else:
-                                        log.warning(f"Received unexpected message on tools channel: {msg.message_type}")
+                                        log.warning(
+                                            f"Received unexpected message on tools channel: {msg.message_type}"
+                                        )
 
                                     # Add a new listening task for the tools websocket
-                                    tasks[asyncio.create_task(tools_ws.recv())] = tools_ws
+                                    tasks[asyncio.create_task(tools_ws.recv())] = (
+                                        tools_ws
+                                    )
 
                             except websockets.exceptions.ConnectionClosed:
-                                log.warning(f"Connection closed on {'main' if ws == main_ws else 'tools'} websocket.")
+                                log.warning(
+                                    f"Connection closed on {'main' if ws == main_ws else 'tools'} websocket."
+                                )
                                 # Do not re-add the task, let the loop exit if both are closed
                                 continue
                             except Exception as e:
@@ -639,10 +655,12 @@ class InteractiveSession:
                                 log.error(traceback.format_exc())
                                 # Do not re-add the task
                                 continue
-                    return # Exit the generator if all connections are closed
+                    return  # Exit the generator if all connections are closed
 
             except websockets.exceptions.ConnectionClosed as e:
-                log.error(f"Connection closed: {e}. Retrying ({attempt + 1}/{max_retries})...")
+                log.error(
+                    f"Connection closed: {e}. Retrying ({attempt + 1}/{max_retries})..."
+                )
                 if attempt == max_retries - 1:
                     raise e
                 await asyncio.sleep(1 * (attempt + 1))
@@ -650,7 +668,6 @@ class InteractiveSession:
                 log.error(f"An unexpected error occurred in stream: {e}")
                 log.error(traceback.format_exc())
                 break
-
 
     def _execute_tool(self, tool_call_message: Message) -> Message:
         """Executes a tool and returns the output message."""
@@ -676,8 +693,10 @@ class InteractiveSession:
                 message_type=MessageType.LOCAL_TOOL_RESULT,
                 mime_type=MimeType.SERIALIZED_JSON,
                 status_code=ResponseStatus.INTERNAL_ERROR,
-                error_message = msg,
-                content=json.dumps({"name": tool_name, "output": msg, "is_error": True})
+                error_message=msg,
+                content=json.dumps(
+                    {"name": tool_name, "output": msg, "is_error": True}
+                ),
             )
 
             return error_message
@@ -704,7 +723,7 @@ class InteractiveSession:
                 mime_type=MimeType.SERIALIZED_JSON,
                 status_code=ResponseStatus.INTERNAL_ERROR,
                 error_message=msg,
-                content=msg
+                content=msg,
             )
             return error_message
 
@@ -740,7 +759,6 @@ class InteractiveSession:
     def _generate_session_name(self) -> str:
         """Generates a unique  cybersecurity session themed name."""
         return generate_session_name()
-
 
     def upload_and_attach_logs(
         self, jsonl_path: Path, custom_fields_mapping: dict[str, str] | None = None

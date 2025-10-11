@@ -1,4 +1,3 @@
-
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,23 +14,31 @@
 
 
 from pydantic import BaseModel, Field
+
 from .enums import FeedbackType
 
 
 class Feedback(BaseModel):
     """Represents a feedback to the session."""
 
-    session_id: str = Field(..., title="Session ID",
-                            description="The session ID this feedback should be attached to.")
+    session_id: str = Field(
+        ...,
+        title="Session ID",
+        description="The session ID this feedback should be attached to.",
+    )
 
-    group_id: str = Field('', title="Group ID",
-                          description="The message group ID this feedback should be attached to.")
+    group_id: str = Field(
+        "",
+        title="Group ID",
+        description="The message group ID this feedback should be attached to.",
+    )
 
-    type: FeedbackType = Field(..., title="Feedback Type",
-                                         description="The type of feedback.")
+    type: FeedbackType = Field(
+        ..., title="Feedback Type", description="The type of feedback."
+    )
 
-    score: int = Field(..., title="Score",
-                       description="The score of the feedback.")
+    score: int = Field(..., title="Score", description="The score of the feedback.")
 
-    comment: str = Field(..., title="Comment",
-                         description="The comment of the feedback.")
+    comment: str = Field(
+        ..., title="Comment", description="The comment of the feedback."
+    )

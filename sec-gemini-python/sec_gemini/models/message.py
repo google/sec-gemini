@@ -1,4 +1,3 @@
-
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 
 
 from __future__ import annotations
@@ -29,44 +27,90 @@ from .usage import Usage
 
 ROOT_ID = "3713"
 
-TEXT_MIME_TYPES = [MimeType.TEXT, MimeType.HTML, MimeType.MARKDOWN,
-                    MimeType.JSON]
+TEXT_MIME_TYPES = [MimeType.TEXT, MimeType.HTML, MimeType.MARKDOWN, MimeType.JSON]
+
 
 class Message(BaseModel):
     """
     Represents the content of the session both in request and response.
     """
 
-    id: str = Field(default_factory=lambda: uuid4().hex[:12], title="Message ID", description="A unique identifier for the message - uuid4 string.",)
+    id: str = Field(
+        default_factory=lambda: uuid4().hex[:12],
+        title="Message ID",
+        description="A unique identifier for the message - uuid4 string.",
+    )
 
-    parent_id: str = Field(ROOT_ID, title="Parent Message ID", description="The ID of the parent message.")
+    parent_id: str = Field(
+        ROOT_ID, title="Parent Message ID", description="The ID of the parent message."
+    )
 
-    turn: str = Field(default_factory=lambda: uuid4().hex[:12], title="Conversation Turn", description="The turn identifier is used to group/message are part of the same conversation turn.",)
+    turn: str = Field(
+        default_factory=lambda: uuid4().hex[:12],
+        title="Conversation Turn",
+        description="The turn identifier is used to group/message are part of the same conversation turn.",
+    )
 
-    group: str = Field(default_factory=lambda: uuid4().hex, title="Message Group", description="The Group ID (UUID4) identify messages part of the same generation or action.",)
+    group: str = Field(
+        default_factory=lambda: uuid4().hex,
+        title="Message Group",
+        description="The Group ID (UUID4) identify messages part of the same generation or action.",
+    )
 
-    actor: str = Field("user", title="Actor", description="The actor of the message - user or agent.")
+    actor: str = Field(
+        "user", title="Actor", description="The actor of the message - user or agent."
+    )
 
-    role: Role = Field(Role.USER, title="Role", description="The role of the messages author.")
+    role: Role = Field(
+        Role.USER, title="Role", description="The role of the messages author."
+    )
 
     # This is deprecated in favor of created_at, to allow for more precision. It will eventually be removed.
-    timestamp: int = Field(default_factory=lambda: int(time()), title="Timestamp", description="DEPRECATED: The Unix timestamp (in seconds) of when the message was created.")
+    timestamp: int = Field(
+        default_factory=lambda: int(time()),
+        title="Timestamp",
+        description="DEPRECATED: The Unix timestamp (in seconds) of when the message was created.",
+    )
 
-    created_at: float = Field(default_factory=lambda: time(), title="Creation timestamp", description="The Unix timestamp (in seconds, including fractional parts) indicating when the message was created.")
+    created_at: float = Field(
+        default_factory=lambda: time(),
+        title="Creation timestamp",
+        description="The Unix timestamp (in seconds, including fractional parts) indicating when the message was created.",
+    )
 
-    message_type: MessageType = Field(..., title="Message Type", description="The type of message - Generation, Tool Call, or Info.")
+    message_type: MessageType = Field(
+        ...,
+        title="Message Type",
+        description="The type of message - Generation, Tool Call, or Info.",
+    )
 
-    icon: str | None = Field(None, title="Icon", description="Custom svg icon to use in the UI.")
+    icon: str | None = Field(
+        None, title="Icon", description="Custom svg icon to use in the UI."
+    )
 
-    text_color: str | None = Field(None, title="Text Color", description="Custom text color to use in the UI.")
+    text_color: str | None = Field(
+        None, title="Text Color", description="Custom text color to use in the UI."
+    )
 
-    title: str | None = Field(None, title="Title", description="Descripting title of the message.")
+    title: str | None = Field(
+        None, title="Title", description="Descripting title of the message."
+    )
 
-    state: State = Field(State.START, title="State", description="The state the message belongs to.")
+    state: State = Field(
+        State.START, title="State", description="The state the message belongs to."
+    )
 
-    content: str | None = Field(None, title="Message Content", description="The content of the message encoded as utf-8 bytes.")
+    content: str | None = Field(
+        None,
+        title="Message Content",
+        description="The content of the message encoded as utf-8 bytes.",
+    )
 
-    mime_type: MimeType | None = Field(default=MimeType.TEXT, title="Content Type", description="The content type of the content field.")
+    mime_type: MimeType | None = Field(
+        default=MimeType.TEXT,
+        title="Content Type",
+        description="The content type of the content field.",
+    )
 
     status_code: int = Field(
         ResponseStatus.OK.value,
@@ -75,11 +119,15 @@ class Message(BaseModel):
     )
 
     status_message: str = Field(
-        ResponseStatus.OK.name, title="Status Message", description="Explain status code reason."
+        ResponseStatus.OK.name,
+        title="Status Message",
+        description="Explain status code reason.",
     )
 
     usage: Usage | None = Field(
-        default_factory=Usage, title="Model Usage Statistics", description="Token counts when message was generated by model."
+        default_factory=Usage,
+        title="Model Usage Statistics",
+        description="Token counts when message was generated by model.",
     )
 
     def to_json(self):
@@ -110,7 +158,9 @@ class Message(BaseModel):
         self.status_message = status.name
         return self
 
-    def set_content(self, content: bytes | str, mime_type: MimeType = MimeType.TEXT) -> Message:
+    def set_content(
+        self, content: bytes | str, mime_type: MimeType = MimeType.TEXT
+    ) -> Message:
         """
         Set the content of the message while encoding bytes as base64.
         """

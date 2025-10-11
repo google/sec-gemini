@@ -1,5 +1,6 @@
 import random
 
+
 def generate_session_name() -> str:
     """Generates a unique  cybersecurity session themed name."""
 

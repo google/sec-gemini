@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Optional, Callable, Any
+from typing import Any, Callable, Optional
 
 from dotenv import load_dotenv
 from rich import box
@@ -27,7 +27,6 @@ from .constants import DEFAULT_TTL
 from .enums import _URLS, _EndPoints
 from .http import NetworkClient
 from .logger import get_logger
-from .models.local_tool import LocalTool
 from .models.modelinfo import ModelInfo
 from .models.public import PublicSession, UserInfo
 from .session import InteractiveSession

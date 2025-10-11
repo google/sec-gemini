@@ -1,4 +1,3 @@
-
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 
 
 from __future__ import annotations
@@ -39,24 +37,38 @@ class ToolSetVendor(BaseModel):
 
     url: str = Field(..., title="Vendor URL", description="The URL of vendor.")
 
-    svg: str = Field(..., title="Vendor SVG Icon", description="The SVG icon of the vendor.")
+    svg: str = Field(
+        ..., title="Vendor SVG Icon", description="The SVG icon of the vendor."
+    )
 
 
 class OptionalToolSet(BaseModel):
     """Describes the toolsets of a Sec-Gemini model."""
 
     name: str = Field(..., title="toolset Name", description="The name of the toolset.")
-    version: int = Field(..., title="toolset Version", description="The version of the toolset.")
+    version: int = Field(
+        ..., title="toolset Version", description="The version of the toolset."
+    )
     description: Optional[str] = Field(
         ...,
         title="toolset Description",
         description="A brief description of the toolset.",
     )
-    vendor: ToolSetVendor = Field(..., title="toolset Vendor", description="The vendor of the toolset.")
+    vendor: ToolSetVendor = Field(
+        ..., title="toolset Vendor", description="The vendor of the toolset."
+    )
 
     # This is deprecated, and will be removed in the future. Use is_enabled_by_default
-    is_enabled: bool = Field(..., title="Is Bundle Enabled by default", description="Whether the bundle is enabled by default or not.")
-    is_enabled_by_default: bool = Field(..., title="Is Bundle Enabled by default", description="Whether the bundle is enabled by default or not.")
+    is_enabled: bool = Field(
+        ...,
+        title="Is Bundle Enabled by default",
+        description="Whether the bundle is enabled by default or not.",
+    )
+    is_enabled_by_default: bool = Field(
+        ...,
+        title="Is Bundle Enabled by default",
+        description="Whether the bundle is enabled by default or not.",
+    )
     is_enabled_by_default_in_incognito: bool = Field(
         ...,
         title="Is Bundle Enabled by default in incognito mode?",
@@ -72,9 +84,13 @@ class OptionalToolSet(BaseModel):
 class ModelInfo(BaseModel):
     """Describes a Sec-Gemini model configuration."""
 
-    model_name: str = Field(..., title="Model name", description="The string used to identify the model.")
+    model_name: str = Field(
+        ..., title="Model name", description="The string used to identify the model."
+    )
 
-    version: str = Field(..., title="Model Version", description="The version of the model.")
+    version: str = Field(
+        ..., title="Model Version", description="The version of the model."
+    )
     use_experimental: bool = Field(
         False,
         title="Use Experimental",
@@ -83,12 +99,18 @@ class ModelInfo(BaseModel):
 
     # This is what is actually used when getting the full model_name, version, use_experimental
     model_string: str = Field(
-        ..., title="Model String", description="The string used to identify a model configuration."
+        ...,
+        title="Model String",
+        description="The string used to identify a model configuration.",
     )
 
-    description: Optional[str] = Field("", title="Model Description", description="A brief description of the model.")
+    description: Optional[str] = Field(
+        "", title="Model Description", description="A brief description of the model."
+    )
 
-    toolsets: list[OptionalToolSet] = Field([], title="Tools", description="Toggable tools used by the model.")
+    toolsets: list[OptionalToolSet] = Field(
+        [], title="Tools", description="Toggable tools used by the model."
+    )
 
     @staticmethod
     def parse_model_string(model_string: str) -> tuple[str, str, bool]:

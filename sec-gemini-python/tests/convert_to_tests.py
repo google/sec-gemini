@@ -1,9 +1,10 @@
 import inspect
-from typing import Optional, Union, Literal, Callable, get_origin, get_args, Any
-import json
+from typing import Any, Callable, Literal, Optional, Union, get_args, get_origin
 
-from sec_gemini.models.local_tool import LocalTool, Schema, Type
 from mcp.server.fastmcp.tools import Tool
+
+from sec_gemini.models.local_tool import LocalTool
+
 
 def function_to_localtool(tool: Callable) -> LocalTool:
     """
@@ -12,6 +13,7 @@ def function_to_localtool(tool: Callable) -> LocalTool:
     mcp_tool = Tool.from_function(tool)
     local_tool = LocalTool.from_dict(mcp_tool.model_dump())
     return local_tool
+
 
 def localtool_to_function(local_tool: LocalTool) -> Callable:
     """
@@ -47,11 +49,15 @@ def localtool_to_function(local_tool: LocalTool) -> Callable:
             local_scope[enum_name] = Literal[enum_values]
             python_type = enum_name
             enum_choices = f"Must be one of: {', '.join(map(repr, enum_values))}."
-            details["description"] = f"{details.get('description', '')} {enum_choices}".strip()
+            details["description"] = (
+                f"{details.get('description', '')} {enum_choices}".strip()
+            )
         else:
             python_type = type_mapping.get(param_type, "Any")
 
-        arg_docstrings.append(f"    {name} ({python_type}): {details.get('description', '')}")
+        arg_docstrings.append(
+            f"    {name} ({python_type}): {details.get('description', '')}"
+        )
 
         if name in fn_required_params:
             param_strings.append(f"{name}: {python_type}")
@@ -67,7 +73,7 @@ def localtool_to_function(local_tool: LocalTool) -> Callable:
     desc = f"\t{fn_description}\n\n\t{args}\n"
     full_docstring = f'\t"""{desc}\t"""'
 
-    function_body = f"\treturn locals()"
+    function_body = "\treturn locals()"
 
     code_string = f"def {fn_name}({signature_str}):\n{full_docstring}\n{function_body}"
 
@@ -87,6 +93,7 @@ def are_functions_equivalent(func1: Callable, func2: Callable, *args, **kwargs) 
     except Exception as e:
         print(f"Error during function execution: {e}")
         return False
+
 
 def generate_test_args(func: Callable) -> dict:
     """Generates a dictionary of test arguments for a given function."""
@@ -132,8 +139,9 @@ def generate_test_args(func: Callable) -> dict:
         else:
             # Fallback for any other required parameter type
             test_args[param_name] = "generic_fallback"
-            
+
     return test_args
+
 
 if __name__ == "__main__":
     # --- Test Functions ---
@@ -141,7 +149,7 @@ if __name__ == "__main__":
         """A tool with a str annotation but a None default."""
         return {"path": path}
 
-    def list_directory(path: str = '.'):
+    def list_directory(path: str = "."):
         """Lists the contents of a directory."""
         return {"path": path}
 
@@ -181,7 +189,9 @@ if __name__ == "__main__":
         """
         return {"x": x, "y": y}
 
-    def tool_with_complex_enum(action: Literal["CREATE", "UPDATE", "DELETE"] = "CREATE"):
+    def tool_with_complex_enum(
+        action: Literal["CREATE", "UPDATE", "DELETE"] = "CREATE",
+    ):
         """A tool with a more complex enum."""
         return {"action": action}
 
@@ -200,7 +210,6 @@ if __name__ == "__main__":
     def tool_with_optional_int(value: Optional[int] = None):
         """A tool with an optional int parameter."""
         return {"value": value}
-
 
     test_functions = [
         problematic_tool,

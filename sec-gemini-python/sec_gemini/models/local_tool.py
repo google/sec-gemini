@@ -1,4 +1,3 @@
-
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,10 +14,12 @@
 
 
 "Definition used to allows clients to pass local tools to the orchestrator."
-import json # noqa: E402
-from enum import Enum # noqa: E402
-from pydantic import BaseModel, Field, field_validator # noqa: E402
-from typing import List, Dict, Any, Optional, Union # noqa: E402
+
+import json  # noqa: E402
+from enum import Enum  # noqa: E402
+from typing import Any, Dict, List, Optional  # noqa: E402
+
+from pydantic import BaseModel, Field, field_validator  # noqa: E402
 
 
 class Type(str, Enum):
@@ -58,8 +59,12 @@ class Schema(BaseModel):
         default=None,
         description="""Optional. The value should be validated against any (one or more) of the subschemas in the list.""",
     )
-    default: Optional[Any] = Field(default=None, description="""Optional. Default value of the data.""")
-    description: Optional[str] = Field(default=None, description="""Optional. The description of the data.""")
+    default: Optional[Any] = Field(
+        default=None, description="""Optional. Default value of the data."""
+    )
+    description: Optional[str] = Field(
+        default=None, description="""Optional. The description of the data."""
+    )
     enum: Optional[list[str]] = Field(
         default=None,
         description="""Optional. Possible values of the element of primitive type with enum format. Examples: 1. We can define direction as : {type:STRING, format:enum, enum:["EAST", NORTH", "SOUTH", "WEST"]} 2. We can define apartment number as : {type:INTEGER, format:enum, enum:["101", "201", "301"]}""",
@@ -128,8 +133,12 @@ class Schema(BaseModel):
         default=None,
         description="""Optional. Required properties of Type.OBJECT.""",
     )
-    title: Optional[str] = Field(default=None, description="""Optional. The title of the Schema.""")
-    type: Optional[Type] = Field(default=None, description="""Optional. The type of the data.""")
+    title: Optional[str] = Field(
+        default=None, description="""Optional. The title of the Schema."""
+    )
+    type: Optional[Type] = Field(
+        default=None, description="""Optional. The type of the data."""
+    )
 
     @field_validator("type", mode="before")
     @classmethod
@@ -147,13 +156,23 @@ class LocalTool(BaseModel):
     Normalized representation of a tool/function.
     """
 
-    name: str = Field(..., description="The unique name/identifier of the tool", min_length=1)
-    description: str = Field(..., description="Comprehensive description of what the tool does", min_length=1)
+    name: str = Field(
+        ..., description="The unique name/identifier of the tool", min_length=1
+    )
+    description: str = Field(
+        ..., description="Comprehensive description of what the tool does", min_length=1
+    )
     parameters: Schema = Field(..., description="Schema defining the input parameters")
 
-    returns: Optional[Schema] = Field(None, description="Schema defining the output/return value")
-    version: Optional[str] = Field(None, description="Version identifier for this tool definition")
-    tags: Optional[List[str]] = Field(None, description="List of tags for categorization")
+    returns: Optional[Schema] = Field(
+        None, description="Schema defining the output/return value"
+    )
+    version: Optional[str] = Field(
+        None, description="Version identifier for this tool definition"
+    )
+    tags: Optional[List[str]] = Field(
+        None, description="List of tags for categorization"
+    )
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "LocalTool":

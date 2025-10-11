@@ -1,4 +1,3 @@
-
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +13,6 @@
 # limitations under the License.
 
 
-
 from __future__ import annotations
 
 from enum import Enum
@@ -27,24 +25,42 @@ class Usage(BaseModel):
     """
     Tracks token usage for a chat completion request and response.
     """
-    prompt_tokens: int = Field(0, title="Prompt Tokens",
-                               description="Number of tokens in the prompt")
-    generated_tokens: int = Field(0, title="Generated Tokens",
-                                  description="Number of tokens used during generation")
-    total_tokens: int = Field(0, title="Total Tokens",
-                              description="Total number of tokens used in the request (prompt + generation)")
 
-    cached_token_count: int = Field(0, title="Cached Token Count",
-                              description="Number of tokens used in the cached response")
+    prompt_tokens: int = Field(
+        0, title="Prompt Tokens", description="Number of tokens in the prompt"
+    )
+    generated_tokens: int = Field(
+        0,
+        title="Generated Tokens",
+        description="Number of tokens used during generation",
+    )
+    total_tokens: int = Field(
+        0,
+        title="Total Tokens",
+        description="Total number of tokens used in the request (prompt + generation)",
+    )
 
-    thoughts_token_count: int = Field(0, title="Thoughts Token Count",
-                                      description="Number of tokens used in the thoughts")
+    cached_token_count: int = Field(
+        0,
+        title="Cached Token Count",
+        description="Number of tokens used in the cached response",
+    )
 
-    tool_use_prompt_token_count: int = Field(0, title="Tool Use Prompt Token Count",
-                                             description="Number of tokens used in the tool use prompt")
+    thoughts_token_count: int = Field(
+        0,
+        title="Thoughts Token Count",
+        description="Number of tokens used in the thoughts",
+    )
 
-    prompt_tokens_details: list[ModalityTokenCount] | None = Field(None,
-                                                                   title="Prompt Tokens Details")
+    tool_use_prompt_token_count: int = Field(
+        0,
+        title="Tool Use Prompt Token Count",
+        description="Number of tokens used in the tool use prompt",
+    )
+
+    prompt_tokens_details: list[ModalityTokenCount] | None = Field(
+        None, title="Prompt Tokens Details"
+    )
 
     def cost(self, model_name: str) -> float:
         """
@@ -52,34 +68,26 @@ class Usage(BaseModel):
         """
         # price per model
         PRICE = {
-            "flash": {
-                'input': 0.15,
-                'thinking_output': 3.5,
-                'output': 0.6
-            },
-            "pro": {
-                'input': 1.25,
-                'thinking_output': 10,
-                'output': 10
-            },
+            "flash": {"input": 0.15, "thinking_output": 3.5, "output": 0.6},
+            "pro": {"input": 1.25, "thinking_output": 10, "output": 10},
         }
 
         if self.thoughts_token_count > 0:
-            if 'flash' in model_name:
-                icost = PRICE['flash']['input']
-                ocost = PRICE['flash']['thinking_output']
+            if "flash" in model_name:
+                icost = PRICE["flash"]["input"]
+                ocost = PRICE["flash"]["thinking_output"]
             else:
-                icost = PRICE['pro']['input']
-                ocost = PRICE['pro']['thinking_output']
+                icost = PRICE["pro"]["input"]
+                ocost = PRICE["pro"]["thinking_output"]
         else:
-            if 'flash' in model_name:
-                icost = PRICE['flash']['input']
-                ocost = PRICE['flash']['output']
+            if "flash" in model_name:
+                icost = PRICE["flash"]["input"]
+                ocost = PRICE["flash"]["output"]
             else:
-                icost = PRICE['pro']['input']
-                ocost = PRICE['pro']['output']
+                icost = PRICE["pro"]["input"]
+                ocost = PRICE["pro"]["output"]
 
-        total  = ocost * (self.generated_tokens / 1_000_000)
+        total = ocost * (self.generated_tokens / 1_000_000)
         total += ocost * (self.thoughts_token_count / 1_000_000)
         total += icost * (self.prompt_tokens / 1_000_000)
         total += icost * (self.cached_token_count / 1_000_000)
@@ -99,7 +107,10 @@ class Usage(BaseModel):
             self.total_tokens += subusage.cached_token_count
 
     def __repr__(self):
-        return super().__repr__() + f" prompt_tokens={self.prompt_tokens}, generated_tokens={self.generated_tokens}, total_tokens={self.total_tokens})"
+        return (
+            super().__repr__()
+            + f" prompt_tokens={self.prompt_tokens}, generated_tokens={self.generated_tokens}, total_tokens={self.total_tokens})"
+        )
 
 
 # FIXME: Taken from google/genai/types.py; we do this to avoid importing genai, which
@@ -111,7 +122,9 @@ class ModalityTokenCount(BaseModel):
         default=None,
         description="""The modality associated with this token count.""",
     )
-    token_count: Optional[int] = Field(default=None, description="""Number of tokens.""")
+    token_count: Optional[int] = Field(
+        default=None, description="""Number of tokens."""
+    )
 
 
 # FIXME: Taken from google/genai/types.py; we do this to avoid importing genai, which
