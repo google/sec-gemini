@@ -216,11 +216,11 @@ class UserInfo(BaseModel):
 
     user: PublicUser = Field(..., title="User", description="The user information.")
     sessions: list[PublicSession] = Field(
-        [], title="Sessions", description="The list of users active sessions."
+        default_factory=list, title="Sessions", description="The list of users active sessions."
     )
 
     available_models: list[ModelInfo] = Field(
-        [],
+        default_factory=list,
         title="Available Models",
         description="The list of models available to the user.",
     )

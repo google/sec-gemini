@@ -109,7 +109,7 @@ class ModelInfo(BaseModel):
     )
 
     toolsets: list[OptionalToolSet] = Field(
-        [], title="Tools", description="Toggable tools used by the model."
+        default_factory=list, title="Tools", description="Toggable tools used by the model."
     )
 
     @staticmethod
