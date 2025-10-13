@@ -172,8 +172,8 @@ class Message(BaseModel):
             assert isinstance(content, str), "Text mime type requires a string content."
             self.content = content
         else:
-            self.mime_type = mime_type
             self.content = b64encode(content).decode("ascii")  # type: ignore [arg-type]
+        self.mime_type = mime_type
         return self
 
     def get_content(self) -> bytes | str:
