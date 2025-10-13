@@ -143,7 +143,7 @@ def generate_test_args(func: Callable) -> dict:
     return test_args
 
 
-if __name__ == "__main__":
+def test_run_all_tool_tests() -> None:
     # --- Test Functions ---
     def problematic_tool(path: str = None):
         """A tool with a str annotation but a None default."""
@@ -250,3 +250,7 @@ if __name__ == "__main__":
         print(f"Functions are equivalent: {equivalent}")
         print("-" * (len(func.__name__) + 14))
         print()
+
+
+if __name__ == "__main__":
+    test_run_all_tool_tests()
