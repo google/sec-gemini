@@ -563,12 +563,6 @@ class InteractiveSession:
             error_msg = f"[Session][Generate][Response] {session_resp.status_code}:{session_resp.status_message}"
             log.error(error_msg)
             raise Exception(error_msg)
-        resp = self.http.post(_EndPoints.GENERATE.value, req)
-        if not resp.ok:
-            error_msg = f"[Session][Generate][HTTP]: {resp.error_message}"
-            log.error(error_msg)
-            raise Exception(error_msg)
-        session_resp = SessionResponse(**resp.data)
 
         return session_resp
 
