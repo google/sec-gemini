@@ -608,6 +608,7 @@ class InteractiveSession:
                             ws = tasks.pop(task)
                             try:
                                 data = task.result()
+                                assert isinstance(data, str)
                                 msg = Message.from_json(data)
 
                                 if ws == main_ws:
