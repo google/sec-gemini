@@ -92,6 +92,7 @@ class SecGemini:
                 "API key required: explictly pass it or set env variable SEC_GEMINI_API_KEY (e.g in .env)."
             )
         self.api_key = api_key
+        self.logs_processor_api_url = logs_processor_api_url
 
         self.logs_processor_api_url = logs_processor_api_url
 
