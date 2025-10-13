@@ -44,6 +44,7 @@ class SecGemini:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         base_websockets_url: Optional[str] = None,
+        logs_processor_api_url: Optional[str] = None,
         console_width: int = 500,
         verbose: bool = False,
         debug: bool = False,
@@ -91,6 +92,8 @@ class SecGemini:
                 "API key required: explictly pass it or set env variable SEC_GEMINI_API_KEY (e.g in .env)."
             )
         self.api_key = api_key
+
+        self.logs_processor_api_url = logs_processor_api_url
 
         # http(s) endpoint
         self.base_url = base_url.rstrip("/")
@@ -207,6 +210,7 @@ class SecGemini:
             base_websockets_url=self.base_websockets_url,
             api_key=self.api_key,
             enable_logging=enable_logging,
+            logs_processor_api_url=self.logs_processor_api_url,
         )
 
         session.register(
@@ -235,6 +239,7 @@ class SecGemini:
             base_url=self.base_url,
             base_websockets_url=self.base_websockets_url,
             api_key=self.api_key,
+            logs_processor_api_url=self.logs_processor_api_url,
         )
 
         isession.resume(session_id=session_id)
@@ -254,6 +259,7 @@ class SecGemini:
                 base_url=self.base_url,
                 base_websockets_url=self.base_websockets_url,
                 api_key=self.api_key,
+                logs_processor_api_url=self.logs_processor_api_url,
             )
             isession._session = session
             isessions.append(isession)
