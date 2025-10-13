@@ -630,7 +630,7 @@ class InteractiveSession:
                                 elif ws == tools_ws:
                                     if msg.message_type == MessageType.LOCAL_TOOL_CALL:
                                         log.info(
-                                            f"Received tool call: {msg.get_content()}"
+                                            f"Received tool call: {msg.get_content()!r}"
                                         )
                                         tool_output_message = self._execute_tool(msg)
                                         await tools_ws.send(
@@ -695,7 +695,6 @@ class InteractiveSession:
                 message_type=MessageType.LOCAL_TOOL_RESULT,
                 mime_type=MimeType.SERIALIZED_JSON,
                 status_code=ResponseStatus.INTERNAL_ERROR,
-                error_message=msg,
                 content=json.dumps(
                     {"name": tool_name, "output": msg, "is_error": True}
                 ),
@@ -724,7 +723,6 @@ class InteractiveSession:
                 message_type=MessageType.LOCAL_TOOL_RESULT,
                 mime_type=MimeType.SERIALIZED_JSON,
                 status_code=ResponseStatus.INTERNAL_ERROR,
-                error_message=msg,
                 content=msg,
             )
             return error_message
