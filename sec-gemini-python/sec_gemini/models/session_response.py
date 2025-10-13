@@ -45,9 +45,9 @@ class SessionResponse(BaseModel):
     def text(self) -> str:
         content = []
         for idx, msg in enumerate(self.messages):
-            assert msg.content is not None
             if (
-                msg.mime_type == MimeType.TEXT
+                msg.content is not None
+                and msg.mime_type == MimeType.TEXT
                 and msg.message_type == MessageType.RESULT
             ):
                 content.append(msg.content)
