@@ -25,9 +25,8 @@ def temp_file(tmp_path):
 
 
 def test_non_existing_dir():
-    dir = "/no/such/dir"
-    result = list_dir("/non/existing/path")
-    assert result == f"{dir} is not a valid path."
+    with pytest.raises(FileNotFoundError):
+        _ = list_dir("/non/existing/path")
 
 
 def test_get_ip():
