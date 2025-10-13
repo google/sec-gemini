@@ -20,15 +20,16 @@ import asyncio
 import hashlib
 import json
 import os
-import random
 import sys
 import traceback
 from base64 import b64encode
 from pathlib import Path
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, Callable, Optional
 
 import httpx
 import websockets
+from mcp.server.fastmcp.tools import Tool
+from rich import print as rprint
 from rich.console import Console
 from rich.tree import Tree
 from tqdm import tqdm
@@ -41,13 +42,20 @@ from .models.attachment import Attachment
 from .models.detach_file_request import DetachFileRequest
 from .models.enums import FeedbackType, MessageType, MimeType, Role, State
 from .models.feedback import Feedback
+from .models.local_tool import LocalTool
 from .models.message import Message
 from .models.modelinfo import ModelInfo
 from .models.opresult import OpResult, ResponseStatus
-from .models.public import PublicLogsTable, PublicSession, PublicSessionFile, PublicUser
+from .models.public import (
+    PublicLogsTable,
+    PublicSession,
+    PublicSessionFile,
+    PublicUser,
+)
 from .models.session_request import SessionRequest
 from .models.session_response import SessionResponse
 from .models.usage import Usage
+from .utils import generate_session_name
 
 DEBUG = False
 
@@ -77,8 +85,11 @@ class InteractiveSession:
             )
         else:
             self.logs_processor_api_url = logs_processor_api_url
+
         self.http = NetworkClient(self.base_url, self.api_key)
         self._session: Optional[PublicSession] = None  # session object
+        self._local_tool_definitions: list[LocalTool] = []
+        self._local_tool_functions: dict[str, Callable[..., Any]] = {}
 
     @property
     def id(self) -> str:
@@ -196,7 +207,9 @@ class InteractiveSession:
         if session is not None:
             self._session = session
             log.info(
-                "[Session][Resume]: Session {%s} (%s) resumed", session.id, session.name
+                "[Session][Resume]: Session {%s} (%s) resumed",
+                session.id,
+                session.name,
             )
             return True
         log.error("[Session][Resume]: Session %s not found", session_id)
@@ -445,6 +458,8 @@ class InteractiveSession:
         name: str = "",
         description: str = "",
         language: str = "en",
+        tools: list[Callable[..., Any]] | None = None,
+        mcp_servers: list[str] | None = None,
     ) -> bool:
         """Initializes the session
 
@@ -460,10 +475,41 @@ class InteractiveSession:
         if not name:
             name = self._generate_session_name()
 
+        # Parse tools
+        local_tools: list[LocalTool] = []
+        if tools:
+            for tool in tools:
+                if callable(tool):
+                    mcp_tool = Tool.from_function(tool)
+                    local_tool = LocalTool.from_dict(mcp_tool.model_dump())
+                    self._local_tool_functions[local_tool.name] = tool
+                    local_tools.append(local_tool)
+                    log.info(
+                        f"Registered local tool: {local_tool.name} - {local_tool.description}"
+                    )
+                else:
+                    log.warning(
+                        f"Invalid tool type: {type(tool)}. Only callables are supported."
+                    )
+
+        if mcp_servers:
+            for server in mcp_servers:
+                raise NotImplementedError(
+                    f"Remote tools from MCP server '{server}' are not yet supported."
+                )
+
         if isinstance(model, ModelInfo):
             model_info = model
         elif isinstance(model, str):
-            model_info = ModelInfo.get_model_info_from_model_string(model)
+            model_name, version, use_experimental = ModelInfo.parse_model_string(model)
+            model_info = ModelInfo(
+                model_name=model_name,
+                description="",
+                version=version,
+                use_experimental=use_experimental,
+                model_string=model,
+                toolsets=[],
+            )
         else:
             raise ValueError(f"Invalid model as input: {model}")
 
@@ -477,6 +523,9 @@ class InteractiveSession:
             name=name,
             description=description,
             can_log=self.enable_logging,
+            logs_table=None,
+            state=State.START,
+            local_tools=local_tools,
         )
 
         resp = self.http.post(_EndPoints.REGISTER_SESSION.value, session)
@@ -505,7 +554,11 @@ class InteractiveSession:
 
         # build a synchronous request and return the response
         message = self._build_prompt_message(prompt)
-        req = SessionRequest(id=self.id, messages=[message])
+        req = SessionRequest(
+            id=self.id,
+            messages=[message],
+            local_tools=self._local_tool_definitions,
+        )
         resp = self.http.post(_EndPoints.GENERATE.value, req)
 
         if not resp.ok:
@@ -518,50 +571,162 @@ class InteractiveSession:
             error_msg = f"[Session][Generate][Response] {session_resp.status_code}:{session_resp.status_message}"
             log.error(error_msg)
             raise Exception(error_msg)
+
         return session_resp
 
     async def stream(self, prompt: str) -> AsyncIterator[Message]:
         """Streaming Generation/Completion Request"""
         if not prompt:
-            raise ValueError("query is required")
+            raise ValueError("prompt is required")
 
-        message = self._build_prompt_message(prompt)
-        # FIXME: maybe move to http client as it is super specific
-        url = f"{self.websocket_url}{_EndPoints.STREAM.value}"
-        url += f"?api_key={self.api_key}&session_id={self.id}"
+        main_ws_url = f"{self.websocket_url}{_EndPoints.STREAM.value}?api_key={self.api_key}&session_id={self.id}"
+        tools_ws_url = f"{self.websocket_url}{_EndPoints.TOOLS.value}?api_key={self.api_key}&session_id={self.id}"
+
         max_retries = 5
         for attempt in range(max_retries):
             try:
-                async with websockets.connect(
-                    url,
-                    ping_interval=20,  # seconds
-                    ping_timeout=20,  # seconds
-                    close_timeout=60,
-                ) as ws:
-                    # send request
-                    await ws.send(message.model_dump_json())
+                async with (
+                    websockets.connect(main_ws_url) as main_ws,
+                    websockets.connect(tools_ws_url) as tools_ws,
+                ):
+                    # Send the initial prompt to the main stream
+                    message = self._build_prompt_message(prompt)
+                    await main_ws.send(message.model_dump_json())
 
-                    # receiving til end
-                    while True:
-                        try:
-                            data = await ws.recv(decode=True)
-                            msg = Message.from_json(data)
-                            if msg.status_code != ResponseStatus.OK:
-                                log.error(
-                                    "[Session][Stream][Response] %d:%s",
-                                    msg.status_code,
-                                    msg.status_message,
+                    # Create initial listening tasks
+                    tasks = {
+                        asyncio.create_task(main_ws.recv()): main_ws,
+                        asyncio.create_task(tools_ws.recv()): tools_ws,
+                    }
+
+                    while tasks:
+                        done, pending = await asyncio.wait(
+                            tasks.keys(), return_when=asyncio.FIRST_COMPLETED
+                        )
+
+                        for task in done:
+                            ws = tasks.pop(task)
+                            try:
+                                data = task.result()
+                                assert isinstance(data, str)
+                                msg = Message.from_json(data)
+
+                                if ws == main_ws:
+                                    if msg.status_code != ResponseStatus.OK:
+                                        log.error(
+                                            "[Session][Stream][Response] %d:%s",
+                                            msg.status_code,
+                                            msg.status_message,
+                                        )
+                                        return  # Terminate on error
+
+                                    yield msg
+
+                                    if msg.state == State.END:
+                                        return  # Terminate gracefully
+
+                                    # Add a new listening task for the main websocket
+                                    tasks[asyncio.create_task(main_ws.recv())] = main_ws
+
+                                elif ws == tools_ws:
+                                    if msg.message_type == MessageType.LOCAL_TOOL_CALL:
+                                        log.info(
+                                            f"Received tool call: {msg.get_content()!r}"
+                                        )
+                                        tool_output_message = self._execute_tool(msg)
+                                        await tools_ws.send(
+                                            tool_output_message.model_dump_json()
+                                        )
+                                    else:
+                                        log.warning(
+                                            f"Received unexpected message on tools channel: {msg.message_type}"
+                                        )
+
+                                    # Add a new listening task for the tools websocket
+                                    tasks[asyncio.create_task(tools_ws.recv())] = (
+                                        tools_ws
+                                    )
+
+                            except websockets.exceptions.ConnectionClosed:
+                                log.warning(
+                                    f"Connection closed on {'main' if ws == main_ws else 'tools'} websocket."
                                 )
-                                break
-                            yield msg
-                        except Exception as e:
-                            log.error("[Session][Stream][Error]: %s", repr(e))
-                            break
-            except Exception as e:
-                log.error(f"Connection attempt {attempt + 1} failed: {e}")
+                                # Do not re-add the task, let the loop exit if both are closed
+                                continue
+                            except Exception as e:
+                                log.error(f"Error processing message: {e}")
+                                log.error(traceback.format_exc())
+                                # Do not re-add the task
+                                continue
+                    return  # Exit the generator if all connections are closed
+
+            except websockets.exceptions.ConnectionClosed as e:
+                log.error(
+                    f"Connection closed: {e}. Retrying ({attempt + 1}/{max_retries})..."
+                )
                 if attempt == max_retries - 1:
                     raise e
-                await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
+                await asyncio.sleep(1 * (attempt + 1))
+            except Exception as e:
+                log.error(f"An unexpected error occurred in stream: {e}")
+                log.error(traceback.format_exc())
+                break
+
+    def _execute_tool(self, tool_call_message: Message) -> Message:
+        """Executes a tool and returns the output message."""
+        tool_call = json.loads(tool_call_message.get_content())
+        rprint(tool_call)
+
+        # get the tool name and args using various naming conventions
+        tool_name = tool_call.get("tool_name", "")
+        if not tool_name:
+            tool_name = tool_call.get("name", "")
+
+        tool_args = tool_call.get("tool_args", {})
+        if not tool_args:
+            tool_args = tool_call.get("args", {})
+
+        tool_function = self._local_tool_functions.get(tool_name)
+        if not tool_function:
+            msg = f"Tool '{tool_name}' not found."
+            rprint(f"[red]{msg}[/red]")
+            log.warning(msg)
+            error_message = Message(
+                role=Role.USER,
+                message_type=MessageType.LOCAL_TOOL_RESULT,
+                mime_type=MimeType.SERIALIZED_JSON,
+                status_code=ResponseStatus.INTERNAL_ERROR,
+                content=json.dumps(
+                    {"name": tool_name, "output": msg, "is_error": True}
+                ),
+            )
+
+            return error_message
+        try:
+            dmegs = f"Executing tool '{tool_name}' with args: {tool_args}"
+            log.info(dmegs)
+            tool_output = str(tool_function(**tool_args))
+            output_message = Message(
+                role=Role.USER,
+                message_type=MessageType.LOCAL_TOOL_RESULT,
+                mime_type=MimeType.SERIALIZED_JSON,
+            )
+            output_message.set_content(
+                json.dumps({"name": tool_name, "output": tool_output})
+            )
+            return output_message
+        except Exception as e:
+            msg = f"Tool '{tool_name}' execution failed: {e}"
+            rprint(f"[red]{msg}[/red]")
+            log.warning(msg)
+            error_message = Message(
+                role=Role.USER,
+                message_type=MessageType.LOCAL_TOOL_RESULT,
+                mime_type=MimeType.SERIALIZED_JSON,
+                status_code=ResponseStatus.INTERNAL_ERROR,
+                content=msg,
+            )
+            return error_message
 
     def fetch_session(self, id: str) -> PublicSession:
         """Get the full session from the server"""
@@ -594,151 +759,7 @@ class InteractiveSession:
 
     def _generate_session_name(self) -> str:
         """Generates a unique  cybersecurity session themed name."""
-
-        terms = [
-            "firewall",
-            "xss",
-            "sql-injection",
-            "csrf",
-            "dos",
-            "botnet",
-            "rsa",
-            "aes",
-            "sha",
-            "hmac",
-            "xtea",
-            "twofish",
-            "serpent",
-            "dh",
-            "ecc",
-            "dsa",
-            "pgp",
-            "vpn",
-            "tor",
-            "dns",
-            "tls",
-            "ssl",
-            "https",
-            "ssh",
-            "sftp",
-            "snmp",
-            "ldap",
-            "kerberos",
-            "oauth",
-            "bcrypt",
-            "scrypt",
-            "argon2",
-            "pbkdf2",
-            "ransomware",
-            "trojan",
-            "rootkit",
-            "keylogger",
-            "adware",
-            "spyware",
-            "worm",
-            "virus",
-            "antivirus",
-            "sandbox",
-            "ids",
-            "ips",
-            "honeybot",
-            "honeypot",
-            "siem",
-            "nids",
-            "hids",
-            "waf",
-            "dast",
-            "sast",
-            "vulnerability",
-            "exploit",
-            "0day",
-            "logjam",
-            "heartbleed",
-            "shellshock",
-            "poodle",
-            "spectre",
-            "meltdown",
-            "rowhammer",
-            "sca",
-            "padding",
-            "oracle",
-        ]
-
-        adjs = [
-            "beautiful",
-            "creative",
-            "dangerous",
-            "elegant",
-            "fancy",
-            "gorgeous",
-            "handsome",
-            "intelligent",
-            "jolly",
-            "kind",
-            "lovely",
-            "magnificent",
-            "nice",
-            "outstanding",
-            "perfect",
-            "quick",
-            "reliable",
-            "smart",
-            "talented",
-            "unique",
-            "vibrant",
-            "wonderful",
-            "young",
-            "zany",
-            "amazing",
-            "brave",
-            "calm",
-            "delightful",
-            "eager",
-            "faithful",
-            "gentle",
-            "happy",
-            "incredible",
-            "jovial",
-            "keen",
-            "lucky",
-            "merry",
-            "nice",
-            "optimistic",
-            "proud",
-            "quiet",
-            "reliable",
-            "scary",
-            "thoughtful",
-            "upbeat",
-            "victorious",
-            "witty",
-            "zealous",
-            "adorable",
-            "brilliant",
-            "charming",
-            "daring",
-            "eager",
-            "fearless",
-            "graceful",
-            "honest",
-            "intelligent",
-            "jolly",
-            "kind",
-            "lively",
-            "modest",
-            "nice",
-            "optimistic",
-            "proud",
-            "quiet",
-            "reliable",
-            "silly",
-            "thoughtful",
-            "upbeat",
-            "victorious",
-            "witty",
-        ]
-
-        return f"{random.choice(adjs)}-{random.choice(terms)}"
+        return generate_session_name()
 
     def upload_and_attach_logs(
         self, jsonl_path: Path, custom_fields_mapping: dict[str, str] | None = None

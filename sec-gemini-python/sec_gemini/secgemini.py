@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from dotenv import load_dotenv
 from rich import box
@@ -48,7 +48,7 @@ class SecGemini:
         console_width: int = 500,
         verbose: bool = False,
         debug: bool = False,
-    ):
+    ) -> None:
         """Initializes the SecGemini API client.
 
         Args:
@@ -92,6 +92,8 @@ class SecGemini:
                 "API key required: explictly pass it or set env variable SEC_GEMINI_API_KEY (e.g in .env)."
             )
         self.api_key = api_key
+        self.logs_processor_api_url = logs_processor_api_url
+
         self.logs_processor_api_url = logs_processor_api_url
 
         # http(s) endpoint
@@ -184,6 +186,8 @@ class SecGemini:
         enable_logging: bool = True,
         model: str = DEFAULT_STABLE_MODEL_NAME,
         language: str = "en",
+        tools: list[Callable[..., Any]] | None = None,
+        mcp_servers: list[str] | None = None,
     ) -> InteractiveSession:
         """Creates a new session.
 
@@ -194,6 +198,8 @@ class SecGemini:
             enable_logging: enable/disable logging (if allowed)
             model: model to use, either a str or ModelInfo
             language: language to use - defaults to 'en'
+            tools: list of functions to be available to the model.
+            mcp_servers: list of MCP servers to connect to.
 
         Returns:
             A new session object.
@@ -209,7 +215,13 @@ class SecGemini:
         )
 
         session.register(
-            ttl=ttl, model=model, language=language, name=name, description=description
+            ttl=ttl,
+            model=model,
+            language=language,
+            name=name,
+            description=description,
+            tools=tools,
+            mcp_servers=mcp_servers,
         )
         return session
 

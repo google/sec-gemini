@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from __future__ import annotations
 
 from time import time
@@ -21,6 +22,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from .enums import State, UserType
+from .local_tool import LocalTool
 from .message import Message
 from .modelinfo import ModelInfo
 from .usage import Usage
@@ -174,9 +176,7 @@ class PublicSession(BaseModel):
     )
 
     can_log: bool = Field(
-        default=True,
-        title="Can Log",
-        description="Whether the session can be logged or not.",
+        ..., title="Can Log", description="Whether the session can be logged or not."
     )
 
     state: State = Field(
@@ -193,6 +193,12 @@ class PublicSession(BaseModel):
         None,
         title="Logs Table",
         description="Logs table attached to the session, if any.",
+    )
+
+    local_tools: list[LocalTool] = Field(
+        default_factory=list,
+        title="Local Tools",
+        description="The list of local tools available for this session.",
     )
 
 

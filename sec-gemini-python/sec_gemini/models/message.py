@@ -27,6 +27,8 @@ from .usage import Usage
 
 ROOT_ID = "3713"
 
+TEXT_MIME_TYPES = [MimeType.TEXT, MimeType.HTML, MimeType.MARKDOWN, MimeType.JSON]
+
 
 class Message(BaseModel):
     """
@@ -36,7 +38,7 @@ class Message(BaseModel):
     id: str = Field(
         default_factory=lambda: uuid4().hex[:12],
         title="Message ID",
-        description="A unique identifier for the message - uuid4 int.",
+        description="A unique identifier for the message - uuid4 string.",
     )
 
     parent_id: str = Field(
@@ -157,21 +159,20 @@ class Message(BaseModel):
         return self
 
     def set_content(
-        self, content: str | bytes, mime_type: MimeType = MimeType.TEXT
+        self, content: bytes | str, mime_type: MimeType = MimeType.TEXT
     ) -> Message:
         """
-        Set the content of the message.
-
-        If `content` is of textual nature (as determined by the `mime_type`),
-        the message's content is set to `content` itself, which is expected to
-        be of type `str`. Otherwise, the message's content base64-encoded first.
+        Set the content of the message while encoding bytes as base64.
         """
-        if mime_type.value.startswith("text/"):
-            assert isinstance(content, str)
+        if (
+            mime_type.value.startswith("text/")
+            or mime_type.value.startswith("sec-gemini")
+            or mime_type in TEXT_MIME_TYPES
+        ):
+            assert isinstance(content, str), "Text mime type requires a string content."
             self.content = content
         else:
-            assert isinstance(content, bytes)
-            self.content = b64encode(content).decode("ascii")
+            self.content = b64encode(content).decode("ascii")  # type: ignore [arg-type]
         self.mime_type = mime_type
         return self
 
@@ -180,14 +181,19 @@ class Message(BaseModel):
         Decodes the content of the message either to bytes or utf-8 string
         depending of the mime type.
         """
-        if self.content is None:
+        if not self.content:
             return ""
 
+        # return text content as is
         assert self.mime_type is not None
 
-        if self.mime_type.value.startswith("text/"):
-            # Return text content as is
+        if (
+            self.mime_type.value.startswith("text/")
+            or self.mime_type.value.startswith("sec-gemini")
+            or self.mime_type in TEXT_MIME_TYPES
+        ):
+            assert isinstance(self.content, str)
             return self.content
         else:
-            # Base64 decode the content before returning it.
-            return b64decode(self.content)
+            # Decode the content if it is base64 encoded
+            return b64decode(self.content.encode("ascii"))

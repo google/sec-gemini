@@ -249,3 +249,7 @@ class MessageType(str, Enum):
 
     # User messages
     QUERY = "query"
+
+    # Local tool messages
+    LOCAL_TOOL_CALL = "local_tool_call"
+    LOCAL_TOOL_RESULT = "local_tool_result"
