@@ -16,7 +16,7 @@
 set -e
 . ./color.sh
 
-PYTHON=../sec-gemini-python/sec_gemini/session.py
+PYTHON=../sec-gemini-python/sec_gemini/utils.py
 RUST=src/sdk/name.rs
 
 match() { echo '/^ *'$1' = \[/,/^ *\]/p'; }
