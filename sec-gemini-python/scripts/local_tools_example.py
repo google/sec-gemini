@@ -247,9 +247,7 @@ async def main():
         return
 
     prompt = args.prompt
-    sg = SecGemini(
-        base_url="http://localhost:8000", base_websockets_url="ws://localhost:8000"
-    )
+    sg = SecGemini()
     print("SecGemini object instantiated correctly")
 
     # Create a session with the local tool
