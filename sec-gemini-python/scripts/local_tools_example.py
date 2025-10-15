@@ -265,7 +265,7 @@ async def main():
                     tool_name = content["tool_name"]
                     tool_args = content.get("args")
                     if not tool_args:
-                        tool_args = content.get("tool_args", [])
+                        tool_args = content.get("tool_args", {})
 
                     argstr = ", ".join(f"{k}={v!r}" for k, v in tool_args.items())
 
