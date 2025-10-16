@@ -575,102 +575,74 @@ class InteractiveSession:
         return session_resp
 
     async def stream(self, prompt: str) -> AsyncIterator[Message]:
-        """Streaming Generation/Completion Request"""
+        """Streaming Generation/Completion Request.
+
+        At first, we connect to the backend and we send a message encoding the
+        initial user's query. Then, we wait for messages from the backend.
+
+        In most cases, the messages we receive are intended for the end user,
+        e.g., info, thinking, and result messages.
+
+        In other cases, the messages encode a request to call a "local tool"
+        ("local" from the perspective of the SDK). In such cases, we execute the
+        requested action (i.e., "calling the tool"), and we send back its output
+        to the backend. Note that we do not yield these messages to the user."""
         if not prompt:
-            raise ValueError("prompt is required")
+            raise ValueError("query is required")
 
-        main_ws_url = f"{self.websocket_url}{_EndPoints.STREAM.value}?api_key={self.api_key}&session_id={self.id}"
-        tools_ws_url = f"{self.websocket_url}{_EndPoints.TOOLS.value}?api_key={self.api_key}&session_id={self.id}"
-
-        max_retries = 5
+        message = self._build_prompt_message(prompt)
+        # FIXME: maybe move to http client as it is super specific
+        url = f"{self.websocket_url}{_EndPoints.STREAM.value}"
+        url += f"?api_key={self.api_key}&session_id={self.id}"
+        max_retries = 1
         for attempt in range(max_retries):
             try:
-                async with (
-                    websockets.connect(main_ws_url) as main_ws,
-                    websockets.connect(tools_ws_url) as tools_ws,
-                ):
-                    # Send the initial prompt to the main stream
-                    message = self._build_prompt_message(prompt)
-                    await main_ws.send(message.model_dump_json())
+                async with websockets.connect(
+                    url,
+                    ping_interval=20,  # seconds
+                    ping_timeout=20,  # seconds
+                    close_timeout=60,
+                ) as ws:
+                    # Send request
+                    await ws.send(message.model_dump_json())
 
-                    # Create initial listening tasks
-                    tasks = {
-                        asyncio.create_task(main_ws.recv()): main_ws,
-                        asyncio.create_task(tools_ws.recv()): tools_ws,
-                    }
-
-                    while tasks:
-                        done, pending = await asyncio.wait(
-                            tasks.keys(), return_when=asyncio.FIRST_COMPLETED
-                        )
-
-                        for task in done:
-                            ws = tasks.pop(task)
-                            try:
-                                data = task.result()
-                                assert isinstance(data, str)
-                                msg = Message.from_json(data)
-
-                                if ws == main_ws:
-                                    if msg.status_code != ResponseStatus.OK:
-                                        log.error(
-                                            "[Session][Stream][Response] %d:%s",
-                                            msg.status_code,
-                                            msg.status_message,
-                                        )
-                                        return  # Terminate on error
-
-                                    yield msg
-
-                                    if msg.state == State.END:
-                                        return  # Terminate gracefully
-
-                                    # Add a new listening task for the main websocket
-                                    tasks[asyncio.create_task(main_ws.recv())] = main_ws
-
-                                elif ws == tools_ws:
-                                    if msg.message_type == MessageType.LOCAL_TOOL_CALL:
-                                        log.info(
-                                            f"Received tool call: {msg.get_content()!r}"
-                                        )
-                                        tool_output_message = self._execute_tool(msg)
-                                        await tools_ws.send(
-                                            tool_output_message.model_dump_json()
-                                        )
-                                    else:
-                                        log.warning(
-                                            f"Received unexpected message on tools channel: {msg.message_type}"
-                                        )
-
-                                    # Add a new listening task for the tools websocket
-                                    tasks[asyncio.create_task(tools_ws.recv())] = (
-                                        tools_ws
-                                    )
-
-                            except websockets.exceptions.ConnectionClosed:
-                                log.warning(
-                                    f"Connection closed on {'main' if ws == main_ws else 'tools'} websocket."
+                    # Receiving until end
+                    while True:
+                        try:
+                            data = await ws.recv(decode=True)
+                            msg = Message.from_json(data)
+                            log.debug(f"Received message {msg}")
+                            if msg.status_code != ResponseStatus.OK:
+                                log.error(
+                                    "[Session][Stream][Response] %d:%s",
+                                    msg.status_code,
+                                    msg.status_message,
                                 )
-                                # Do not re-add the task, let the loop exit if both are closed
-                                continue
-                            except Exception as e:
-                                log.error(f"Error processing message: {e}")
-                                log.error(traceback.format_exc())
-                                # Do not re-add the task
-                                continue
-                    return  # Exit the generator if all connections are closed
+                                break
 
-            except websockets.exceptions.ConnectionClosed as e:
-                log.error(
-                    f"Connection closed: {e}. Retrying ({attempt + 1}/{max_retries})..."
-                )
+                            # Check if this message is about a tool call; if so,
+                            # deal with it and reply to the backend without
+                            # yielding the message -- it's not for the user!
+                            if msg.message_type == MessageType.LOCAL_TOOL_CALL:
+                                log.info(
+                                    f"Received tool call request: {msg.get_content()!r}"
+                                )
+                                tool_output_message = self._execute_tool(msg)
+                                await ws.send(tool_output_message.model_dump_json())
+                            else:
+                                log.warning(
+                                    f"Received unexpected message on tools channel: {msg.message_type}"
+                                )
+
+                            yield msg
+                        except Exception as e:
+                            log.error("[Session][Stream][Error]: %s", repr(e))
+                            break
+            except Exception as e:
+                log.error(f"Connection attempt {attempt + 1} failed: {e}")
                 if attempt == max_retries - 1:
                     raise e
-                await asyncio.sleep(1 * (attempt + 1))
-            except Exception as e:
-                log.error(f"An unexpected error occurred in stream: {e}")
-                log.error(traceback.format_exc())
-                break
+                await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
 
     def _execute_tool(self, tool_call_message: Message) -> Message:
         """Executes a tool and returns the output message."""
