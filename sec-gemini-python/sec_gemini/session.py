@@ -634,6 +634,15 @@ class InteractiveSession:
                         except Exception as e:
                             log.error("[Session][Stream][Error]: %s", repr(e))
                             break
+
+                    # If we are here, there is no need to retry connections. For
+                    # well behaving clients of this SDK it doesn't really
+                    # matter, as the client would stop iterating on the
+                    # AsyncIterator returned by this stream() function, which
+                    # would stop these internal iterations and disconnect the
+                    # websocket. But still, this "break" should not harm
+                    # well-behaving clients, and should help mis-behaving ones.
+                    break
             except Exception as e:
                 log.error(f"Connection attempt {attempt + 1} failed: {e}")
                 if attempt == max_retries - 1:

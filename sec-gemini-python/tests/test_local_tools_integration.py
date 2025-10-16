@@ -323,6 +323,7 @@ async def test_list_dir_and_sha256_local_tools() -> None:
         elif message.state.value == State.END.value:
             rich.print("[green]Done")
             received_end_message = True
+            break
         elif message.message_type.value == MessageType.INFO.value:
             rich.print(f"info: {message.get_content()}")
         else:
