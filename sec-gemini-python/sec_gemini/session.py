@@ -629,10 +629,6 @@ class InteractiveSession:
                                 )
                                 tool_output_message = self._execute_tool(msg)
                                 await ws.send(tool_output_message.model_dump_json())
-                            else:
-                                log.warning(
-                                    f"Received unexpected message on tools channel: {msg.message_type}"
-                                )
 
                             yield msg
                         except Exception as e:
