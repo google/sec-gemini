@@ -594,7 +594,7 @@ class InteractiveSession:
         # FIXME: maybe move to http client as it is super specific
         url = f"{self.websocket_url}{_EndPoints.STREAM.value}"
         url += f"?api_key={self.api_key}&session_id={self.id}"
-        max_retries = 1
+        max_retries = 5
         for attempt in range(max_retries):
             try:
                 async with websockets.connect(
