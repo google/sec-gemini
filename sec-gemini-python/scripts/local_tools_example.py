@@ -203,13 +203,14 @@ def get_disk_size(path: str = ".") -> str:
         return f"Error getting disk size: {e}"
 
 
+# NOTE: commented out destructive tools until we have a confirmation system
 toolist = [
     list_dir,
     read_file,
     grep_file,
-    write_file,
-    append_file,
-    delete_file,
+    # write_file,
+    # append_file,
+    # delete_file,
     list_processes,
     get_ip,
     get_route,
