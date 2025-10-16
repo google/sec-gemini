@@ -1,8 +1,15 @@
 import inspect
+import json
+from pathlib import Path
 from typing import Any, Callable, Literal, Optional, Union, get_args, get_origin
 
+import pytest
+import rich
 from mcp.server.fastmcp.tools import Tool
+from rich.markdown import Markdown
 
+from sec_gemini import SecGemini, State
+from sec_gemini.models.enums import MessageType, MimeType
 from sec_gemini.models.local_tool import LocalTool
 
 
@@ -250,6 +257,79 @@ def test_run_all_tool_tests() -> None:
         print(f"Functions are equivalent: {equivalent}")
         print("-" * (len(func.__name__) + 14))
         print()
+
+
+@pytest.mark.asyncio
+async def test_list_dir_and_sha256_local_tools() -> None:
+    """"""
+
+    def list_dir(path: str = ".") -> list[str]:
+        """List files in a directory."""
+        p = Path(path)
+        return [str(f) for f in p.iterdir()]
+
+    def sha256_file(file_path: str) -> str:
+        """Calculate the SHA256 hash of a file."""
+        import hashlib
+
+        p = Path(file_path)
+        if not p.is_file():
+            return f"Error: {file_path} is not a valid file."
+        try:
+            hasher = hashlib.sha256()
+            with p.open("rb") as f:
+                buf = f.read(65536)
+                while len(buf) > 0:
+                    hasher.update(buf)
+                    buf = f.read(65536)
+            return hasher.hexdigest()
+        except Exception as e:
+            return f"Error calculating SHA256: {e}"
+
+    toolist = [list_dir, sha256_file]
+
+    sg = SecGemini()
+    print("SecGemini object instantiated correctly")
+
+    # Create a session with the local tool
+    session = sg.create_session(tools=toolist)
+    print("Session created successfully with local tool")
+
+    prompt = "List all the files in the current directory, and their SHA256"
+
+    # Query the model with the prompt from the command line
+    received_end_message = False
+    async for message in session.stream(prompt):
+        # Note: TOOL_CALL_RESULT messages are not yielded.
+        if message.mime_type == MimeType.SERIALIZED_JSON:
+            try:
+                content = json.loads(message.content)
+                if "tool_name" in content:
+                    tool_name = content["tool_name"]
+                    tool_args = content.get("args")
+                    if not tool_args:
+                        tool_args = content.get("tool_args", {})
+
+                    argstr = ", ".join(f"{k}={v!r}" for k, v in tool_args.items())
+
+                    rich.print(f"[green][bold]{tool_name}[/bold]\n{argstr}[/green]")
+                else:
+                    rich.print(content)
+            except json.JSONDecodeError:
+                rich.print(
+                    f"[bold red]Failed to decode JSON:[/bold red] {message.content}"
+                )
+                raise
+        elif message.state.value == State.END.value:
+            rich.print("[green]Done")
+            received_end_message = True
+        elif message.message_type.value == MessageType.INFO.value:
+            rich.print(f"info: {message.get_content()}")
+        else:
+            md = Markdown(message.content)
+            rich.print("[white]", md)
+
+    assert received_end_message
 
 
 if __name__ == "__main__":
