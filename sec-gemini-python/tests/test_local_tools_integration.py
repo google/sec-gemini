@@ -261,7 +261,7 @@ def test_run_all_tool_tests() -> None:
 
 @pytest.mark.asyncio
 async def test_list_dir_and_sha256_local_tools() -> None:
-    """"""
+    """Tests the local tool integration by streaming a prompt that requires file listing and hashing."""
 
     def list_dir(path: str = ".") -> list[str]:
         """List files in a directory."""
