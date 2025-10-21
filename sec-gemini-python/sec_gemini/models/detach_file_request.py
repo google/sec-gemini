@@ -17,16 +17,16 @@ from pydantic import BaseModel, Field
 
 
 class DetachFileRequest(BaseModel):
-    """Represents a file upload to the session."""
+  """Represents a file upload to the session."""
 
-    session_id: str = Field(
-        ...,
-        title="Session ID",
-        description="The session ID this file should be deleted from.",
-    )
+  session_id: str = Field(
+    ...,
+    title="Session ID",
+    description="The session ID this file should be deleted from.",
+  )
 
-    file_idx: int = Field(
-        ...,
-        title="File index",
-        description="File index to be removed.",
-    )
+  file_idx: int = Field(
+    ...,
+    title="File index",
+    description="File index to be removed.",
+  )

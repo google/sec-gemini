@@ -13,7 +13,7 @@ session = sg.create_session()
 print("Session created successfully")
 
 resp = session.query(
-    'What are the IP addresses of google.com? Reply with this format: {"ips": ["1.2.3.4", ...]}'
+  'What are the IP addresses of google.com? Reply with this format: {"ips": ["1.2.3.4", ...]}'
 )
 
 content = resp.text().strip()
