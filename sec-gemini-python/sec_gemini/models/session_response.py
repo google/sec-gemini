@@ -21,34 +21,36 @@ from .usage import Usage
 
 
 class SessionResponse(BaseModel):
-    id: str = Field(..., title="Session ID")
+  id: str = Field(..., title="Session ID")
 
-    messages: list[Message] = Field(
-        ...,
-        title="Response Messages",
-    )
+  messages: list[Message] = Field(
+    ...,
+    title="Response Messages",
+  )
 
-    status_code: int = Field(
-        ...,
-        title="Status Code",
-        description="The status code of the message. 2xx is Okay, 4xx is a client error, 5xx is a server error.",
-    )
+  status_code: int = Field(
+    ...,
+    title="Status Code",
+    description="The status code of the message. 2xx is Okay, 4xx is a client error, 5xx is a server error.",
+  )
 
-    status_message: str = Field(
-        ..., title="Status Message", description="Explain status code reason."
-    )
+  status_message: str = Field(
+    ..., title="Status Message", description="Explain status code reason."
+  )
 
-    usage: Usage = Field(
-        ..., title="Usage Statistics", description="Usage statistics for the message."
-    )
+  usage: Usage = Field(
+    ...,
+    title="Usage Statistics",
+    description="Usage statistics for the message.",
+  )
 
-    def text(self) -> str:
-        content = []
-        for idx, msg in enumerate(self.messages):
-            if (
-                msg.content is not None
-                and msg.mime_type == MimeType.TEXT
-                and msg.message_type == MessageType.RESULT
-            ):
-                content.append(msg.content)
-        return " ".join(content) + "\n" if len(content) > 0 else ""
+  def text(self) -> str:
+    content = []
+    for idx, msg in enumerate(self.messages):
+      if (
+        msg.content is not None
+        and msg.mime_type == MimeType.TEXT
+        and msg.message_type == MessageType.RESULT
+      ):
+        content.append(msg.content)
+    return " ".join(content) + "\n" if len(content) > 0 else ""

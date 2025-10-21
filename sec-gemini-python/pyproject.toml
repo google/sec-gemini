@@ -30,7 +30,30 @@ dev-dependencies = [
 ]
 
 [tool.ruff]
-lint.extend-select = ["I"]
+indent-width = 2
+line-length = 80
+lint.select = [
+    "E", "F", "I", "ICN", "UP", "B", "D",
+]
+
+lint.ignore = [
+    "D203",
+    "D212",
+    "D213",
+    "D406",
+    "D407",
+    "D417",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["your_project_name"]
+
+[tool.ruff.lint.flake8-import-conventions]
+banned-from = ["datetime", "os", "sys"]
+
 
 [tool.mypy]
 plugins = ['pydantic.mypy']

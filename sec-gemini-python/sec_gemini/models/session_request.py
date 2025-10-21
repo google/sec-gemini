@@ -22,22 +22,22 @@ from .message import Message
 
 
 class SessionRequest(BaseModel):
-    """
-    Schema for the request body for triggering a model generation.
-    """
+  """
+  Schema for the request body for triggering a model generation.
+  """
 
-    id: str = Field(
-        default_factory=lambda: uuid4().hex,
-        title="Session ID",
-        description="The Session ID (UUID4) this request belongs to.",
-    )
+  id: str = Field(
+    default_factory=lambda: uuid4().hex,
+    title="Session ID",
+    description="The Session ID (UUID4) this request belongs to.",
+  )
 
-    messages: list[Message] = Field(
-        ..., title="Messages", description="new query messages"
-    )
+  messages: list[Message] = Field(
+    ..., title="Messages", description="new query messages"
+  )
 
-    local_tools: list[LocalTool] = Field(
-        default_factory=list,
-        title="List of local tools",
-        description="List of local tools.",
-    )
+  local_tools: list[LocalTool] = Field(
+    default_factory=list,
+    title="List of local tools",
+    description="List of local tools.",
+  )

@@ -12,19 +12,19 @@ TEST_PDF_URL = "https://elie.net/static/files/retsim-resilient-and-efficient-tex
 
 api_key = os.getenv("SEC_GEMINI_API_KEY", "").strip()
 if api_key == "":
-    print(
-        "ERROR: this example requires a valid api key in the SEC_GEMINI_API_KEY env variable"
-    )
-    sys.exit(1)
+  print(
+    "ERROR: this example requires a valid api key in the SEC_GEMINI_API_KEY env variable"
+  )
+  sys.exit(1)
 
 base_url = os.getenv("SEC_GEMINI_API_HTTP_URL", "https://api.secgemini.google")
 
 print(f'Connecting to "{base_url}"')
 
 client = OpenAI(
-    base_url=base_url,
-    api_key=api_key,
-    max_retries=1,
+  base_url=base_url,
+  api_key=api_key,
+  max_retries=1,
 )
 
 
@@ -36,28 +36,28 @@ b64_file_content = base64.b64encode(res.content).decode("ascii")
 
 
 response = client.chat.completions.create(
-    model="sec-gemini-1.1",
-    messages=[
+  model="sec-gemini-1.1",
+  messages=[
+    {
+      "role": "user",
+      "content": [
         {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": (
-                        "The file in attachment should be about a tool in machine learning. What is the name of the tool?"
-                        "Just output one word, nothing else."
-                    ),
-                },
-                {
-                    "type": "file",
-                    "file": {
-                        "filename": filename,
-                        "file_data": f"data:application/pdf;base64,{b64_file_content}",
-                    },
-                },
-            ],
-        }
-    ],
+          "type": "text",
+          "text": (
+            "The file in attachment should be about a tool in machine learning. What is the name of the tool?"
+            "Just output one word, nothing else."
+          ),
+        },
+        {
+          "type": "file",
+          "file": {
+            "filename": filename,
+            "file_data": f"data:application/pdf;base64,{b64_file_content}",
+          },
+        },
+      ],
+    }
+  ],
 )
 
 print(f"Raw response {response}")
