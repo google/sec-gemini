@@ -15,9 +15,11 @@
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use rmcp::model::JsonObject;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use uuid::Uuid;
+
+use crate::util::{uuid4, uuid4_short};
 
 macro_rules! api {
     (pub enum $Name:ident { $($field:ident,)* }) => {
@@ -77,6 +79,40 @@ macro_rules! api {
 pub const ROOT_ID: &str = "3713";
 
 api! {
+    pub struct LocalTool LocalToolBuilder {
+        pub name: String,
+        pub description: String,
+        pub parameters: LocalToolSchema,
+        pub returns: Option<LocalToolSchema> = None,
+        pub version: Option<String> = None,
+        pub tags: Option<Vec<String>> = None,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LocalToolRequest {
+    pub tool_name: String,
+    pub tool_args: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LocalToolResponse {
+    pub name: String,
+    pub output: String,
+    pub is_error: Option<bool>,
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct LocalToolSchema(pub JsonObject);
+
+impl std::fmt::Debug for LocalToolSchema {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("LocalToolSchema").finish()
+    }
+}
+
+api! {
     pub struct Message MessageBuilder {
         pub id: String = uuid4_short(),
         pub parent_id: String = ROOT_ID.to_string(),
@@ -111,10 +147,13 @@ api! {
         ConfirmationRequest,
         ConfirmationResponse,
         Query,
+        LocalToolCall,
+        LocalToolResult,
     }
 }
 
 pub type MimeType = String; // we don't try to list them at this point
+type ModalityTokenCount = Value; // we don't use them
 
 api! {
     pub struct ModelInfo ModelInfoBuilder {
@@ -156,12 +195,15 @@ api! {
         pub num_messages: u64 = 0,
         pub messages: Vec<Message> = Vec::new(),
         pub usage: Usage = UsageBuilder::new().build(),
-        pub can_log: bool = true,
+        pub can_log: bool,
         pub state: State = State::Start,
         pub files: Vec<PublicSessionFile> = Vec::new(),
+        pub logs_table: Option<PublicLogsTable> = None,
+        pub local_tools: Vec<LocalTool> = Vec::new(),
     }
 }
 
+type PublicLogsTable = Value; // we don't use them
 type PublicSessionFile = Value; // we don't use them
 
 api! {
@@ -223,6 +265,7 @@ api! {
         pub thoughts_total_tokens: u64 = 0,
         #[serde(default)]
         pub tool_use_prompt_token_count: u64 = 0,
+        pub prompt_tokens_details: Option<Vec<ModalityTokenCount>> = None,
     }
 }
 
@@ -246,12 +289,4 @@ api! {
 
 pub fn now() -> f64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64()
-}
-
-fn uuid4() -> String {
-    Uuid::new_v4().as_simple().to_string()
-}
-
-fn uuid4_short() -> String {
-    format!("{:.12x}", Uuid::new_v4().as_simple())
 }

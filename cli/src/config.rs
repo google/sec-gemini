@@ -51,23 +51,21 @@ macro_rules! make {
 
 make!(API_KEY: String = Fallback::Prompt("Sec-Gemini API key"));
 make!(BASE_URL: Url = Fallback::Default("https://api.secgemini.google"));
-make!(SHELL_ENABLE: AutoBool = Fallback::Default("auto"));
-make!(SHELL_TIMEOUT: cyborgtime::Duration = Fallback::Default("3s"));
-make!(SHELL_IDLE_TIME: cyborgtime::Duration = Fallback::Default("500ms"));
-make!(SHELL_AUTO_EXEC: bool = Fallback::Default("false"));
-make!(SHELL_AUTO_READ: bool = Fallback::Default("true"));
-make!(SHELL_AUTO_WRITE: bool = Fallback::Default("true"));
+make!(LOCAL_TOOL_ENABLE: String = Fallback::Default(""));
+make!(LOCAL_TOOL_ASK_BEFORE: LocalToolAsk = Fallback::Default("mutating"));
+make!(LOCAL_TOOL_ASK_AFTER: bool = Fallback::Default("false"));
+make!(LOCAL_TOOL_TIMEOUT: cyborgtime::Duration = Fallback::Default("3s"));
+make!(LOCAL_TOOL_IDLE_TIME: cyborgtime::Duration = Fallback::Default("500ms"));
 make!(SHOW_THINKING: bool = Fallback::Default("false"));
 
 #[derive(Clone, Copy, ValueEnum)]
 pub enum Name {
     ApiKey,
-    ShellEnable,
-    ShellTimeout,
-    ShellIdleTime,
-    ShellAutoExec,
-    ShellAutoRead,
-    ShellAutoWrite,
+    LocalToolEnable,
+    LocalToolAskBefore,
+    LocalToolAskAfter,
+    LocalToolTimeout,
+    LocalToolIdleTime,
     ShowThinking,
 }
 
@@ -75,12 +73,11 @@ impl Name {
     pub fn config(self) -> &'static DynConfig {
         match self {
             Name::ApiKey => &API_KEY.config,
-            Name::ShellEnable => &SHELL_ENABLE.config,
-            Name::ShellTimeout => &SHELL_TIMEOUT.config,
-            Name::ShellIdleTime => &SHELL_IDLE_TIME.config,
-            Name::ShellAutoExec => &SHELL_AUTO_EXEC.config,
-            Name::ShellAutoRead => &SHELL_AUTO_READ.config,
-            Name::ShellAutoWrite => &SHELL_AUTO_WRITE.config,
+            Name::LocalToolEnable => &LOCAL_TOOL_ENABLE.config,
+            Name::LocalToolAskBefore => &LOCAL_TOOL_ASK_BEFORE.config,
+            Name::LocalToolAskAfter => &LOCAL_TOOL_ASK_AFTER.config,
+            Name::LocalToolTimeout => &LOCAL_TOOL_TIMEOUT.config,
+            Name::LocalToolIdleTime => &LOCAL_TOOL_IDLE_TIME.config,
             Name::ShowThinking => &SHOW_THINKING.config,
         }
     }
@@ -99,32 +96,23 @@ pub fn list() -> impl Iterator<Item = &'static DynConfig> {
 }
 
 #[derive(Clone, Copy, ValueEnum)]
-pub enum AutoBool {
-    Auto,
-    False,
-    True,
+pub enum LocalToolAsk {
+    Never,
+    Destructive,
+    Mutating,
+    Always,
 }
 
-impl Display for AutoBool {
+impl Display for LocalToolAsk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_possible_value().unwrap().get_name())
     }
 }
 
-impl FromStr for AutoBool {
+impl FromStr for LocalToolAsk {
     type Err = StrError;
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        <AutoBool as ValueEnum>::from_str(input, true).map_err(StrError)
-    }
-}
-
-impl AutoBool {
-    pub fn guess(self, def: impl Fn() -> bool) -> bool {
-        match self {
-            AutoBool::Auto => def(),
-            AutoBool::False => false,
-            AutoBool::True => true,
-        }
+        <Self as ValueEnum>::from_str(input, true).map_err(StrError)
     }
 }
 

@@ -55,9 +55,17 @@ macro_rules! user_error {
     }};
 }
 
+macro_rules! user_warning {
+    ($($fmt:tt)*) => {{
+        print!("{}: ", "Warning".yellow());
+        println!($($fmt)*);
+    }};
+}
+
 mod cli;
 mod config;
 mod sdk;
+mod tool;
 mod util;
 
 #[tokio::main]

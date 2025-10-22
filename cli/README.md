@@ -55,39 +55,42 @@ Options:
 
           [env: SEC_GEMINI_API_KEY=]
 
-      --shell-enable <SHELL_ENABLE>
-          Whether Sec-Gemini can ask to execute shell commands
+      --local-tool-enable <LOCAL_TOOL_ENABLE>
+          Provides Sec-Gemini access to these local tools.
 
-          [env: SEC_GEMINI_SHELL_ENABLE=]
-          [possible values: auto, false, true]
+          The format is a space- or comma-separated list of tool prefixes optionally
+          preceded by an exclamation mark (to disable instead of enable). The list is
+          evaluated from the first prefix in order until the last prefix. Initially, all
+          tools are assumed enabled.
 
-      --shell-timeout <SHELL_TIMEOUT>
-          How long a shell command can run before sending the output to Sec-Gemini
+          For example, the empty string enables all tools, an exclamation mark disables
+          all tools, !,file,!file_write would only enable file tools (like file_read or file_sha256)
+          that are not file_write, and !net net_tcp would disable network tools except net_tcp
+          ones.
 
-          [env: SEC_GEMINI_SHELL_TIMEOUT=]
+          [env: SEC_GEMINI_LOCAL_TOOL_ENABLE=]
 
-      --shell-idle-time <SHELL_IDLE_TIME>
-          How long a shell command can idle before sending the output to Sec-Gemini
+      --local-tool-ask-before <LOCAL_TOOL_ASK_BEFORE>
+          When to ask before executing a local tool
 
-          [env: SEC_GEMINI_SHELL_IDLE_TIME=]
+          [env: SEC_GEMINI_LOCAL_TOOL_ASK_BEFORE=]
+          [possible values: never, destructive, mutating, always]
 
-      --shell-auto-exec <SHELL_AUTO_EXEC>
-          Whether Sec-Gemini can execute shell commands without confirmation
+      --local-tool-ask-after <LOCAL_TOOL_ASK_AFTER>
+          Whether to ask for sending the response after executing a local tool
 
-          [env: SEC_GEMINI_SHELL_AUTO_EXEC=]
+          [env: SEC_GEMINI_LOCAL_TOOL_ASK_AFTER=]
           [possible values: true, false]
 
-      --shell-auto-read <SHELL_AUTO_READ>
-          Whether Sec-Gemini can read the result of shell commands without confirmation
+      --local-tool-timeout <LOCAL_TOOL_TIMEOUT>
+          How long a local tool can run before sending the output to Sec-Gemini
 
-          [env: SEC_GEMINI_SHELL_AUTO_READ=]
-          [possible values: true, false]
+          [env: SEC_GEMINI_LOCAL_TOOL_TIMEOUT=]
 
-      --shell-auto-write <SHELL_AUTO_WRITE>
-          Whether Sec-Gemini can write input to shell commands without confirmation
+      --local-tool-idle-time <LOCAL_TOOL_IDLE_TIME>
+          How long a local tool can idle before sending the output to Sec-Gemini
 
-          [env: SEC_GEMINI_SHELL_AUTO_WRITE=]
-          [possible values: true, false]
+          [env: SEC_GEMINI_LOCAL_TOOL_IDLE_TIME=]
 
   -h, --help
           Print help (see a summary with '-h')
