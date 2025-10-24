@@ -67,7 +67,7 @@ pub struct ReadRequest {
 }
 
 /// Reads a textual file.
-#[rmcp::tool(name = "file_read")]
+#[rmcp::tool(name = "file_read", annotations(read_only_hint = true))]
 async fn read(params: Parameters<ReadRequest>) -> Result<Json<String>, String> {
     let ReadRequest { path } = params.0;
     let mut file = File::open(&path).await.map_err(|e| e.to_string())?;
