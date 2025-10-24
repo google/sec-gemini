@@ -40,13 +40,13 @@ pub struct Sdk {
     user: PublicUser,
     sessions: Mutex<Vec<PublicSession>>,
     model: ModelInfo,
-    tools: Tools,
 }
 
 pub struct Session {
     id: String,
     sdk: Arc<Sdk>,
     state: Option<SessionState>,
+    tools: Tools,
 }
 
 impl Sdk {
@@ -83,9 +83,7 @@ impl Sdk {
                 println!("Model: {}", model.model_string.green());
             }
             let sessions = Mutex::new(sessions);
-            let mut tools = Tools::list();
-            tools.retain_enabled().await;
-            return Sdk { api_key, http, user, sessions, model, tools };
+            return Sdk { api_key, http, user, sessions, model };
         }
         fail!("no stable model found")
     }
@@ -122,7 +120,10 @@ impl Session {
             name = format!("{}-{}", choose(name::ADJS), choose(name::TERMS));
             println!("Session: {}", name.cyan());
         }
-        let local_tools = (sdk.tools.iter())
+        let enable = crate::tool::Enable::parse().await;
+        let mut tools = Tools::list();
+        tools.retain(|x| enable.check(x));
+        let local_tools = (tools.iter())
             .map(|(name, tool)| {
                 LocalToolBuilder::new(
                     name.to_string(),
@@ -150,11 +151,16 @@ impl Session {
         log::info!("{}", result.status_message);
         let id = session.id.clone();
         sdk.cached_sessions().await.push(session);
-        Session { id, sdk, state: None }
+        Session { id, sdk, state: None, tools }
     }
 
-    pub fn resume(sdk: Arc<Sdk>, id: String) -> Session {
-        Session { id, sdk, state: None }
+    pub fn resume(sdk: Arc<Sdk>, id: String, local_tools: &[LocalTool]) -> Session {
+        let mut tools = Tools::list();
+        tools.retain(|x| local_tools.iter().any(|y| y.name == x));
+        if local_tools.iter().any(|x| tools.get(&x.name).is_none()) {
+            user_warning!("the session expects local tools that are not available");
+        }
+        Session { id, sdk, state: None, tools }
     }
 
     pub async fn delete(sdk: &Sdk, id: &str) -> PublicSession {
@@ -199,7 +205,7 @@ impl Session {
     }
 
     pub fn tool(&self, name: &str) -> Option<&Tool> {
-        self.sdk.tools.get(name)
+        self.tools.get(name)
     }
 
     async fn state(&mut self) -> &mut SessionState {
