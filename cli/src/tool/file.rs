@@ -25,7 +25,6 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::tool::Tools;
-use crate::util::uuid4_short;
 
 pub fn list(tools: &mut Tools) {
     tools.push(read_tool_attr(), read);
@@ -50,32 +49,18 @@ async fn read(params: Parameters<ReadRequest>) -> Result<Json<String>, String> {
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct WriteRequest {
-    path: Option<String>,
+    path: String,
     content: String,
     executable: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
-pub struct WriteResponse {
-    path: String,
-}
-
-/// Writes a textual (possibly temporary) file.
-///
-/// If the `path` field is not provided, a temporary file is created. In all cases, the path of the
-/// written file is returned.
+/// Writes a textual file.
 ///
 /// If the `executable` field is set to `true`, the file is made executable.
 #[rmcp::tool(name = "file_write")]
-async fn write(params: Parameters<WriteRequest>) -> Result<Json<WriteResponse>, String> {
+async fn write(params: Parameters<WriteRequest>) -> Result<Json<String>, String> {
     let WriteRequest { path, content, executable } = params.0;
-    let (mut file, path) = match path {
-        Some(path) => (File::create(&path).await.map_err(|e| e.to_string())?, path),
-        None => {
-            let path = path.unwrap_or_else(|| format!("/tmp/sec-gemini/{}", uuid4_short()));
-            (File::create_new(&path).await.map_err(|e| e.to_string())?, path)
-        }
-    };
+    let mut file = File::create(&path).await.map_err(|e| e.to_string())?;
     if executable.is_some_and(|x| x) {
         #[cfg(not(unix))]
         return Err("executable is only supported on unix".to_string());
@@ -88,7 +73,7 @@ async fn write(params: Parameters<WriteRequest>) -> Result<Json<WriteResponse>, 
         }
     }
     file.write_all(content.as_bytes()).await.map_err(|e| e.to_string())?;
-    Ok(Json(WriteResponse { path }))
+    Ok(Json("done".to_string()))
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]

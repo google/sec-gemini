@@ -44,8 +44,8 @@ pub struct SpawnRequest {
 /// `exec_kill` tool. The initial interaction is built-in by taking the same `stdin` field as
 /// `exec_interact` and returning the same fields.
 ///
-/// This tool can be used together with `file_write` (not giving a `path` and setting `executable`
-/// to create a temporary executable file) to execute a Python or shell script.
+/// This tool can be used together with `file_write` (setting `executable` to create an executable
+/// file) to execute a Python or shell script.
 #[rmcp::tool(name = "exec_spawn")]
 async fn _spawn(_: Parameters<SpawnRequest>) -> Result<Json<InteractResponse>, String> {
     // TODO(https://github.com/modelcontextprotocol/rust-sdk/issues/495): Remove when fixed.
