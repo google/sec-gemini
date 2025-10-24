@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
@@ -209,23 +209,30 @@ impl Options {
 
 async fn get_session(sdk: Arc<Sdk>) -> Session {
     const SESSION_NAME: &str = "sec-gemini query";
+    let enable = crate::tool::Enable::parse().await;
+    let mut tools = crate::tool::Tools::list();
+    tools.retain(|x| enable.check(x));
+    let expected: HashSet<&str> = tools.iter().map(|(x, _)| x).collect();
     let mut best = None;
-    for session in sdk.cached_sessions().await.iter() {
+    let sessions = sdk.cached_sessions().await;
+    for session in sessions.iter() {
         if session.name != SESSION_NAME {
             continue;
         }
+        let actual: HashSet<&str> = session.local_tools.iter().map(|x| x.name.as_str()).collect();
+        if actual != expected {
+            continue;
+        }
         match best {
-            Some((best_time, _)) if session.create_time < best_time => (),
-            _ => best = Some((session.create_time, session.id.clone())),
+            Some((best_time, _, _)) if session.create_time < best_time => (),
+            _ => best = Some((session.create_time, &session.id, &session.local_tools)),
         }
     }
-    if let Some((_, id)) = best {
-        // Ideally, we should not resume a session that has a different set of local tools. There's
-        // 2 options and we need user feedback to decide. Either we provide a flag to force a new
-        // session, or we try to compare the existing session with what a new one would look like.
+    if let Some((_, id, local_tools)) = best {
         log::info!("Resuming existing CLI session.");
-        Session::resume(sdk, id)
+        Session::resume(sdk.clone(), id.clone(), local_tools)
     } else {
+        drop(sessions);
         log::info!("Creating new CLI session.");
         Session::new(sdk, SESSION_NAME.to_string()).await
     }

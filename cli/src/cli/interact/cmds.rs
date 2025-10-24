@@ -531,11 +531,10 @@ fn exec_session_create(mut input: CommandInput<'_>) -> CommandOutput<'_> {
 fn exec_session_resume(input: CommandInput<'_>) -> CommandOutput<'_> {
     Box::pin(async move {
         let name = &input.args["name"];
-        let id = match input.sdk.cached_sessions().await.iter().find(|x| x.name == *name) {
-            Some(session) => session.id.clone(),
+        *input.session = match input.sdk.cached_sessions().await.iter().find(|x| x.name == *name) {
+            Some(x) => Session::resume(input.sdk.clone(), x.id.clone(), &x.local_tools),
             None => return user_error!("no session named {name}"),
         };
-        *input.session = Session::resume(input.sdk.clone(), id);
     })
 }
 

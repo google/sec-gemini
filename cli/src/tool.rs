@@ -90,9 +90,8 @@ impl Tools {
         self.tools.get(name)
     }
 
-    pub async fn retain_enabled(&mut self) {
-        let enable = Enable::parse().await;
-        self.tools.retain(|x, _| enable.check(x));
+    pub fn retain(&mut self, f: impl Fn(&str) -> bool) {
+        self.tools.retain(|x, _| f(x));
     }
 
     fn push<P, R, F>(&mut self, tool: rmcp::model::Tool, call: fn(Parameters<P>) -> F)
