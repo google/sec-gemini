@@ -427,9 +427,8 @@ fn exec_config(mut input: CommandInput<'_>) -> CommandOutput<'_> {
     Box::pin(async move {
         let name = &input.args["name"];
         if name.is_empty() {
-            let width = config::list().map(|x| x.name().len()).max().unwrap();
             for config in config::list() {
-                print_config(Some(width), config).await;
+                print_config(config).await;
             }
             return;
         }
@@ -442,6 +441,9 @@ fn exec_config(mut input: CommandInput<'_>) -> CommandOutput<'_> {
                 let value = input.args.remove("value").unwrap();
                 if let Some(error) = config.validate(&value) {
                     return user_error!("invalid value: {error}");
+                }
+                if config.name() == "local-tool-enable" {
+                    user_warning!("this change will only be effective for new sessions");
                 }
                 DynConfig::set_user(config, value);
             }
@@ -456,16 +458,16 @@ fn exec_config(mut input: CommandInput<'_>) -> CommandOutput<'_> {
             "reset" => config.delete().await,
             x => user_error!("unknown --action={x}"),
         }
-        print_config(None, config).await;
+        print_config(config).await;
     })
 }
 
-async fn print_config(width: Option<usize>, config: &DynConfig) {
-    let width = width.unwrap_or(config.name().len());
-    print!("{:>width$}: ", config.name().purple());
+async fn print_config(config: &DynConfig) {
+    print!("{}: ", config.name().purple());
     let (value, source) = config.get().await;
     match source {
         config::Source::File => return println!("{} (saved)", value.green()),
+        config::Source::None => return println!("{} (default)", value.blue()),
         _ => print!("{} (not saved, ", value.yellow()),
     }
     match config.get_file().await {
@@ -497,10 +499,8 @@ fn exec_multiline(input: CommandInput<'_>) -> CommandOutput<'_> {
 
 fn exec_session_list(input: CommandInput<'_>) -> CommandOutput<'_> {
     Box::pin(async move {
-        match input.args["refresh"].as_str() {
-            "true" => input.sdk.refresh_sessions().await,
-            "false" => (),
-            _ => return user_error!("argument --refresh expects true or false"),
+        if input.args["refresh"].as_str() == "true" {
+            input.sdk.refresh_sessions().await;
         }
         let debug = input.args["debug"].as_str() == "true";
         for session in input.sdk.cached_sessions().await.iter() {
@@ -557,11 +557,31 @@ fn exec_session_delete(input: CommandInput<'_>) -> CommandOutput<'_> {
     })
 }
 
-fn exec_shell(input: CommandInput<'_>) -> CommandOutput<'_> {
+fn exec_tool_list(input: CommandInput<'_>) -> CommandOutput<'_> {
     Box::pin(async move {
-        let command = format!("{}{}", super::shell::EXEC_SHELL_CMD, input.args["command"]);
-        let response = input.this.shell.interpret_result(&command).await.unwrap();
-        input.this.execute_updated(true, &response, input.session).await;
+        if input.args["available"].as_str() == "true" {
+            let enable = crate::tool::Enable::parse().await;
+            let tools_list = crate::tool::Tools::list();
+            let mut tools = Vec::new();
+            for (name, _) in tools_list.iter() {
+                tools.push((name, enable.check(name)));
+            }
+            tools.sort();
+            println!("There are {} available tools:", tools.len());
+            for (tool, enabled) in tools {
+                let enabled = if enabled { " enabled".green() } else { "disabled".yellow() };
+                println!("  {enabled} {tool}");
+            }
+        } else {
+            let sessions = input.sdk.cached_sessions().await;
+            let session = sessions.iter().find(|x| x.id == input.session.id()).unwrap();
+            let mut tools: Vec<_> = session.local_tools.iter().map(|x| &x.name).collect();
+            tools.sort();
+            println!("There are {} tools enabled in the current session:", tools.len());
+            for tool in tools {
+                println!("- {tool}");
+            }
+        }
     })
 }
 
@@ -628,6 +648,9 @@ If the --name argument is an empty string (the default), a name is generated."
        { "delete" "Deletes an existing session.\n
 The current session cannot be deleted."
           exec_session_delete ( "name" : compl_session_name ) } ]
-    { "shell" "Executes a shell command as if Sec-Gemini requested it."
-      exec_shell ( "command" : * ) }
+    [ "tool" "Provides operations on local tools."
+       { "list" "Lists the local tools of the current session.\n
+If --available=true then all available tools are listed."
+          exec_tool_list
+          ( "available" = "false" : "true" "false" ) } ]
 };

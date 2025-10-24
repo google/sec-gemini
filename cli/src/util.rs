@@ -19,6 +19,7 @@ use std::sync::LazyLock;
 use platform_info::{PlatformInfoAPI, UNameAPI};
 use rand::Rng;
 use reqwest::header::{HeaderMap, HeaderValue, IntoHeaderName};
+use uuid::Uuid;
 
 pub static USER_AGENT: LazyLock<String> = LazyLock::new(|| {
     let name = env!("CARGO_PKG_NAME");
@@ -55,4 +56,12 @@ pub async fn remove_file(path: impl AsRef<Path>) -> std::io::Result<()> {
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
         Err(e) => Err(e),
     }
+}
+
+pub fn uuid4() -> String {
+    Uuid::new_v4().as_simple().to_string()
+}
+
+pub fn uuid4_short() -> String {
+    format!("{:.12x}", Uuid::new_v4().as_simple())
 }

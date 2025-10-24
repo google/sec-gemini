@@ -26,6 +26,7 @@ use tokio::task::AbortHandle;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use self::types::*;
+use crate::tool::{Tool, Tools};
 use crate::util::choose;
 use crate::{StrError, config, fail, or_fail};
 
@@ -39,6 +40,7 @@ pub struct Sdk {
     user: PublicUser,
     sessions: Mutex<Vec<PublicSession>>,
     model: ModelInfo,
+    tools: Tools,
 }
 
 pub struct Session {
@@ -81,7 +83,9 @@ impl Sdk {
                 println!("Model: {}", model.model_string.green());
             }
             let sessions = Mutex::new(sessions);
-            return Sdk { api_key, http, user, sessions, model };
+            let mut tools = Tools::list();
+            tools.retain_enabled().await;
+            return Sdk { api_key, http, user, sessions, model, tools };
         }
         fail!("no stable model found")
     }
@@ -118,6 +122,16 @@ impl Session {
             name = format!("{}-{}", choose(name::ADJS), choose(name::TERMS));
             println!("Session: {}", name.cyan());
         }
+        let local_tools = (sdk.tools.iter())
+            .map(|(name, tool)| {
+                LocalToolBuilder::new(
+                    name.to_string(),
+                    tool.desc.clone(),
+                    LocalToolSchema(tool.input.clone()),
+                )
+                .build()
+            })
+            .collect::<Vec<_>>();
         let session = PublicSessionBuilder::new(
             sdk.user.id.clone(),
             sdk.user.org_id.clone(),
@@ -125,8 +139,9 @@ impl Session {
             86400,
             name,
             "no description".to_string(),
+            !sdk.user.never_log,
         )
-        .can_log(!sdk.user.never_log)
+        .local_tools(local_tools)
         .build();
         let result = sdk.session_register(&session).await;
         if !result.ok {
@@ -150,10 +165,9 @@ impl Session {
         session
     }
 
-    pub async fn send(&mut self, prompt: &str) {
-        let message =
-            MessageBuilder::new(MessageType::Query).content(Some(prompt.to_string())).build();
+    pub async fn send_message(&mut self, message: Message) {
         let message = serde_json::to_string(&message).unwrap();
+        log::trace!("sending {message}");
         match self.state().await.sink.send(tungstenite::Message::text(message.clone())).await {
             Ok(()) => return,
             Err(tungstenite::Error::Protocol(
@@ -167,6 +181,13 @@ impl Session {
         );
     }
 
+    pub async fn send(&mut self, prompt: &str) {
+        self.send_message(
+            MessageBuilder::new(MessageType::Query).content(Some(prompt.to_string())).build(),
+        )
+        .await
+    }
+
     pub async fn recv(&mut self) -> Option<Message> {
         self.state().await.recv.recv().await
     }
@@ -175,6 +196,10 @@ impl Session {
         if let Some(state) = self.state.take() {
             state.abort.abort();
         }
+    }
+
+    pub fn tool(&self, name: &str) -> Option<&Tool> {
+        self.sdk.tools.get(name)
     }
 
     async fn state(&mut self) -> &mut SessionState {

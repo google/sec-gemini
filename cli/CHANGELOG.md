@@ -2,8 +2,22 @@
 
 ## 0.0.5-git
 
+### Major
+
+- Remove all shell related functionalities (replaced by the shell local tool)
+
 ### Minor
 
+- Add `--local-tool-enable` to select which local tools to enable
+- Add `--local-tool-ask-before` to select which local tools need confirmation (can be `never` to
+  never ask, `destructive` to only ask for destructive tools, `mutating` to always ask except for
+  read-only tools, and `always` to always ask)
+- Add `--local-tool-ask-after` to configure whether confirmation is needed to send tool responses
+- Add `--local-tool-timeout` to configure the maximum time to wait for a tool output
+- Add `--local-tool-idle-time` to configure the maximum time to wait for a tool output after the
+  last output
+- Add `/config list` to list the local tools enabled in the current session
+- Add `/config list --available=true` to list the available local tools
 - Ensure cached credentials for sudo in a separate step
 
 ### Patch
@@ -84,4 +98,4 @@
 
 No content.
 
-<!-- Increment to skip CHANGELOG.md test: 3 -->
+<!-- Increment to skip CHANGELOG.md test: 4 -->

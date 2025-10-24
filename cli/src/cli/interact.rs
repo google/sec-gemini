@@ -18,17 +18,19 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use colored::Colorize;
+use dialoguer::Input;
 use indicatif::ProgressBar;
 use tokio::task::spawn_blocking;
 use url::Url;
 
 use crate::cli::markdown::try_render_markdown;
-use crate::sdk::types::{MessageType, State};
+use crate::sdk::types::{
+    LocalToolRequest, LocalToolResponse, Message, MessageBuilder, MessageType, State,
+};
 use crate::sdk::{Sdk, Session};
-use crate::{config, or_fail};
+use crate::{config, or_fail, tool};
 
 mod cmds;
-mod shell;
 
 #[derive(clap::Args)]
 pub struct Options {
@@ -40,36 +42,38 @@ pub struct Options {
     #[arg(long, env = "SEC_GEMINI_API_KEY")]
     api_key: Option<String>,
 
-    /// Whether Sec-Gemini can ask to execute shell commands.
-    #[arg(long, env = "SEC_GEMINI_SHELL_ENABLE")]
-    shell_enable: Option<config::AutoBool>,
+    /// Provides Sec-Gemini access to these local tools.
+    ///
+    /// The format is a space- or comma-separated list of tool prefixes optionally preceded by an
+    /// exclamation mark (to disable instead of enable). The list is evaluated from the first
+    /// prefix in order until the last prefix. Initially, all tools are assumed enabled.
+    ///
+    /// For example, the empty string enables all tools, an exclamation mark disables all tools,
+    /// `!,file,!file_write` would only enable `file` tools (like `file_read` or `file_sha256`)
+    /// that are not `file_write`, and `!net net_tcp` would disable network tools except
+    /// `net_tcp` ones.
+    #[arg(long, env = "SEC_GEMINI_LOCAL_TOOL_ENABLE")]
+    local_tool_enable: Option<String>,
 
-    /// How long a shell command can run before sending the output to Sec-Gemini.
-    #[arg(long, env = "SEC_GEMINI_SHELL_TIMEOUT")]
-    shell_timeout: Option<cyborgtime::Duration>,
+    /// When to ask before executing a local tool.
+    #[arg(long, env = "SEC_GEMINI_LOCAL_TOOL_ASK_BEFORE")]
+    local_tool_ask_before: Option<config::LocalToolAsk>,
 
-    /// How long a shell command can idle before sending the output to Sec-Gemini.
-    #[arg(long, env = "SEC_GEMINI_SHELL_IDLE_TIME")]
-    shell_idle_time: Option<cyborgtime::Duration>,
+    /// Whether to ask for sending the response after executing a local tool.
+    #[arg(long, env = "SEC_GEMINI_LOCAL_TOOL_ASK_AFTER")]
+    local_tool_ask_after: Option<bool>,
 
-    /// Whether Sec-Gemini can execute shell commands without confirmation.
-    #[arg(long, env = "SEC_GEMINI_SHELL_AUTO_EXEC")]
-    shell_auto_exec: Option<bool>,
+    /// How long a local tool can run before sending the output to Sec-Gemini.
+    #[arg(long, env = "SEC_GEMINI_LOCAL_TOOL_TIMEOUT")]
+    local_tool_timeout: Option<cyborgtime::Duration>,
 
-    /// Whether Sec-Gemini can read the result of shell commands without confirmation.
-    #[arg(long, env = "SEC_GEMINI_SHELL_AUTO_READ")]
-    shell_auto_read: Option<bool>,
-
-    /// Whether Sec-Gemini can write input to shell commands without confirmation.
-    #[arg(long, env = "SEC_GEMINI_SHELL_AUTO_WRITE")]
-    shell_auto_write: Option<bool>,
+    /// How long a local tool can idle before sending the output to Sec-Gemini.
+    #[arg(long, env = "SEC_GEMINI_LOCAL_TOOL_IDLE_TIME")]
+    local_tool_idle_time: Option<cyborgtime::Duration>,
 
     /// Sec-Gemini base URL.
     #[arg(hide = true, long, env = "SEC_GEMINI_BASE_URL")]
     base_url: Option<Url>,
-
-    #[arg(skip)]
-    shell: shell::State,
 }
 
 impl Options {
@@ -131,23 +135,20 @@ impl Options {
         if let Some(x) = &self.api_key {
             config::API_KEY.set_user(x.clone());
         }
-        if let Some(x) = self.shell_enable {
-            config::SHELL_ENABLE.set_user(x);
+        if let Some(x) = &self.local_tool_enable {
+            config::LOCAL_TOOL_ENABLE.set_user(x.clone());
         }
-        if let Some(x) = self.shell_timeout {
-            config::SHELL_TIMEOUT.set_user(x);
+        if let Some(x) = self.local_tool_ask_before {
+            config::LOCAL_TOOL_ASK_BEFORE.set_user(x);
         }
-        if let Some(x) = self.shell_idle_time {
-            config::SHELL_IDLE_TIME.set_user(x);
+        if let Some(x) = self.local_tool_ask_after {
+            config::LOCAL_TOOL_ASK_AFTER.set_user(x);
         }
-        if let Some(x) = self.shell_auto_exec {
-            config::SHELL_AUTO_EXEC.set_user(x);
+        if let Some(x) = self.local_tool_timeout {
+            config::LOCAL_TOOL_TIMEOUT.set_user(x);
         }
-        if let Some(x) = self.shell_auto_read {
-            config::SHELL_AUTO_READ.set_user(x);
-        }
-        if let Some(x) = self.shell_auto_write {
-            config::SHELL_AUTO_WRITE.set_user(x);
+        if let Some(x) = self.local_tool_idle_time {
+            config::LOCAL_TOOL_IDLE_TIME.set_user(x);
         }
         if let Some(x) = &self.base_url {
             config::BASE_URL.set_user(x.clone());
@@ -155,11 +156,6 @@ impl Options {
     }
 
     async fn execute(&mut self, query: &str, session: &mut Session) {
-        let (enable_shell, query) = self.shell.update_query(query).await;
-        self.execute_updated(enable_shell, &query, session).await;
-    }
-
-    async fn execute_updated(&mut self, enable_shell: bool, query: &str, session: &mut Session) {
         let mut progress = new_progress();
         session.send(query).await;
         set_message(&progress, "Waiting response");
@@ -171,18 +167,17 @@ impl Options {
                     log::warn!("no result before end");
                     break;
                 };
-                if enable_shell {
-                    if let Some(response) = self.shell.interpret_result(&content).await {
-                        progress = new_progress();
-                        session.send(&response).await;
-                        continue;
-                    }
-                }
                 println!("{}", try_render_markdown(&content).trim_end());
                 break;
             }
             let content = message.content.unwrap_or_default();
             match message.message_type {
+                MessageType::LocalToolCall => {
+                    progress.finish_and_clear();
+                    let response = call_tool(&content, session).await;
+                    progress = new_progress();
+                    session.send_message(response).await;
+                }
                 MessageType::Result if message.status_code != 200 => (),
                 MessageType::Result if result.is_some() => log::warn!("multiple results"),
                 MessageType::Result => result = Some(content),
@@ -225,6 +220,9 @@ async fn get_session(sdk: Arc<Sdk>) -> Session {
         }
     }
     if let Some((_, id)) = best {
+        // Ideally, we should not resume a session that has a different set of local tools. There's
+        // 2 options and we need user feedback to decide. Either we provide a flag to force a new
+        // session, or we try to compare the existing session with what a new one would look like.
         log::info!("Resuming existing CLI session.");
         Session::resume(sdk, id)
     } else {
@@ -242,4 +240,134 @@ fn new_progress() -> ProgressBar {
     set_message(&progress, "Sending request");
     progress.enable_steady_tick(Duration::from_millis(200));
     progress
+}
+
+async fn call_tool(content: &str, session: &Session) -> Message {
+    execution_marker("Start");
+    let mut name = String::new();
+    let (output, is_error) = match call_tool_(&mut name, content, session).await {
+        Ok(x) => (x, None),
+        Err(e) => (e, Some(true)),
+    };
+    let mut response = LocalToolResponse { name, output, is_error };
+    let serialized = serde_json::to_string(&response)
+        .or_else(|e| {
+            response.output = e.to_string();
+            response.is_error = Some(true);
+            serde_json::to_string(&response)
+        })
+        .unwrap();
+    let message = MessageBuilder::new(MessageType::LocalToolResult)
+        .content(Some(serialized))
+        .mime_type(Some("text/serialized-json".to_string()))
+        .status_code(if is_error.is_some() { 500 } else { 200 })
+        .build();
+    execution_marker("End");
+    message
+}
+
+async fn call_tool_(name: &mut String, content: &str, session: &Session) -> Result<String, String> {
+    let args: LocalToolRequest = serde_json::from_str(content).map_err(|e| e.to_string())?;
+    *name = args.tool_name;
+    let tool = session.tool(name).ok_or_else(|| "tool not found".to_string())?;
+    let command = format!(
+        "{} {}",
+        name.bold().yellow(),
+        serde_json::to_string(&args.tool_args).unwrap().yellow()
+    );
+    let (kind, do_not_ask) = match tool.effect {
+        tool::Effect::ReadOnly => ("read-only".green(), config::LocalToolAsk::Mutating),
+        tool::Effect::Mutating => ("mutating".yellow(), config::LocalToolAsk::Destructive),
+        tool::Effect::Destructive => ("destructive".red(), config::LocalToolAsk::Never),
+    };
+    println!("Sec-Gemini wants to execute a {kind} local tool on your machine:\n{command}");
+    authorize(&config::LOCAL_TOOL_ASK_BEFORE, |x| authorize_tool(x, tool.effect), do_not_ask)
+        .await?;
+    let result = (tool.call)(args.tool_args).await.and_then(convert_tool_response);
+    let (success, output) = match &result {
+        Ok(x) => ("successful".green(), x.blue()),
+        Err(e) => ("failed".bold().red(), e.blue()),
+    };
+    println!("Sec-Gemini wants to access the result of the {success} execution:\n{output}");
+    authorize(&config::LOCAL_TOOL_ASK_AFTER, |x| !x, false).await?;
+    result
+}
+
+fn convert_tool_response(response: rmcp::Json<serde_json::Value>) -> Result<String, String> {
+    match response.0 {
+        serde_json::Value::String(x) => Ok(x),
+        x => serde_json::to_string(&x).map_err(|e| e.to_string()),
+    }
+}
+
+fn execution_marker(verb: &str) {
+    let line = format!("=== {verb} local tool interaction");
+    println!("{}", line.bold().purple());
+}
+
+async fn authorize<T: Clone + std::str::FromStr + std::fmt::Display>(
+    config: &config::Config<T>, decide: impl FnOnce(T) -> bool, do_not_ask: T,
+) -> Result<(), String>
+where <T as std::str::FromStr>::Err: std::error::Error {
+    let (value, source) = config.get().await;
+    if decide(value.clone()) {
+        println!("Authorized by {}={value} (read from {source})", config.name());
+        return Ok(());
+    }
+    let prompt = format!(
+        "Type {} to authorize ({} to not ask again) or {} to deny",
+        "yes".green(),
+        "always".yellow(),
+        "no".red(),
+    );
+    loop {
+        let value: String = try_to!(
+            "read authorization from terminal",
+            Input::new().with_prompt(&prompt).interact_text(),
+        );
+        match value.as_str() {
+            "yes" => break Ok(()),
+            "always" => {
+                config.set_user(do_not_ask);
+                break Ok(());
+            }
+            "no" => break Err("tool permission denied".to_string()),
+            _ => (),
+        }
+    }
+}
+
+fn authorize_tool(when: config::LocalToolAsk, effect: tool::Effect) -> bool {
+    match when {
+        config::LocalToolAsk::Never => true,
+        config::LocalToolAsk::Destructive => effect != tool::Effect::Destructive,
+        config::LocalToolAsk::Mutating => effect == tool::Effect::ReadOnly,
+        config::LocalToolAsk::Always => false,
+    }
+}
+
+#[test]
+fn authorize_tool_ok() {
+    use config::LocalToolAsk::*;
+    use tool::Effect;
+
+    // Ask never means always authorize.
+    assert!(authorize_tool(Never, Effect::ReadOnly));
+    assert!(authorize_tool(Never, Effect::Mutating));
+    assert!(authorize_tool(Never, Effect::Destructive));
+
+    // Ask destructive means authorize everything but destructive.
+    assert!(authorize_tool(Destructive, Effect::ReadOnly));
+    assert!(authorize_tool(Destructive, Effect::Mutating));
+    assert!(!authorize_tool(Destructive, Effect::Destructive));
+
+    // Ask mutating means only authorize read-only.
+    assert!(authorize_tool(Mutating, Effect::ReadOnly));
+    assert!(!authorize_tool(Mutating, Effect::Mutating));
+    assert!(!authorize_tool(Mutating, Effect::Destructive));
+
+    // Ask always means never authorize.
+    assert!(!authorize_tool(Always, Effect::ReadOnly));
+    assert!(!authorize_tool(Always, Effect::Mutating));
+    assert!(!authorize_tool(Always, Effect::Destructive));
 }
