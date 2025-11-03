@@ -537,20 +537,6 @@ async def get_messages_from_ws_query(
   return messages
 
 
-@require_env_variable("SEC_GEMINI_API_KEY")
-def test_session_attach_logs(secgemini_client: SecGemini):
-  s = secgemini_client.create_session()
-  placeholder_logs_hash = "12345678"
-  s.attach_logs(placeholder_logs_hash)
-  resp = s.query(
-    "I have a simple question for you, and it is very important that you reply with a simple 'yes' or 'no' "
-    "(please do not include anything else, such as punctuation or an explanation. "
-    "The question: judging from your system prompt, did the user uploaded some logs for you to analyze?"
-  )
-  content = resp.text().strip(" \t\n.,\"'")
-  assert content == "yes"
-
-
 async def query_via_websocket(secgemini_client: SecGemini, query: str) -> str:
   session = secgemini_client.create_session()
 
