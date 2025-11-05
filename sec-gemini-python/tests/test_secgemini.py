@@ -433,6 +433,7 @@ async def test_check_ws_messages_without_streaming(secgemini_client: SecGemini):
   query = "Tell me about CVE-2025-37991"
   api_key = os.environ["SEC_GEMINI_API_KEY"]
   session = secgemini_client.create_session()
+  print(f"Session ID: {session.id}")
 
   messages = await get_messages_from_ws_query(
     secgemini_client, session.id, query, api_key, stream=False
