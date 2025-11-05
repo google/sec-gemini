@@ -511,6 +511,7 @@ async def get_messages_from_ws_query(
     uri += "&stream=1"
   messages: list[Message] = []
   async with websockets.connect(uri) as websocket:
+    print(f"Sending message {msg}")
     await websocket.send(msg.model_dump_json())
 
     try:
@@ -518,12 +519,14 @@ async def get_messages_from_ws_query(
         received_msg = Message(
           **json.loads(await asyncio.wait_for(websocket.recv(), timeout=60))
         )
-        # print(received_msg.model_dump())
+        print(f"Received message: {received_msg}")
         messages.append(received_msg)
         if (
           received_msg.message_type == MessageType.INFO
           and received_msg.state == State.END
         ):
+          break
+        if received_msg.status_code != ResponseStatus.OK:
           break
     except asyncio.TimeoutError:
       print("Reached timeout without having received a State.END message")
