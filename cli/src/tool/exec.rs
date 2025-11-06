@@ -35,14 +35,15 @@ pub fn list(tools: &mut Tools) {
 pub struct SpawnRequest {
     program: String,
     arguments: Vec<String>,
-    stdin: String,
+    #[serde(flatten)]
+    interact: InteractRequest,
 }
 
 /// Spawns a process with input and output interaction.
 ///
 /// To interact with the process, use the `exec_interact` tool. To kill the program, use the
-/// `exec_kill` tool. The initial interaction is built-in by taking the same `stdin` field as
-/// `exec_interact` and returning the same fields.
+/// `exec_kill` tool. The initial interaction is built-in by taking the same `stdin` and
+/// `close_stdin` fields as `exec_interact` and returning the same fields.
 ///
 /// This tool can be used together with `file_write` (setting `executable` to create an executable
 /// file) to execute a Python or shell script.
@@ -53,7 +54,7 @@ async fn _spawn(_: Parameters<SpawnRequest>) -> Result<Json<InteractResponse>, S
 }
 
 async fn spawn(params: Parameters<SpawnRequest>) -> Result<Json<InteractResponse>, String> {
-    let SpawnRequest { program, arguments, stdin } = params.0;
+    let SpawnRequest { program, arguments, interact: request } = params.0;
     let mut child = Command::new(program)
         .args(arguments)
         .stdin(Stdio::piped())
@@ -62,18 +63,21 @@ async fn spawn(params: Parameters<SpawnRequest>) -> Result<Json<InteractResponse
         .spawn()
         .map_err(|e| e.to_string())?;
     let running = Running {
-        stdin: child.stdin.take().unwrap(),
+        stdin: Some(child.stdin.take().unwrap()),
         stdout: child.stdout.take().unwrap(),
         stderr: child.stderr.take().unwrap(),
         child,
     };
     *STATE.lock().unwrap() = Some(running);
-    interact(Parameters(InteractRequest { stdin })).await
+    interact(Parameters(request)).await
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct InteractRequest {
+    #[serde(default)]
     stdin: String,
+    #[serde(default)]
+    close_stdin: bool,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -87,12 +91,18 @@ pub struct InteractResponse {
 /// Interacts with a running process in textual form.
 ///
 /// The `stdin` parameter will be written to the standard input of the process. It can be empty if
-/// interacting for output only. In the response, the `running` field indicates whether the process
-/// is still running. When it's not running anymore, the `success` field indicates if it terminated
-/// successfully or not. The `stdout` and `stderr` fields contain the output read from the standard
-/// output and error since the last interaction. The tool will listen for output until some amount
-/// of inactivity or some fixed deadline, whichever happens first. The tool will fail if the process
-/// outputs binary data that is not UTF-8.
+/// interacting for output only. When the `close_stdin` parameter is set, the standard input will be
+/// closed. This is necessary for some programs to start processing. Note that once the standard
+/// input is closed, future interactions must not set `stdin` to non-empty content.
+///
+/// In the response, the `running` field indicates whether the process is still running. When it's
+/// not running anymore, the `success` field indicates if it terminated successfully or not. The
+/// `stdout` and `stderr` fields contain the output read from the standard output and error since
+/// the last interaction.
+///
+/// The tool will listen for output until some amount of inactivity or some fixed deadline,
+/// whichever happens first. The tool will fail if the process outputs binary data that is not
+/// UTF-8.
 #[rmcp::tool(name = "exec_interact")]
 async fn _interact(_: Parameters<InteractRequest>) -> Result<Json<InteractResponse>, String> {
     // TODO(https://github.com/modelcontextprotocol/rust-sdk/issues/495): Remove when fixed.
@@ -101,13 +111,20 @@ async fn _interact(_: Parameters<InteractRequest>) -> Result<Json<InteractRespon
 
 #[allow(clippy::await_holding_lock)]
 async fn interact(params: Parameters<InteractRequest>) -> Result<Json<InteractResponse>, String> {
-    let InteractRequest { stdin } = params.0;
+    let InteractRequest { stdin, close_stdin } = params.0;
     let mut state = STATE.lock().unwrap();
     let Some(running) = &mut *state else {
         return Err("no running process".to_string());
     };
     if !stdin.is_empty() {
-        running.stdin.write_all(stdin.as_bytes()).await.map_err(|e| e.to_string())?;
+        let Some(pipe) = running.stdin.as_mut() else { return Err("stdin is closed".to_string()) };
+        pipe.write_all(stdin.as_bytes()).await.map_err(|e| e.to_string())?;
+    }
+    if close_stdin {
+        let Some(mut pipe) = running.stdin.take() else {
+            return Err("stdin is already closed".to_string());
+        };
+        pipe.shutdown().await.map_err(|e| e.to_string())?;
     }
     const SIZE: usize = 1024;
     let mut stdout = vec![0; SIZE];
@@ -179,7 +196,7 @@ async fn kill(params: Parameters<KillRequest>) -> Result<Json<String>, String> {
 static STATE: Mutex<Option<Running>> = Mutex::new(None);
 
 struct Running {
-    stdin: ChildStdin,
+    stdin: Option<ChildStdin>,
     stdout: ChildStdout,
     stderr: ChildStderr,
     child: Child,

@@ -277,33 +277,75 @@ async fn call_tool_(name: &mut String, content: &str, session: &Session) -> Resu
     let args: LocalToolRequest = serde_json::from_str(content).map_err(|e| e.to_string())?;
     *name = args.tool_name;
     let tool = session.tool(name).ok_or_else(|| "tool not found".to_string())?;
-    let command = format!(
-        "{} {}",
-        name.bold().yellow(),
-        serde_json::to_string(&args.tool_args).unwrap().yellow()
-    );
+    let args = (tool.reorder)(args.tool_args).await?.0;
+    let command = display_tool_request(name, &args);
     let (kind, do_not_ask) = match tool.effect {
         tool::Effect::ReadOnly => ("read-only".green(), config::LocalToolAsk::Mutating),
         tool::Effect::Mutating => ("mutating".yellow(), config::LocalToolAsk::Destructive),
         tool::Effect::Destructive => ("destructive".red(), config::LocalToolAsk::Never),
     };
-    println!("Sec-Gemini wants to execute a {kind} local tool on your machine:\n{command}");
+    print!("Sec-Gemini wants to execute a {kind} local tool on your machine:\n{command}");
     authorize(&config::LOCAL_TOOL_ASK_BEFORE, |x| authorize_tool(x, tool.effect), do_not_ask)
         .await?;
-    let result = (tool.call)(args.tool_args).await.and_then(convert_tool_response);
+    let result = (tool.call)(args).await;
     let (success, output) = match &result {
-        Ok(x) => ("successful".green(), x.blue()),
-        Err(e) => ("failed".bold().red(), e.blue()),
+        Ok(x) => ("successful".green(), display_tool_response(&x.0)),
+        Err(e) => ("failed".bold().red(), format!("{}\n", e.red())),
     };
-    println!("Sec-Gemini wants to access the result of the {success} execution:\n{output}");
+    print!("Sec-Gemini wants to access the result of the {success} execution:\n{output}");
     authorize(&config::LOCAL_TOOL_ASK_AFTER, |x| !x, false).await?;
+    result.map(convert_tool_response)
+}
+
+fn display_tool_request(name: &str, args: &serde_json::Value) -> String {
+    let mut result = format!("{}()\n", name.bold().yellow());
+    if let Some(obj) = args.as_object() {
+        display_json_object(&mut result, colored::Color::Yellow, obj);
+    } else {
+        writeln!(result, " {}", serde_json::to_string(args).unwrap().yellow()).unwrap();
+    }
     result
 }
 
-fn convert_tool_response(response: rmcp::Json<serde_json::Value>) -> Result<String, String> {
+fn display_tool_response(resp: &serde_json::Value) -> String {
+    let mut result = String::new();
+    match resp {
+        serde_json::Value::String(x) => {
+            write!(result, "{}", x.blue()).unwrap();
+            ensure_newline(x, &mut result);
+        }
+        serde_json::Value::Object(x) => display_json_object(&mut result, colored::Color::Blue, x),
+        x => fail!("unexpected response {x:?}"),
+    }
+    result
+}
+
+fn display_json_object(
+    out: &mut String, color: colored::Color, map: &serde_json::Map<String, serde_json::Value>,
+) {
+    for (key, val) in map {
+        write!(out, "{}:", key.bold().color(color)).unwrap();
+        if let Some(val) = val.as_str() {
+            if val.find('\n').is_some_and(|i| i + 1 < val.len()) {
+                write!(out, "\n{}", val.color(color)).unwrap();
+                ensure_newline(val, out);
+                continue;
+            }
+        }
+        writeln!(out, " {}", serde_json::to_string(val).unwrap().color(color)).unwrap();
+    }
+}
+
+fn ensure_newline(val: &str, out: &mut String) {
+    if !val.ends_with('\n') {
+        or_fail(writeln!(out, "%"));
+    }
+}
+
+fn convert_tool_response(response: rmcp::Json<serde_json::Value>) -> String {
     match response.0 {
-        serde_json::Value::String(x) => Ok(x),
-        x => serde_json::to_string(&x).map_err(|e| e.to_string()),
+        serde_json::Value::String(x) => x,
+        x => serde_json::to_string(&x).unwrap(),
     }
 }
 

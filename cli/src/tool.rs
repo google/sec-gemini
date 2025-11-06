@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::pin::Pin;
 
 use rmcp::Json;
@@ -30,12 +30,13 @@ pub type CallOutput<R> = Result<Json<R>, String>;
 pub type CallResult<R> = Pin<Box<dyn Future<Output = CallOutput<R>>>>;
 
 pub struct Tools {
-    tools: HashMap<String, Tool>,
+    tools: BTreeMap<String, Tool>,
 }
 
 pub struct Tool {
     pub desc: String,
     pub input: JsonObject,
+    pub reorder: Box<dyn Fn(Value) -> CallResult<Value> + Send + Sync>,
     pub call: Box<dyn Fn(Value) -> CallResult<Value> + Send + Sync>,
     pub effect: Effect,
 }
@@ -75,7 +76,7 @@ impl Enable {
 
 impl Tools {
     pub fn list() -> Tools {
-        let mut tools = Tools { tools: HashMap::new() };
+        let mut tools = Tools { tools: BTreeMap::new() };
         exec::list(&mut tools);
         file::list(&mut tools);
         net::list(&mut tools);
@@ -96,13 +97,19 @@ impl Tools {
 
     fn push<P, R, F>(&mut self, tool: rmcp::model::Tool, call: fn(Parameters<P>) -> F)
     where
-        P: DeserializeOwned + 'static,
+        P: Serialize + DeserializeOwned + 'static,
         R: Serialize,
         F: Future<Output = CallOutput<R>> + 'static,
     {
         let name = tool.name.to_string();
         let desc = tool.description.map_or(String::new(), |x| x.to_string());
         let input = (*tool.input_schema).clone();
+        let reorder = Box::new(move |x| {
+            Box::pin(async move {
+                let x: P = serde_json::from_value(x).map_err(|e| e.to_string())?;
+                Ok(Json(serde_json::to_value(x).map_err(|e| e.to_string())?))
+            }) as CallResult<Value>
+        });
         let call = Box::new(move |x| {
             Box::pin(async move {
                 let x = serde_json::from_value(x).map_err(|e| e.to_string())?;
@@ -117,7 +124,7 @@ impl Tools {
                 (false, false) => Effect::Mutating,
                 (false, true) => Effect::Destructive,
             };
-        let tool = Tool { desc, input, call, effect };
+        let tool = Tool { desc, input, reorder, call, effect };
         assert!(self.tools.insert(name, tool).is_none());
     }
 }
