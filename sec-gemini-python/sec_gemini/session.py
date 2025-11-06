@@ -30,7 +30,6 @@ from typing import Any
 import httpx
 import websockets
 from mcp.server.fastmcp.tools import Tool
-from rich import print as rprint
 from rich.console import Console
 from rich.tree import Tree
 from tqdm import tqdm
@@ -652,7 +651,6 @@ class InteractiveSession:
   def _execute_tool(self, tool_call_message: Message) -> Message:
     """Executes a tool and returns the output message."""
     tool_call = json.loads(tool_call_message.get_content())
-    rprint(tool_call)
 
     # get the tool name and args using various naming conventions
     tool_name = tool_call.get("tool_name", "")
@@ -666,7 +664,6 @@ class InteractiveSession:
     tool_function = self._local_tool_functions.get(tool_name)
     if not tool_function:
       msg = f"Tool '{tool_name}' not found."
-      rprint(f"[red]{msg}[/red]")
       log.warning(msg)
       error_message = Message(
         role=Role.USER,
@@ -694,7 +691,6 @@ class InteractiveSession:
       return output_message
     except Exception as e:
       msg = f"Tool '{tool_name}' execution failed: {e}"
-      rprint(f"[red]{msg}[/red]")
       log.warning(msg)
       error_message = Message(
         role=Role.USER,
