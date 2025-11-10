@@ -523,31 +523,40 @@ async def test_manual_reconnection_logic(
   # OS/socket but not yet yielded may be lost between the `break` and
   # the resumption. We only guarantee we can re-join and eventually get
   # the final END signal.
-  async for message_idx, message in aenumerate(
-    session.stream(
-      "This is a test query as part of an integration test. Just reply with the term 'fulmicotone', nothing else."
-    )
-  ):
-    messages_via_stream.append(message)
-    if message_idx > 3:
-      rprint(f"Got the first N messages, quitting session {session.id}")
-      break
-    if message.status_code != ResponseStatus.OK or message.state == State.END:
-      break
 
-  await asyncio.sleep(1)
+  stream_gen1 = session.stream(
+    "This is a test query as part of an integration test. Just reply with the term 'fulmicotone', nothing else."
+  )
+  try:
+    async for message_idx, message in aenumerate(stream_gen1):
+      messages_via_stream.append(message)
+      if message_idx > 3:
+        rprint(f"Got the first N messages, quitting session {session.id}")
+        break
+      if message.status_code != ResponseStatus.OK or message.state == State.END:
+        break
+  finally:
+    await stream_gen1.aclose()
+
+  await asyncio.sleep(0.5)
 
   # We connect again to the same session
   new_session = secgemini_client.resume_session(session.id)
   received_ok_end_message = False
-  async for message in new_session.stream(recv_only=True):
-    rprint(message)
-    messages_via_stream.append(message)
-    if message.status_code != ResponseStatus.OK:
-      break
-    if message.status_code == ResponseStatus.OK and message.state == State.END:
-      received_ok_end_message = True
-      break
+  stream_gen2 = new_session.stream(recv_only=True)
+  try:
+    async for message in stream_gen2:
+      rprint(message)
+      messages_via_stream.append(message)
+      if message.status_code != ResponseStatus.OK:
+        break
+      if (
+        message.status_code == ResponseStatus.OK and message.state == State.END
+      ):
+        received_ok_end_message = True
+        break
+  finally:
+    await stream_gen2.aclose()
 
   assert received_ok_end_message
 
@@ -585,8 +594,14 @@ async def get_messages_from_session_stream(
 ) -> list[Message]:
   session = secgemini_client.resume_session(session_id)
   messages: list[Message] = []
-  async for message in session.stream(query):
-    messages.append(message)
+
+  stream_gen = session.stream(query)
+  try:
+    async for message in stream_gen:
+      messages.append(message)
+  finally:
+    await stream_gen.aclose()
+
   return messages
 
 
