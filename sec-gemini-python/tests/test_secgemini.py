@@ -497,7 +497,6 @@ async def test_check_messages_details(
   assert error_num == 0
   if debug_num > 0:
     warnings.warn(f"WARNING: found DEBUG messages: {debug_num=}", stacklevel=2)
-  assert error_num == 0
   assert other_num == 0
   assert end_num == 1
   assert partial_num == 0
