@@ -31,7 +31,7 @@ class NetResponse(BaseModel):
   url: str = Field(title="Request URL")
   ok: bool
   error_message: str = Field("", title="Error Message")
-  data: dict = Field({}, title="Response Data")
+  data: dict = Field(default_factory=dict, title="Response Data")
   latency: float = Field(
     0.0,
     title="Latency",
@@ -45,8 +45,10 @@ class NetworkClient:
     self.api_key = api_key
     self.client = httpx.Client(timeout=90)
 
-  def post(self, endpoint: str, model: T, headers: dict = {}) -> NetResponse:
-    """Post Request to the API
+  def post(
+    self, endpoint: str, model: T, headers: dict | None = None
+  ) -> NetResponse:
+    """Post Request to the API.
 
     Args:
         endpoint: The API endpoint to post to.
@@ -56,6 +58,9 @@ class NetworkClient:
     Returns:
         HTTPResponse: The response from the API.
     """
+    if headers is None:
+      headers = {}
+
     data = model.model_dump()
     url = self._make_url(endpoint)
     headers = self._make_headers(headers)

@@ -120,7 +120,9 @@ class ModelInfo(BaseModel):
 
   @staticmethod
   def parse_model_string(model_string: str) -> tuple[str, str, bool]:
-    """Parse a given model string and splits it in:
+    """Parse a given model string.
+
+    Parsing the model string means splitting in three parts:
     - model_name
     - version
     - use_experimental
