@@ -23,7 +23,7 @@ import os
 import sys
 import traceback
 from base64 import b64encode
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from pathlib import Path
 from typing import Any
 
@@ -459,11 +459,13 @@ class InteractiveSession:
     language: str = "en",
     tools: list[Callable[..., Any]] | None = None,
     mcp_servers: list[str] | None = None,
-  ) -> bool:
-    """Initializes the session
+  ) -> None:
+    """Initializes the session.
 
-    Notes:
-     - usually called via `SecGemini.create_session()`
+    This method is usually called via `SecGemini().create_session()`, it is not
+    meant to be invoked by external clients.
+
+    Raises an exception in case of errors.
     """
     # basic checks
     if ttl < 300:
@@ -531,12 +533,16 @@ class InteractiveSession:
     resp = self.http.post(_EndPoints.REGISTER_SESSION.value, session)
     if not resp.ok:
       log.error("[Session][Register][HTTP]: %s", resp.error_message)
-      return False
+      raise Exception(
+        f"Error when registering the session: {resp.error_message}"
+      )
 
     op_result = OpResult(**resp.data)
     if op_result.status_code != ResponseStatus.OK:
       log.error("[Session][Register][Session]: %s", op_result.status_message)
-      return False
+      raise Exception(
+        f"Error when registering the session: {op_result.status_message}"
+      )
 
     self._session = session
     log.info(
@@ -545,7 +551,7 @@ class InteractiveSession:
       session.name,
     )
 
-    return True
+    return None
 
   def query(self, prompt: str) -> SessionResponse:
     """Classic AI Generation/Completion Request"""
@@ -574,79 +580,148 @@ class InteractiveSession:
 
     return session_resp
 
-  async def stream(self, prompt: str) -> AsyncIterator[Message]:
-    """Streaming Generation/Completion Request.
+  async def stream(
+    self, prompt: str = "", recv_only: bool = False
+  ) -> AsyncGenerator[Message, None]:
+    """Initiates a robust, auto-reconnecting streaming session with the backend.
 
-    At first, we connect to the backend and we send a message encoding the
-    initial user's query. Then, we wait for messages from the backend.
+    This method handles the WebSocket connection lifecycle, including initial
+    handshake, sending the user query, and yielding subsequent messages. It
+    automatically attempts to reconnect if the connection is dropped unexpectedly,
+    ensuring stream continuity without re-sending the initial prompt.
 
-    In most cases, the messages we receive are intended for the end user,
-    e.g., info, thinking, and result messages.
+    Internal "local tool call" requests from the backend are handled automatically
+    and are not yielded to the caller.
 
-    In other cases, the messages encode a request to call a "local tool"
-    ("local" from the perspective of the SDK). In such cases, we execute the
-    requested action (i.e., "calling the tool"), and we send back its output
-    to the backend. Note that we do not yield these messages to the user.
+    Args:
+      prompt: The initial user query to start the session.
+      recv_only: If True, skips sending the prompt. Primarily used for
+                  testing or attaching to existing sessions.
+
+    Yields:
+      Message: Message objects intended for the end user (e.g., info,
+                thinking, or final results).
+
+    Raises:
+      ValueError: If the prompt is invalid.
+      Exception: If streaming fails after the maximum number of retries.
     """
-    if not prompt:
-      raise ValueError("query is required")
+    if not isinstance(prompt, str):
+      raise ValueError("prompt must be a string")
+    if prompt == "" and not recv_only:
+      raise ValueError("prompt is required")
 
     message = self._build_prompt_message(prompt)
     # FIXME: maybe move to http client as it is super specific
     url = f"{self.websocket_url}{_EndPoints.STREAM.value}"
     url += f"?api_key={self.api_key}&session_id={self.id}"
+
+    # LOGIC OVERVIEW:
+    # We use a nested loop structure to handle robust streaming with automatic
+    # retries.
+    # 1. Outer Loop (Connection Manager): Handles establishing the WebSocket
+    # connection and managing retry attempts with exponential backoff if the
+    # connection fails totally.
+    # 2. Inner Loop (Message Stream): actively listens for messages on an open
+    # connection.
+    #
+    # STATE FLAGS:
+    # - `should_send_prompt`: Ensures we only send the user's query once, on the
+    # very first successful connection. If we drop and reconnect, we resume
+    # listening without re-triggering the backend.
+    # - `should_reconnect`: acts as the exit signal. We keep retrying until we
+    # receive an explicit 'END' signal or a non-OK status from the backend.
+
+    log.info(f"Initiating stream for session {self.id}")
+
     max_retries = 5
+    should_reconnect = True
+    should_send_prompt = True
     for attempt in range(max_retries):
       try:
+        log.debug(
+          f"Before connection attempt. {should_reconnect=} {should_send_prompt=}"
+        )
         async with websockets.connect(
           url,
           ping_interval=20,  # seconds
           ping_timeout=20,  # seconds
           close_timeout=60,
         ) as ws:
-          # Send request
-          await ws.send(message.model_dump_json())
+          log.debug("Connection succeeded!")
+          if should_send_prompt and prompt != "":
+            await ws.send(message.model_dump_json())
+            should_send_prompt = False
+            log.debug("Prompt sent!")
+          else:
+            log.debug(
+              f"Skipped sending the prompt. {should_send_prompt=} {prompt=}"
+            )
 
-          # Receiving until end
-          while True:
-            try:
+          # Receiving until a message with State=END or a status_code!=OK, or
+          # until a timeout.
+          try:
+            log.debug("Entering recv loop")
+            while True:
               data = await ws.recv(decode=True)
               msg = Message.from_json(data)
               log.debug(f"Received message {msg}")
-              if msg.status_code != ResponseStatus.OK:
-                log.error(
-                  "[Session][Stream][Response] %d:%s",
-                  msg.status_code,
-                  msg.status_message,
-                )
-                break
 
               # Check if this message is about a tool call; if so,
               # deal with it and reply to the backend without
               # yielding the message -- it's not for the user!
               if msg.message_type == MessageType.LOCAL_TOOL_CALL:
-                log.info(f"Received tool call request: {msg.get_content()!r}")
+                log.debug(f"Received tool call request: {msg.get_content()!r}")
                 tool_output_message = self._execute_tool(msg)
+                log.debug(
+                  f"Sending tool output message: {tool_output_message.get_content()!r}"
+                )
                 await ws.send(tool_output_message.model_dump_json())
+                # We do NOT yield LOCAL_TOOL messages to the client
+                continue
 
               yield msg
-            except Exception as e:
-              log.error("[Session][Stream][Error]: %s", repr(e))
-              break
 
-          # If we are here, there is no need to retry connections. For
-          # well behaving clients of this SDK it doesn't really
-          # matter, as the client would stop iterating on the
-          # AsyncIterator returned by this stream() function, which
-          # would stop these internal iterations and disconnect the
-          # websocket. But still, this "break" should not harm
-          # well-behaving clients, and should help mis-behaving ones.
+              # Check for error messages
+              if msg.status_code != ResponseStatus.OK:
+                log.error(
+                  "[Session][Stream][Response] %d:%s",
+                  msg.status_code,
+                  msg.content,
+                )
+                should_reconnect = False
+                break
+
+              # Check for END messages
+              if msg.state == State.END:
+                log.debug(f"Got message with state END: {msg}")
+                should_reconnect = False
+                break
+
+          except Exception as e:
+            # Something happened, and the websocket can't be trusted anymore. We
+            # log and go back at the beginning of the loop. If appropriate,
+            # we'll reconnect.
+            log.error("[Session][Stream][Error]: %s", repr(e))
+
+        if should_reconnect and (attempt < max_retries):
+          log.error(
+            f"Connection dropped, waiting before attemptint to reconnect, attempt={attempt + 1}"
+          )
+          await asyncio.sleep(1 * (attempt + 1))
+        else:
           break
+
       except Exception as e:
         log.error(f"Connection attempt {attempt + 1} failed: {e}")
         if attempt == max_retries - 1:
           raise e
-        await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
+        await asyncio.sleep(1 * (attempt + 1))
+
+    if should_reconnect:
+      raise Exception("Streaming failed after maximum number of retries.")
+
+    log.info(f"Done processing stream for session {self.id}")
 
   def _execute_tool(self, tool_call_message: Message) -> Message:
     """Executes a tool and returns the output message."""
@@ -884,6 +959,9 @@ class InteractiveSession:
     if self._session is not None:
       int_sess._session = self._session.model_copy()
     return int_sess
+
+  def __str__(self) -> str:
+    return f"<InteractiveSession(id={self.id})>"
 
 
 def _compute_file_hash(file_path: Path) -> str:
