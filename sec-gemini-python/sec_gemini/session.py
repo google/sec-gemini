@@ -718,6 +718,9 @@ class InteractiveSession:
           raise e
         await asyncio.sleep(1 * (attempt + 1))
 
+    if should_reconnect:
+      raise Exception("Streaming failed after maximum number of retries.")
+
     log.info(f"Done processing stream for session {self.id}")
 
   def _execute_tool(self, tool_call_message: Message) -> Message:
