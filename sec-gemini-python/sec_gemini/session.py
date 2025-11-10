@@ -459,11 +459,13 @@ class InteractiveSession:
     language: str = "en",
     tools: list[Callable[..., Any]] | None = None,
     mcp_servers: list[str] | None = None,
-  ) -> bool:
-    """Initializes the session
+  ) -> None:
+    """Initializes the session.
 
-    Notes:
-     - usually called via `SecGemini.create_session()`
+    This method is usually called via `SecGemini().create_session()`, it is not
+    meant to be invoked by external clients.
+
+    Raises an exception in case of errors.
     """
     # basic checks
     if ttl < 300:
@@ -531,12 +533,16 @@ class InteractiveSession:
     resp = self.http.post(_EndPoints.REGISTER_SESSION.value, session)
     if not resp.ok:
       log.error("[Session][Register][HTTP]: %s", resp.error_message)
-      return False
+      raise Exception(
+        f"Error when registering the session: {resp.error_message}"
+      )
 
     op_result = OpResult(**resp.data)
     if op_result.status_code != ResponseStatus.OK:
       log.error("[Session][Register][Session]: %s", op_result.status_message)
-      return False
+      raise Exception(
+        f"Error when registering the session: {op_result.status_message}"
+      )
 
     self._session = session
     log.info(
@@ -545,7 +551,7 @@ class InteractiveSession:
       session.name,
     )
 
-    return True
+    return None
 
   def query(self, prompt: str) -> SessionResponse:
     """Classic AI Generation/Completion Request"""
@@ -884,6 +890,9 @@ class InteractiveSession:
     if self._session is not None:
       int_sess._session = self._session.model_copy()
     return int_sess
+
+  def __str__(self) -> str:
+    return f"<InteractiveSession(id={self.id})>"
 
 
 def _compute_file_hash(file_path: Path) -> str:
