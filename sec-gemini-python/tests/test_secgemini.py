@@ -529,7 +529,7 @@ async def test_manual_reconnection_logic(
   try:
     async for message_idx, message in aenumerate(stream_gen1):
       messages_via_stream.append(message)
-      if message_idx > 3:
+      if message_idx > 1:
         rprint(f"Got the first N messages, quitting session {session.id}")
         break
       if message.status_code != ResponseStatus.OK or message.state == State.END:
