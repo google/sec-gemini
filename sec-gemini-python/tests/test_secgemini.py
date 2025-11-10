@@ -17,13 +17,14 @@ import copy
 import hashlib
 import ipaddress
 import json
-import os
-import traceback
+import warnings
+from collections.abc import AsyncIterable, AsyncIterator
+from typing import TypeVar
 
 import pytest
-import websockets
 from conftest import MOCK_SEC_GEMINI_API_HOST
 from pytest_httpx import HTTPXMock
+from rich import print as rprint
 from utils import (
   async_require_env_variable,
   parse_secgemini_response,
@@ -33,14 +34,14 @@ from utils import (
 from sec_gemini import SecGemini
 from sec_gemini.models.enums import (
   MessageType,
-  MimeType,
   ResponseStatus,
-  Role,
   State,
 )
-from sec_gemini.models.message import ROOT_ID, Message
+from sec_gemini.models.message import Message
 from sec_gemini.models.public import PublicSession, PublicSessionFile, UserInfo
 from sec_gemini.session import InteractiveSession
+
+T = TypeVar("T")
 
 
 def test_user_info_is_received_correctly(
@@ -408,7 +409,7 @@ async def test_simple_query_ws(secgemini_client: SecGemini):
     "This is a test query as part of an automated integration test. "
     "As a reply, please just output the word 'fulmicotone', nothing else."
   )
-  content = await query_via_websocket(secgemini_client, query)
+  content = await get_output_via_session_stream(secgemini_client, query)
   content = parse_secgemini_response(content)
   assert content.find("fulmicotone") >= 0
 
@@ -422,28 +423,38 @@ async def test_query_with_virustotal_tool_malicious_ws(
     "Is file a188ff24aec863479408cee54b337a2fce25b9372ba5573595f7a54b784c65f8 benign or malicious? "
     "Just output one word, 'benign' or 'malicious'. If uncertain, take your best guess."
   )
-  content = await query_via_websocket(secgemini_client, query)
+  content = await get_output_via_session_stream(secgemini_client, query)
   content = parse_secgemini_response(content)
   assert content == "malicious"
 
 
 @pytest.mark.asyncio
 @async_require_env_variable("SEC_GEMINI_API_KEY")
-async def test_check_ws_messages_without_streaming(secgemini_client: SecGemini):
+async def test_check_messages_details(
+  secgemini_client: SecGemini,
+):
+  """Issue a test query and check specifics of the messages."""
   query = "Tell me about CVE-2025-37991"
-  api_key = os.environ["SEC_GEMINI_API_KEY"]
+
   session = secgemini_client.create_session()
   print(f"Session ID: {session.id}")
 
-  messages = await get_messages_from_ws_query(
-    secgemini_client, session.id, query, api_key, stream=False
+  messages = await get_messages_from_session_stream(
+    secgemini_client, session.id, query
   )
+
+  # Under the hood, session.messages does a GET request
+  messages_via_session_get = [
+    m for m in session.messages if m.message_type != MessageType.QUERY
+  ]
+  assert len(messages) == len(messages_via_session_get)
 
   # Stats for message_type
   result_num = 0
   thinking_num = 0
   info_num = 0
   error_num = 0
+  debug_num = 0
   other_num = 0
   # Stats for state
   end_num = 0
@@ -453,7 +464,6 @@ async def test_check_ws_messages_without_streaming(secgemini_client: SecGemini):
   info_end_num = 0
   transfer_to_agent_num = 0
   for message in messages:
-    message.status_code
     if message.message_type == MessageType.RESULT:
       result_num += 1
     elif message.message_type == MessageType.THINKING:
@@ -462,6 +472,8 @@ async def test_check_ws_messages_without_streaming(secgemini_client: SecGemini):
       info_num += 1
     elif message.message_type == MessageType.ERROR:
       error_num += 1
+    elif message.message_type == MessageType.DEBUG:
+      debug_num += 1
     else:
       other_num += 1
 
@@ -483,6 +495,9 @@ async def test_check_ws_messages_without_streaming(secgemini_client: SecGemini):
   assert thinking_num > 0
   assert info_num > 0
   assert error_num == 0
+  if debug_num > 0:
+    warnings.warn(f"WARNING: found DEBUG messages: {debug_num=}", stacklevel=2)
+  assert error_num == 0
   assert other_num == 0
   assert end_num == 1
   assert partial_num == 0
@@ -491,97 +506,104 @@ async def test_check_ws_messages_without_streaming(secgemini_client: SecGemini):
   print("OK")
 
 
-async def get_messages_from_ws_query(
+@pytest.mark.asyncio
+async def test_manual_reconnection_logic(
+  secgemini_client: SecGemini,
+):
+  session = secgemini_client.create_session()
+  messages_via_stream = []
+
+  # SIMULATION: Manual Session Resumption.
+  # We simulate a client stopping consumption (e.g., app closed) and later
+  # resuming via the session ID.
+  #
+  # LIMITATION: This DOES NOT test network-level connection drops or the
+  # internal auto-reconnect logic in `stream()`.
+  # Because we simply stop iterating, messages already buffered by the
+  # OS/socket but not yet yielded may be lost between the `break` and
+  # the resumption. We only guarantee we can re-join and eventually get
+  # the final END signal.
+  async for message_idx, message in aenumerate(
+    session.stream(
+      "This is a test query as part of an integration test. Just reply with the term 'fulmicotone', nothing else."
+    )
+  ):
+    messages_via_stream.append(message)
+    if message_idx > 3:
+      rprint(f"Got the first N messages, quitting session {session.id}")
+      break
+    if message.status_code != ResponseStatus.OK or message.state == State.END:
+      break
+
+  await asyncio.sleep(1)
+
+  # We connect again to the same session
+  new_session = secgemini_client.resume_session(session.id)
+  received_ok_end_message = False
+  async for message in new_session.stream(recv_only=True):
+    rprint(message)
+    messages_via_stream.append(message)
+    if message.status_code != ResponseStatus.OK:
+      break
+    if message.status_code == ResponseStatus.OK and message.state == State.END:
+      received_ok_end_message = True
+      break
+
+  assert received_ok_end_message
+
+
+async def get_output_via_session_stream(
+  secgemini_client: SecGemini, query: str
+) -> str:
+  """Get output from a query and do consistency checks.
+
+  Steps:
+  - Create a session.
+  - Open a stream and get the answer.
+  - After we are done, take all messages via session.get and compare them with
+  the ones obtained via stream.
+  - Extract the output from the messages and return it.
+  """
+  session = secgemini_client.create_session()
+  session_id = session.id
+
+  stream_messages = await get_messages_from_session_stream(
+    secgemini_client, session_id, query
+  )
+  session_get_messages = [
+    m for m in session.messages if m.message_type != MessageType.QUERY
+  ]
+  assert stream_messages == session_get_messages
+
+  return extract_output_from_messages(stream_messages)
+
+
+async def get_messages_from_session_stream(
   secgemini_client: SecGemini,
   session_id: str,
   query: str,
-  api_key: str,
-  stream: bool,
 ) -> list[Message]:
-  msg = Message(
-    id=session_id,
-    parent_id=ROOT_ID,
-    role=Role.USER,
-    mime_type=MimeType.TEXT,
-    message_type=MessageType.QUERY,
-    content=query,
-  )
-
-  uri = f"{secgemini_client.base_websockets_url}/v1/stream?api_key={api_key}&session_id={session_id}"
-  if stream:
-    uri += "&stream=1"
+  session = secgemini_client.resume_session(session_id)
   messages: list[Message] = []
-  async with websockets.connect(uri) as websocket:
-    print(f"Sending message {msg}")
-    await websocket.send(msg.model_dump_json())
-
-    try:
-      while True:
-        received_msg = Message(
-          **json.loads(await asyncio.wait_for(websocket.recv(), timeout=60))
-        )
-        print(f"Received message: {received_msg}")
-        messages.append(received_msg)
-        if (
-          received_msg.message_type == MessageType.INFO
-          and received_msg.state == State.END
-        ):
-          break
-        if received_msg.status_code != ResponseStatus.OK:
-          break
-    except asyncio.TimeoutError:
-      print("Reached timeout without having received a State.END message")
-      raise
-    except Exception:
-      print(
-        f"Exception while sending/receiving messages. {traceback.format_exc()}"
-      )
-      raise
-
+  async for message in session.stream(query):
+    messages.append(message)
   return messages
 
 
-async def query_via_websocket(secgemini_client: SecGemini, query: str) -> str:
-  session = secgemini_client.create_session()
+def extract_output_from_messages(messages: list[Message]) -> str:
+  output = ""
+  for message in messages:
+    if message.message_type == MessageType.RESULT:
+      assert message.content is not None
+      output += message.content
+  return output
 
-  api_key = os.environ["SEC_GEMINI_API_KEY"]
-  session_id = session.id
 
-  msg = Message(
-    id=session.id,
-    parent_id="3713",
-    role=Role.USER,
-    mime_type=MimeType.TEXT,
-    message_type=MessageType.QUERY,
-    content=query,
-  )
-
-  uri = f"{secgemini_client.base_websockets_url}/v1/stream?api_key={api_key}&session_id={session_id}"
-  async with websockets.connect(uri) as websocket:
-    await websocket.send(msg.model_dump_json())
-
-    result_msg = ""
-    try:
-      while True:
-        received_msg = Message(
-          **json.loads(await asyncio.wait_for(websocket.recv(), timeout=30))
-        )
-        print(received_msg.model_dump())
-
-        if received_msg.message_type == MessageType.RESULT:
-          assert received_msg.content is not None
-          result_msg += received_msg.content
-        if (
-          received_msg.message_type == MessageType.INFO
-          and received_msg.state == State.END
-        ):
-          break
-    except asyncio.TimeoutError:
-      print("Reached timeout without having received a State.END message")
-      raise
-    except Exception:
-      print(
-        f"Exception while sending/receiving messages. {traceback.format_exc()}"
-      )
-      raise
-  return result_msg
+async def aenumerate(
+  aiterable: AsyncIterable[T], start=0
+) -> AsyncIterator[tuple[int, T]]:
+  """Asynchronously enumerate an async iterator."""
+  i = start
+  async for item in aiterable:
+    yield i, item
+    i += 1
