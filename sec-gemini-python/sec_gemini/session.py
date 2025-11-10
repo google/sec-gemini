@@ -23,7 +23,7 @@ import os
 import sys
 import traceback
 from base64 import b64encode
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from pathlib import Path
 from typing import Any
 
@@ -582,7 +582,7 @@ class InteractiveSession:
 
   async def stream(
     self, prompt: str = "", recv_only: bool = False
-  ) -> AsyncIterator[Message]:
+  ) -> AsyncGenerator[Message, None]:
     """Initiates a robust, auto-reconnecting streaming session with the backend.
 
     This method handles the WebSocket connection lifecycle, including initial
