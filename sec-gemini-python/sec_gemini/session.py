@@ -459,11 +459,18 @@ class InteractiveSession:
     language: str = "en",
     tools: list[Callable[..., Any]] | None = None,
     mcp_servers: list[str] | None = None,
+    agents_config: dict | None = None,
   ) -> None:
     """Initializes the session.
 
     This method is usually called via `SecGemini().create_session()`, it is not
     meant to be invoked by external clients.
+
+    Args:
+    - agents_config: a key-value store, where the keys are agents' names (as
+    specified in SecGeminiAgent.name), the values are dictionaries that can
+    store arbitrary agent-specifc config.
+    - TODO: document all other arguments.
 
     Raises an exception in case of errors.
     """
@@ -498,6 +505,9 @@ class InteractiveSession:
           f"Remote tools from MCP server '{server}' are not yet supported."
         )
 
+    if agents_config is None:
+      agents_config = {}
+
     if isinstance(model, ModelInfo):
       model_info = model
     elif isinstance(model, str):
@@ -528,6 +538,7 @@ class InteractiveSession:
       logs_table=None,
       state=State.START,
       local_tools=local_tools,
+      agents_config=agents_config,
     )
 
     resp = self.http.post(_EndPoints.REGISTER_SESSION.value, session)
