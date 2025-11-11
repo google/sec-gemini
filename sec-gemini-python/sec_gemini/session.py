@@ -459,7 +459,7 @@ class InteractiveSession:
     language: str = "en",
     tools: list[Callable[..., Any]] | None = None,
     mcp_servers: list[str] | None = None,
-    agents_config: dict | None = None,
+    agents_config: dict[str, dict] | None = None,
   ) -> None:
     """Initializes the session.
 
