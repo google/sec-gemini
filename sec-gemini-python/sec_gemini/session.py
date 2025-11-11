@@ -195,6 +195,13 @@ class InteractiveSession:
     self._refresh_data()
     return self._session.logs_table
 
+  @property
+  def agents_config(self) -> dict[str, dict] | None:
+    """Agents config."""
+    assert self._session is not None
+    self._refresh_data()
+    return self._session.agents_config
+
   def _refresh_data(self) -> None:
     """Refresh the session"""
     if self._session is None:
