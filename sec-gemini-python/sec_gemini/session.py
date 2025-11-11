@@ -467,10 +467,10 @@ class InteractiveSession:
     meant to be invoked by external clients.
 
     Args:
-    - agents_config: a key-value store, where the keys are agents' names (as
-    specified in SecGeminiAgent.name), the values are dictionaries that can
-    store arbitrary agent-specifc config.
-    - TODO: document all other arguments.
+        agents_config (dict[str, dict] | None): A key-value store, where the keys are agents' names (as
+            specified in SecGeminiAgent.name), the values are dictionaries that can
+            store arbitrary agent-specifc config.
+        # TODO: It would be best to document all other arguments here.
 
     Raises an exception in case of errors.
     """
