@@ -3,7 +3,7 @@
 The client must provide a `LogStore` implementation with `describe_logs()` and
 `search_logs()` functions implemented. See code in `logstore.py`. Once this is
 done, the client can invoke sec-gemini with the LogStore-specific tools as
-follow.
+follows.
 
 ```py
 # Initialize LogStore object.

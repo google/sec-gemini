@@ -107,7 +107,7 @@ class LogStore:
         strings as substrings of either the message, enrichment or
         timestamp_desc fields.
       must_not_contain_any_of: Excludes records which contain any of these
-        strings as a substring of the message, enrichement or timestamp_desc
+        strings as a substring of the message, enrichment or timestamp_desc
         fields.
       order_by: The ordering of the results.
     """

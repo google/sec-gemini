@@ -48,6 +48,8 @@ def translate(
   must_not_contain_any_of: list[str] | None,
 ) -> str:
   """Translates constraints to a CLP query fragment."""
+  # Note: This function assumes trusted inputs. Consider rewriting this
+  # using a parametrized SQL query instead for proper arguments escaping.
   parts = [
     "SELECT record_id, log_type, timestamp_micros, timestamp_desc, message,"
     " enrichment FROM records WHERE"

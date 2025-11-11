@@ -19,14 +19,14 @@ class SQLiteStore(ls.LogStore):
     """Initializes a sqlite-backed logstore."""
     if not os.path.exists(sqlite_db_filepath):
       raise ValueError(f"No sqlite db file at: {sqlite_db_filepath}")
-    db_connection = sqlite3.connect(sqlite_db_filepath)
-    cursor = db_connection.cursor()
-    cursor.execute("SELECT COUNT(*) FROM records")
-    if cursor.fetchone()[0] == 0:
-      raise ValueError("Database has no records.")
-    cursor.execute("SELECT COUNT(*) FROM log_descriptions")
-    if cursor.fetchone()[0] == 0:
-      raise ValueError("Database has no log descriptions.")
+    with sqlite3.connect(sqlite_db_filepath) as db_connection:
+      cursor = db_connection.cursor()
+      cursor.execute("SELECT COUNT(*) FROM records")
+      if cursor.fetchone()[0] == 0:
+        raise ValueError("Database has no records.")
+      cursor.execute("SELECT COUNT(*) FROM log_descriptions")
+      if cursor.fetchone()[0] == 0:
+        raise ValueError("Database has no log descriptions.")
     self.sqlite_db_filepath = sqlite_db_filepath
     self.n_records_to_sample = n_records_to_sample
 
@@ -41,9 +41,9 @@ class SQLiteStore(ls.LogStore):
     )
 
   def _sample_records(self) -> dict[str, ls.SearchResult]:
-    db = sqlite3.connect(self.sqlite_db_filepath)
-    cursor = db.cursor()
-    cursor.execute(f"""SELECT log_type, json_group_array(record)
+    with sqlite3.connect(self.sqlite_db_filepath) as db:
+      cursor = db.cursor()
+      cursor.execute(f"""SELECT log_type, json_group_array(record)
 FROM (
   SELECT
     log_type,
@@ -53,38 +53,38 @@ FROM (
   FROM records)
 WHERE rn <= {self.n_records_to_sample}
 GROUP BY log_type""")
-    result = {}
-    for row in cursor.fetchall():
-      log_type, serialized_records = row
-      records = []
-      for serialized_record in json.loads(serialized_records):
-        records.append(
-          self._row_to_log_record_result(json.loads(serialized_record))
+      result = {}
+      for row in cursor.fetchall():
+        log_type, serialized_records = row
+        records = []
+        for serialized_record in json.loads(serialized_records):
+          records.append(
+            self._row_to_log_record_result(json.loads(serialized_record))
+          )
+        result[log_type] = ls.SearchResult(
+          status=ls.ResultStatus.SUCCESS, error_messages=None, results=records
         )
-      result[log_type] = ls.SearchResult(
-        status=ls.ResultStatus.SUCCESS, error_messages=None, results=records
-      )
-    return result
+      return result
 
   def describe_logs(self) -> ls.LogDescriptions:
     """Implementation of the logs description functionality."""
     log_type_to_description = {}
-    db = sqlite3.connect(self.sqlite_db_filepath)
-    cursor = db.cursor()
-    cursor.execute("SELECT log_type, description FROM log_descriptions")
-    for row in cursor.fetchall():
-      log_type_to_description[row[0]] = row[1]
+    with sqlite3.connect(self.sqlite_db_filepath) as db:
+      cursor = db.cursor()
+      cursor.execute("SELECT log_type, description FROM log_descriptions")
+      for row in cursor.fetchall():
+        log_type_to_description[row[0]] = row[1]
 
-    log_type_to_per_day_counts = {}
-    cursor.execute(
-      "SELECT log_type, DATE(timestamp_micros / 1000000, 'unixepoch'),"
-      " COUNT(*) FROM records GROUP BY 1, 2"
-    )
-    for row in cursor.fetchall():
-      log_type, date, count = row
-      if log_type not in log_type_to_per_day_counts:
-        log_type_to_per_day_counts[log_type] = []
-      log_type_to_per_day_counts[log_type].append((date, count))
+      log_type_to_per_day_counts = {}
+      cursor.execute(
+        "SELECT log_type, DATE(timestamp_micros / 1000000, 'unixepoch'),"
+        " COUNT(*) FROM records GROUP BY 1, 2"
+      )
+      for row in cursor.fetchall():
+        log_type, date, count = row
+        if log_type not in log_type_to_per_day_counts:
+          log_type_to_per_day_counts[log_type] = []
+        log_type_to_per_day_counts[log_type].append((date, count))
 
     log_type_to_samples = self._sample_records()
 
@@ -140,14 +140,14 @@ GROUP BY log_type""")
       must_not_contain_any_of,
     )
 
-    db_connection = sqlite3.connect(self.sqlite_db_filepath)
-    cursor = db_connection.cursor()
-    results = cursor.execute(query)
+    with sqlite3.connect(self.sqlite_db_filepath) as db_connection:
+      cursor = db_connection.cursor()
+      results = cursor.execute(query)
 
-    records = []
-    for row in results.fetchall():
-      records.append(self._row_to_log_record_result(row))
+      records = []
+      for row in results.fetchall():
+        records.append(self._row_to_log_record_result(row))
 
-    return ls.SearchResult(
-      status=ls.ResultStatus.SUCCESS, error_messages=None, results=records
-    )
+      return ls.SearchResult(
+        status=ls.ResultStatus.SUCCESS, error_messages=None, results=records
+      )
