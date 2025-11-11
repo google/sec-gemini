@@ -971,7 +971,7 @@ class InteractiveSession:
       int_sess._session = self._session.model_copy()
     return int_sess
 
-  def __str__(self) -> str:
+  def __repr__(self) -> str:
     return f"<InteractiveSession(id={self.id})>"
 
 
