@@ -208,6 +208,12 @@ class PublicSession(BaseModel):
     description="The list of local tools available for this session.",
   )
 
+  agents_config: dict[str, dict] = Field(
+    default_factory=dict,
+    title="Agents config",
+    description="Config, as dict, keyed by agent name",
+  )
+
 
 class PublicLogsTable(BaseModel):
   # Note: using an hash to identify the table is a security feature that

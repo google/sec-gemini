@@ -506,6 +506,33 @@ async def test_check_messages_details(
 
 
 @pytest.mark.asyncio
+async def test_session_agents_config(secgemini_client: SecGemini):
+  # Test with an actual agents_config
+  agents_config = {
+    "agent_one": {"key1": "val1", "key2": "val2"},
+    "agent_two": {"key3": "val3", "key4": "val4"},
+  }
+  session = secgemini_client.create_session(agents_config=agents_config)
+  assert session.agents_config == agents_config
+  new_session = secgemini_client.resume_session(session.id)
+  assert new_session.agents_config == agents_config
+
+  # Test with an empty agents config
+  agents_config = {}
+  session = secgemini_client.create_session(agents_config=agents_config)
+  assert session.agents_config == agents_config
+  new_session = secgemini_client.resume_session(session.id)
+  assert new_session.agents_config == agents_config
+
+  # Test with passing None as agents config
+  agents_config = {}
+  session = secgemini_client.create_session(agents_config=None)
+  assert session.agents_config == agents_config
+  new_session = secgemini_client.resume_session(session.id)
+  assert new_session.agents_config == agents_config
+
+
+@pytest.mark.asyncio
 async def test_manual_reconnection_logic(
   secgemini_client: SecGemini,
 ):
