@@ -191,6 +191,7 @@ class SecGemini:
     language: str = "en",
     tools: list[Callable[..., Any]] | None = None,
     mcp_servers: list[str] | None = None,
+    agents_config: dict[str, dict] | None = None,
   ) -> InteractiveSession:
     """Creates a new session.
 
@@ -203,6 +204,7 @@ class SecGemini:
         language: language to use - defaults to 'en'
         tools: list of functions to be available to the model.
         mcp_servers: list of MCP servers to connect to.
+        agents_config: config for agents, keyed by agent's name.
 
     Returns:
         A new session object.
@@ -224,6 +226,7 @@ class SecGemini:
       description=description,
       tools=tools,
       mcp_servers=mcp_servers,
+      agents_config=agents_config,
     )
     return session
 
