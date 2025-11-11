@@ -208,7 +208,7 @@ class PublicSession(BaseModel):
     description="The list of local tools available for this session.",
   )
 
-  agents_config: dict = Field(
+  agents_config: dict[str, dict] = Field(
     default_factory=dict,
     title="Agents config",
     description="Config, as dict, keyed by agent name",
