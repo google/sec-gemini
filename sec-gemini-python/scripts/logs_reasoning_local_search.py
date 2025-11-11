@@ -41,7 +41,6 @@ async def main():
   )
   parser.add_argument(
     "--n_records_to_sample",
-    nargs=1,
     type=int,
     default=2,
     help=(
