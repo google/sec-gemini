@@ -23,7 +23,6 @@ async def main():
   )
   parser.add_argument(
     "--prompt",
-    required=True,
     type=str,
     default=(
       "Perform a forensics investigation on the provided logs. Determine if"
