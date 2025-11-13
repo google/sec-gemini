@@ -89,7 +89,7 @@ GROUP BY log_type""")
       for row in cursor.fetchall():
         log_type_to_description[row[0]] = row[1]
 
-      log_type_to_per_day_counts = {}
+      log_type_to_per_day_counts: dict[str, list[tuple[str, int]]] = {}
       cursor.execute(
         "SELECT log_type, DATE(timestamp_micros / 1000000, 'unixepoch'),"
         " COUNT(*) FROM records GROUP BY 1, 2"

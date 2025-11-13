@@ -131,9 +131,9 @@ class LogStore:
     """
     raise NotImplementedError()
 
-  def make_tools(self) -> list[Callable]:  # pylint: disable=g-bare-generic
+  def make_tools(self) -> list[Callable[..., str]]:  # pylint: disable=g-bare-generic
     """Returns the tools required for Sec-Gemini's log reasoning capability."""
-    result = []
+    result: list[Callable[..., str]] = []
 
     def sec_gemini_describe_logs() -> str:
       """Internal Sec-Gemini tool."""

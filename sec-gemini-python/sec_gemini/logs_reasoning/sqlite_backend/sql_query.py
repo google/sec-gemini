@@ -51,7 +51,7 @@ def translate(
     " enrichment FROM records "
   ]
   clauses = []
-  params = []
+  params: list[int | str] = []
   if log_type is not None:
     clauses.append("log_type=?")
     params.append(log_type)
