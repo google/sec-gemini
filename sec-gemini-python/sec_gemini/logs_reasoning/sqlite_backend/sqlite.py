@@ -1,3 +1,17 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Local LogStore implementation backed by a SQLite database."""
 
 import datetime
@@ -129,7 +143,7 @@ GROUP BY log_type""")
     else:
       at_or_before_us = None
 
-    query = sq.translate(
+    query, params = sq.translate(
       log_type,
       order_by,
       limit,
@@ -142,7 +156,8 @@ GROUP BY log_type""")
 
     with sqlite3.connect(self.sqlite_db_filepath) as db_connection:
       cursor = db_connection.cursor()
-      results = cursor.execute(query)
+      print(query)
+      results = cursor.execute(query, params)
 
       records = []
       for row in results.fetchall():
