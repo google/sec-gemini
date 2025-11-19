@@ -156,7 +156,6 @@ GROUP BY log_type""")
 
     with sqlite3.connect(self.sqlite_db_filepath) as db_connection:
       cursor = db_connection.cursor()
-      print(query)
       results = cursor.execute(query, params)
 
       records = []
