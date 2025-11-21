@@ -80,6 +80,7 @@ async fn read(params: Parameters<ReadRequest>) -> Result<Json<String>, String> {
 pub struct WriteRequest {
     path: String,
     content: String,
+    #[serde(default)]
     executable: bool,
 }
 
