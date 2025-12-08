@@ -5,7 +5,7 @@ description: Sec-Gemini SDK Typescript Documentation
 
 ## 1. Introduction
 
-The Sec-Gemini SDK provides a streamlined way to interact with Sec-Gemini v1, a new experimental AI model focused on advancing cybersecurity AI frontiers. This Typescript SDK enables developers to access certain methods including:
+The Sec-Gemini SDK provides a streamlined way to interact with Sec-Gemini v1, experimental AI focused on advancing cybersecurity AI frontiers. This Typescript SDK enables developers to access certain methods including:
 
 - Create a session
 - Resume an existing session
