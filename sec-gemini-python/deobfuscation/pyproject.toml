@@ -1,0 +1,36 @@
+[project]
+name = "sec_gemini_deobfuscation"
+version = "0.1.0"
+description = "A suite of deobfuscation tools."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastmcp==2.13.3",
+    "pydantic>=2.10.4",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "mypy>=1.15.0",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=1.0.0",
+    "pytest-httpx>=0.35.0",
+    "ruff>=0.11.11",
+]
+
+[tool.ruff]
+lint.extend-select = ["I"]
+
+[tool.mypy]
+plugins = ['pydantic.mypy']
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.setuptools.packages.find]
+include = ["sec_gemini_deobfuscation*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
