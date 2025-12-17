@@ -23,6 +23,8 @@ jobs:
       - name: Test
         run: uv run -m pytest
         working-directory: sec-gemini-python
+        env:
+          SEC_GEMINI_API_KEY: ${{ secrets.SEC_GEMINI_API_KEY }}
       - name: Publish
         run: uv publish -t ${{ secrets.PYPI_TOKEN }}
         working-directory: sec-gemini-python
