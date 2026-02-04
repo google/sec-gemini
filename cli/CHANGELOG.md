@@ -22,6 +22,7 @@
 
 ### Patch
 
+- Update dependencies
 - Support the new internal message timestamp logic
 - Fix bug where commands don't have time to terminate
 
