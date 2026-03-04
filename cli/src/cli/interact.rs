@@ -182,17 +182,15 @@ impl Options {
                 MessageType::Result if result.is_some() => log::warn!("multiple results"),
                 MessageType::Result => result = Some(content),
                 MessageType::Info => set_message(&progress, &content),
-                MessageType::Thinking => {
-                    if config::SHOW_THINKING.get().await.0 {
-                        let mut thinking = String::new();
-                        write!(thinking, "{}: ", "Thinking".bold().yellow()).unwrap();
-                        if let Some(title) = message.title {
-                            let title = format!("[{title}]");
-                            write!(thinking, "{} ", title.bold().yellow()).unwrap();
-                        }
-                        write!(thinking, "{}", content.trim_end().yellow()).unwrap();
-                        progress.println(thinking);
+                MessageType::Thinking if config::SHOW_THINKING.get().await.0 => {
+                    let mut thinking = String::new();
+                    write!(thinking, "{}: ", "Thinking".bold().yellow()).unwrap();
+                    if let Some(title) = message.title {
+                        let title = format!("[{title}]");
+                        write!(thinking, "{} ", title.bold().yellow()).unwrap();
                     }
+                    write!(thinking, "{}", content.trim_end().yellow()).unwrap();
+                    progress.println(thinking);
                 }
                 MessageType::Error => {
                     let mut error = String::new();

@@ -3,6 +3,8 @@ members = ["cargo:cli"]
 
 # Config for 'dist'
 [dist]
+# Skip checking whether the specified configuration files are up to date
+allow-dirty = ["ci"]
 # The preferred dist version to use in CI (Cargo.toml SemVer syntax)
 cargo-dist-version = "0.28.7-prerelease.1"
 # CI backends to support
