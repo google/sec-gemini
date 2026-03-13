@@ -27,7 +27,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::tool::Tools;
 
 pub fn list(tools: &mut Tools) {
-    tools.push(_list_tool_attr(), _list);
+    tools.push(flist_tool_attr(), flist);
     tools.push(read_tool_attr(), read);
     tools.push(write_tool_attr(), write);
     tools.push(sha256_tool_attr(), sha256);
@@ -47,7 +47,7 @@ pub struct ListResponse {
 ///
 /// In the response, directories are suffixed with a slash like `bin/`.
 #[rmcp::tool(name = "file_list", annotations(read_only_hint = true))]
-async fn _list(params: Parameters<ListRequest>) -> Result<Json<ListResponse>, String> {
+async fn flist(params: Parameters<ListRequest>) -> Result<Json<ListResponse>, String> {
     let ListRequest { path } = params.0;
     let mut names = Vec::new();
     let mut entries = tokio::fs::read_dir(path).await.map_err(|e| e.to_string())?;

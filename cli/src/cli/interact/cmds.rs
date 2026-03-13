@@ -307,14 +307,13 @@ fn quote(mut word: &str) -> Cow<'_, str> {
         return word.into();
     };
     let mut quoted = String::new();
-    if word.starts_with("--") {
-        if let Some(eq) = word.find('=') {
-            if eq < pos {
-                let (prefix, suffix) = word.split_at(eq + 1);
-                quoted = prefix.to_string();
-                word = suffix;
-            }
-        }
+    if word.starts_with("--")
+        && let Some(eq) = word.find('=')
+        && eq < pos
+    {
+        let (prefix, suffix) = word.split_at(eq + 1);
+        quoted = prefix.to_string();
+        word = suffix;
     }
     quoted.push('\'');
     for c in word.chars() {

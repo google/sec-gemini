@@ -25,9 +25,9 @@ use crate::config;
 use crate::tool::Tools;
 
 pub fn list(tools: &mut Tools) {
-    tools.push(_connect_tool_attr(), connect);
-    tools.push(_interact_tool_attr(), interact);
-    tools.push(_close_tool_attr(), close);
+    tools.push(connect_tool_attr(), connect);
+    tools.push(interact_tool_attr(), interact);
+    tools.push(close_tool_attr(), close);
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -42,12 +42,7 @@ pub struct ConnectRequest {
 /// To interact with the connection, use the `net_tcp_interact` tool. To close the connection, use
 /// the `net_tcp_close` tool. The initial interaction is built-in by taking the same `input` field
 /// as `net_tcp_interact` and returning the same fields.
-#[rmcp::tool(name = "net_tcp_connect", annotations(destructive_hint = false))]
-async fn _connect(_: Parameters<ConnectRequest>) -> Result<Json<InteractResponse>, String> {
-    // TODO(https://github.com/modelcontextprotocol/rust-sdk/issues/495): Remove when fixed.
-    unreachable!()
-}
-
+#[rmcp::tool(local, name = "net_tcp_connect", annotations(destructive_hint = false))]
 async fn connect(params: Parameters<ConnectRequest>) -> Result<Json<InteractResponse>, String> {
     let ConnectRequest { host, port, input } = params.0;
     let stream = TcpStream::connect((host, port)).await.map_err(|e| e.to_string())?;
@@ -73,13 +68,8 @@ pub struct InteractResponse {
 ///
 /// The tool will listen until some amount of inactivity or some fixed deadline, whichever happens
 /// first. The tool will fail if the peer sends binary data that is not UTF-8.
-#[rmcp::tool(name = "net_tcp_interact", annotations(destructive_hint = false))]
-async fn _interact(_: Parameters<InteractRequest>) -> Result<Json<InteractResponse>, String> {
-    // TODO(https://github.com/modelcontextprotocol/rust-sdk/issues/495): Remove when fixed.
-    unreachable!()
-}
-
 #[allow(clippy::await_holding_lock)]
+#[rmcp::tool(local, name = "net_tcp_interact", annotations(destructive_hint = false))]
 async fn interact(params: Parameters<InteractRequest>) -> Result<Json<InteractResponse>, String> {
     let InteractRequest { input } = params.0;
     let mut state = STATE.lock().unwrap();
@@ -119,12 +109,8 @@ async fn interact(params: Parameters<InteractRequest>) -> Result<Json<InteractRe
 pub struct CloseRequest {}
 
 /// Closes an open TCP connection.
-#[rmcp::tool(name = "net_tcp_close", annotations(destructive_hint = false))]
-async fn _close(_: Parameters<CloseRequest>) -> Result<Json<String>, String> {
-    unreachable!()
-}
-
 #[allow(clippy::await_holding_lock)]
+#[rmcp::tool(name = "net_tcp_close", annotations(destructive_hint = false))]
 async fn close(params: Parameters<CloseRequest>) -> Result<Json<String>, String> {
     let CloseRequest {} = params.0;
     let Some(mut stream) = STATE.lock().unwrap().take() else {

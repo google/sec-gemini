@@ -30,7 +30,7 @@ opener = "0.7.2"
 platform-info = "2.0.5"
 rand = "0.9.3"
 reqwest = { version = "0.12.15", features = ["json"] }
-rmcp = "0.8.2"
+rmcp = "1.4.0"
 schemars = "1.0.4"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0.140", features = ["preserve_order"] }
@@ -45,8 +45,6 @@ uuid = { version = "1.16.0", features = ["v4"] }
 inherits = "release"
 
 [lints]
-# TODO(https://github.com/rust-lang/rust/issues/53667): Remove when stable.
-clippy.collapsible-if = "allow"
 clippy.mod-module-files = "warn"
 clippy.unit-arg = "allow"
 rust.elided-lifetimes-in-paths = "warn"
