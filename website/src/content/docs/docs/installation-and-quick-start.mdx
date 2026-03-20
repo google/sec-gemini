@@ -1,0 +1,98 @@
+---
+title: Installation & Quick Start
+description: Installation and Quick Start guide
+tableOfContents: true
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Get up and running with Sec-Gemini v3 in just a few minutes! We'll show you how to install the Python SDK and test it with a quick prompt.
+
+## Prerequisites
+
+:::note[Invite Only]
+Sec-Gemini is currently an invite-only platform. Information on this page assumes you have already been invited.
+:::
+
+Before starting, ensure you have an API key. Invited users can visit the [Key Management UI](https://secgemini.google/keys) and log in with their authorized Google account to generate a key.
+
+## Terminal UI (Quickest)
+
+The fastest way to start chatting with Sec-Gemini is through the built-in Terminal User Interface (TUI).
+
+### Install and Run
+
+The most common approach is to install the CLI globally. This allows you to launch the TUI anytime by typing `sec-gemini`.
+
+<Tabs>
+  <TabItem label="pipx">
+  ```bash
+  # Install the package globally
+  pipx install sec-gemini-3
+
+  # Launch the TUI
+  sec-gemini
+  ```
+  </TabItem>
+  <TabItem label="uv">
+  ```bash
+  # Install the package globally
+  uv tool install sec-gemini-3
+
+  # Launch the TUI
+  sec-gemini
+  ```
+  </TabItem>
+</Tabs>
+
+For complete keybindings, run configurations, and architecture, see the [TUI Documentation](./tui.mdx).
+
+## Python SDK
+
+If you want to integrate Sec-Gemini into your own existing scripts or automation workflows, you can configure the Python SDK. Add the package to your project environment via pip or uv:
+
+<Tabs>
+  <TabItem label="pip">
+  ```bash
+  pip install sec-gemini-3
+  ```
+  </TabItem>
+  <TabItem label="uv">
+  ```bash
+  uv add sec-gemini-3
+  ```
+  </TabItem>
+</Tabs>
+
+Creating a session and chatting with Sec-Gemini is simple. All interactions occur within persistent `Sessions` that maintain conversation history.
+
+```python
+import asyncio
+from sec_gemini import SecGemini
+
+async def main():
+    # 1. Initialize the client using your API key
+    client = SecGemini(api_key="YOUR_API_KEY")
+    await client.start()
+
+    try:
+        # 2. Create a new persistent session
+        session = await client.sessions.create()
+
+        # 3. Send a prompt to the agent
+        await session.prompt("Perform a security evaluation of the email configuration for example.com")
+
+        # 4. Stream and process the responses
+        async for msg in session.messages.stream():
+            # You can check msg.message_type to filter specific events
+            print(msg)
+
+    finally:
+        # 5. Clean up the connection
+        await client.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+This snippet initializes a new session and waits for a response from the agent. To learn more about the advanced streaming and state management functionalities (like tool calls and user confirmations), check out the [Python SDK documentation](./python-sdk.md) or see our [Colab demo](./colabs.md).

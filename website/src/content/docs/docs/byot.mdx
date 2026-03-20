@@ -1,0 +1,83 @@
+---
+title: Bring Your Own Tools (BYOT)
+description: Securely connect the cloud AI to local environments
+tableOfContents: true
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+**Bring Your Own Tool (BYOT)** solves a common hurdle in cybersecurity operations: cloud-hosted agents generally cannot reach protected internal networks or local development environments.
+
+With BYOT, Sec-Gemini enables secure, bi-directional tool usage between our cloud-hosted endpoints and *your* local machine or production system. It turns any developer machine with outbound internet access into a secure tunnel for agent tool execution, allowing Sec-Gemini to investigate internal resources without punching holes in your corporate firewall.
+
+## Common Use Cases
+- Triage logs from internal log sources securely behind your firewall.
+- Execute tools onto a suspected compromised machine in an isolated segregated network.
+- Debug hardware devices or test kits connected directly to a researcher's machine.
+
+:::tip
+Ready to try it out? For an interactive walkthrough of Bring Your Own Tools in action, see our [BYOT Colab demo](./colabs.md).
+:::
+
+## How It Works
+
+BYOT avoids requiring incoming internet connections to your network. Instead, you run a lightweight BYOT client locally, which establishes an outbound, persistent gRPC stream to the Sec-Gemini BYOT Hub. All subsequent action requests (like shell commands) or custom Model Context Protocol (MCP) integrations are safely piped back down over this active connection and authenticated using your API key.
+
+## Installation
+
+The BYOT client is distributed as a lightweight CLI package on PyPI.
+
+We recommend running it through a specialized wrapper like `pipx` or `uvx` to avoid polluting your system-level packages:
+
+<Tabs>
+  <TabItem label="pipx">
+  ```bash
+  # Example for Debian/Ubuntu (skip if pipx is already installed)
+  sudo apt install pipx
+
+  # Download and run BYOT client
+  pipx run sec-gemini-byot --api-key <YOUR_API_KEY>
+  ```
+  </TabItem>
+  <TabItem label="uvx">
+  ```bash
+  # Download and run BYOT client
+  uvx sec-gemini-byot --api-key <YOUR_API_KEY>
+  ```
+  </TabItem>
+</Tabs>
+
+Behind the scenes, the client automatically pairs up with your active Sec-Gemini sessions. Any tool calls issued by Sec-Gemini directed to your tunneled BYOT client are securely evaluated on the machine where the `sec-gemini-byot` CLI was executed.
+
+## Usage Guide
+
+The CLI includes specific parameters to connect with customized hubs or multiple active MCP instances:
+
+```text
+usage: sec-gemini-byot [-h] [--name NAME] --api-key API_KEY [--hub HUB]
+                       [--use-default-mcp]
+                       [--additional-mcps ADDITIONAL_MCPS [ADDITIONAL_MCPS ...]]
+```
+
+When you start the tool, your console will show that your agent has registered and is successfully waiting for commands initiated by your sessions through the UI or the Python SDK!
+
+## Admin Controls
+
+Administrators or SDK users wishing to view available, live BYOT worker clients can programmatically query them utilizing Google Cloud authentication with the internal endpoints:
+```python
+import subprocess
+from rich import print
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
+
+def get_mcp_client(api_key):
+  # Programmatically retrieve a gcloud identity token
+  gcloud_token = subprocess.check_output(["gcloud", "auth", "print-identity-token"]).decode("utf-8").strip()
+
+  # Connect proxy to the active Hub instances
+  transport = StreamableHttpTransport(
+      url="<MCP_BYOT_URL>",
+      headers={ "Sec-Gemini-API-Key": api_key }
+  )
+  return Client(transport, auth=gcloud_token)
+```
