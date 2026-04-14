@@ -22,6 +22,7 @@
 
 ### Patch
 
+- Remove `rmcp::tool` work-around by using `local` attribute
 - Fix clippy lints
 - Update dependencies
 - Support the new internal message timestamp logic

@@ -323,12 +323,12 @@ fn display_json_object(
 ) {
     for (key, val) in map {
         write!(out, "{}:", key.bold().color(color)).unwrap();
-        if let Some(val) = val.as_str() {
-            if val.find('\n').is_some_and(|i| i + 1 < val.len()) {
-                write!(out, "\n{}", val.color(color)).unwrap();
-                ensure_newline(val, out);
-                continue;
-            }
+        if let Some(val) = val.as_str()
+            && val.find('\n').is_some_and(|i| i + 1 < val.len())
+        {
+            write!(out, "\n{}", val.color(color)).unwrap();
+            ensure_newline(val, out);
+            continue;
         }
         writeln!(out, " {}", serde_json::to_string(val).unwrap().color(color)).unwrap();
     }

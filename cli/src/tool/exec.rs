@@ -26,9 +26,9 @@ use crate::config;
 use crate::tool::Tools;
 
 pub fn list(tools: &mut Tools) {
-    tools.push(_spawn_tool_attr(), spawn);
-    tools.push(_interact_tool_attr(), interact);
-    tools.push(_kill_tool_attr(), kill);
+    tools.push(spawn_tool_attr(), spawn);
+    tools.push(interact_tool_attr(), interact);
+    tools.push(kill_tool_attr(), kill);
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -47,12 +47,7 @@ pub struct SpawnRequest {
 ///
 /// This tool can be used together with `file_write` (setting `executable` to create an executable
 /// file) to execute a Python or shell script.
-#[rmcp::tool(name = "exec_spawn")]
-async fn _spawn(_: Parameters<SpawnRequest>) -> Result<Json<InteractResponse>, String> {
-    // TODO(https://github.com/modelcontextprotocol/rust-sdk/issues/495): Remove when fixed.
-    unreachable!()
-}
-
+#[rmcp::tool(local, name = "exec_spawn")]
 async fn spawn(params: Parameters<SpawnRequest>) -> Result<Json<InteractResponse>, String> {
     let SpawnRequest { program, arguments, interact: request } = params.0;
     let mut child = Command::new(program)
@@ -103,13 +98,8 @@ pub struct InteractResponse {
 /// The tool will listen for output until some amount of inactivity or some fixed deadline,
 /// whichever happens first. The tool will fail if the process outputs binary data that is not
 /// UTF-8.
-#[rmcp::tool(name = "exec_interact")]
-async fn _interact(_: Parameters<InteractRequest>) -> Result<Json<InteractResponse>, String> {
-    // TODO(https://github.com/modelcontextprotocol/rust-sdk/issues/495): Remove when fixed.
-    unreachable!()
-}
-
 #[allow(clippy::await_holding_lock)]
+#[rmcp::tool(local, name = "exec_interact")]
 async fn interact(params: Parameters<InteractRequest>) -> Result<Json<InteractResponse>, String> {
     let InteractRequest { stdin, close_stdin } = params.0;
     let mut state = STATE.lock().unwrap();
@@ -178,12 +168,8 @@ async fn interact(params: Parameters<InteractRequest>) -> Result<Json<InteractRe
 pub struct KillRequest {}
 
 /// Kills an running process.
-#[rmcp::tool(name = "exec_kill", annotations(destructive_hint = false))]
-async fn _kill(_: Parameters<KillRequest>) -> Result<Json<String>, String> {
-    unreachable!()
-}
-
 #[allow(clippy::await_holding_lock)]
+#[rmcp::tool(name = "exec_kill", annotations(destructive_hint = false))]
 async fn kill(params: Parameters<KillRequest>) -> Result<Json<String>, String> {
     let KillRequest {} = params.0;
     let Some(mut running) = STATE.lock().unwrap().take() else {
