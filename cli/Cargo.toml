@@ -28,7 +28,7 @@ log = "0.4.27"
 markdown = "1.0.0"
 opener = "0.7.2"
 platform-info = "2.0.5"
-rand = "0.9.1"
+rand = "0.9.3"
 reqwest = { version = "0.12.15", features = ["json"] }
 rmcp = "0.8.2"
 schemars = "1.0.4"
