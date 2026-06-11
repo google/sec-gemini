@@ -4,7 +4,7 @@ import sys
 
 import dotenv
 import httpx
-from openai import OpenAI
+import openai
 
 dotenv.load_dotenv()
 
@@ -21,7 +21,7 @@ base_url = os.getenv("SEC_GEMINI_API_HTTP_URL", "https://api.secgemini.google")
 
 print(f'Connecting to "{base_url}"')
 
-client = OpenAI(
+client = openai.OpenAI(
   base_url=base_url,
   api_key=api_key,
   max_retries=1,
