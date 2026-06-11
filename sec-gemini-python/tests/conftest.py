@@ -19,7 +19,8 @@ import time
 import httpx
 import pytest
 from pytest_httpx import HTTPXMock
-from utils import require_env_variable
+
+from .utils import require_env_variable
 
 from sec_gemini import SecGemini
 from sec_gemini.models.enums import State, UserType
