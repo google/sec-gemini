@@ -9,6 +9,8 @@ import rich
 from mcp.server.fastmcp.tools import Tool
 from rich.markdown import Markdown
 
+from .utils import async_require_env_variable
+
 from sec_gemini import SecGemini, State
 from sec_gemini.models.enums import MessageType, MimeType
 from sec_gemini.models.local_tool import LocalTool
@@ -270,6 +272,7 @@ def test_run_all_tool_tests() -> None:
     print()
 
 
+@async_require_env_variable("SEC_GEMINI_API_KEY")
 @pytest.mark.asyncio
 async def test_list_dir_and_sha256_local_tools() -> None:
   """Tests the local tool integration by streaming a prompt that requires file listing and hashing."""
