@@ -1,5 +1,5 @@
 import pytest
-from local_tools_example import (
+from .local_tools_example import (
   delete_file,
   get_disk_size,
   get_ip,
