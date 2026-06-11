@@ -25,7 +25,6 @@ import pytest
 from pytest_httpx import HTTPXMock
 from rich import print as rprint
 
-
 from .conftest import MOCK_SEC_GEMINI_API_HOST
 from .utils import (
   async_require_env_variable,
