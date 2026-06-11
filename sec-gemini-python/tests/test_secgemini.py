@@ -22,10 +22,11 @@ from collections.abc import AsyncIterable, AsyncIterator
 from typing import TypeVar
 
 import pytest
-from conftest import MOCK_SEC_GEMINI_API_HOST
 from pytest_httpx import HTTPXMock
 from rich import print as rprint
-from utils import (
+
+from .conftest import MOCK_SEC_GEMINI_API_HOST
+from .utils import (
   async_require_env_variable,
   parse_secgemini_response,
   require_env_variable,
