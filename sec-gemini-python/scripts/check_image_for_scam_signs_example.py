@@ -6,7 +6,7 @@ from pathlib import Path
 import click
 import dotenv
 import magika
-from openai import OpenAI
+import openai
 
 dotenv.load_dotenv()
 
@@ -29,7 +29,7 @@ def main(file_path: Path) -> None:
 
   print(f'Connecting to "{base_url}"')
 
-  client = OpenAI(
+  client = openai.OpenAI(
     base_url=base_url,
     api_key=api_key,
     max_retries=1,
