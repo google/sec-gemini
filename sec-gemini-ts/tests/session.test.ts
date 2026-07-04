@@ -134,6 +134,20 @@ describe('Session', () => {
     jest.clearAllTimers();
     openedUrl = '';
   });
+  test('should throw error when TTL is below minimum', async () => {
+    const registerPromise = session.register({
+      ttl: 299,
+      model: model,
+    });
+    await expect(registerPromise).rejects.toThrow('TTL must be at least 300 seconds.');
+  });
+  test('should register session when TTL is exactly 300', async () => {
+    const registerPromise = session.register({
+      ttl: 300,
+      model: model,
+    });
+    await expect(registerPromise).resolves.not.toThrow();
+  });
   test('should throw error when registering session', async () => {
     // Throw error during post request to register session.
     registerSession.mockImplementationOnce(() => {
