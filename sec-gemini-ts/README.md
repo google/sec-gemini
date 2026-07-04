@@ -27,7 +27,7 @@ set SEC_GEMINI_API_KEY=your_key_here && npm run demo
 $env:SEC_GEMINI_API_KEY="your_key_here" && npm run demo
 ```
 
-## Developement
+## Development
 
 ### Install dependencies
 
@@ -56,7 +56,7 @@ npm link sec-gemini
 npm run build
 ```
 
-### Runing tests
+### Running tests
 
 ```bash
 npm run test
