@@ -286,8 +286,8 @@ export class InteractiveSession {
     } = options;
 
     // --- Validation ---
-    if (ttl <= MIN_TTL_SECONDS) {
-      throw new Error(`TTL must be greater than ${MIN_TTL_SECONDS} seconds.`);
+    if (ttl < MIN_TTL_SECONDS) {
+      throw new Error(`TTL must be at least ${MIN_TTL_SECONDS} seconds.`);
     }
     if (!model || !model.model_string) {
       throw new Error('Valid ModelInfoInput object is required for registration.');
@@ -499,8 +499,8 @@ export class InteractiveSession {
 
     // Apply TTL update logic
     if (ttl > 0) {
-      if (ttl <= MIN_TTL_SECONDS) {
-        throw new Error(`TTL must be greater than ${MIN_TTL_SECONDS} seconds`);
+      if (ttl < MIN_TTL_SECONDS) {
+        throw new Error(`TTL must be at least ${MIN_TTL_SECONDS} seconds`);
       }
       updatePayload.ttl = ttl;
     }
