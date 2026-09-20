@@ -103,7 +103,6 @@ class Usage(BaseModel):
       self.cached_token_count += subusage.cached_token_count
       self.thoughts_token_count += subusage.thoughts_token_count
       self.tool_use_prompt_token_count += subusage.tool_use_prompt_token_count
-      self.total_tokens += subusage.cached_token_count
 
   def __repr__(self):
     return (
