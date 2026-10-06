@@ -65,7 +65,14 @@ class NetworkClient:
     url = self._make_url(endpoint)
     headers = self._make_headers(headers)
 
-    logging.debug("POST URL: %s, Headers:%s", url, headers)
+    # Headers have x-api-key, which is API key. So skip loggig it.
+    if "x-api-key" in headers:
+      masked_headers = headers.copy()
+      masked_headers["x-api-key"] = "***"
+      logging.debug("POST URL: %s, Headers:%s", url, masked_headers)
+      del masked_headers
+    else:
+      logging.debug("POST URL: %s, Headers:%s", url, headers)
     logging.debug("Request: %s", model.model_dump_json())
     start_time = time()
     response = self.client.post(url, headers=headers, json=data)
@@ -100,7 +107,14 @@ class NetworkClient:
     url = self._make_url(endpoint)
     headers = self._make_headers(headers)
 
-    logging.debug("GET URL: %s, Headers:%s", url, headers)
+    # Headers have x-api-key, which is API key. So skip loggig it.
+    if "x-api-key" in headers:
+      masked_headers = headers.copy()
+      masked_headers["x-api-key"] = "***"
+      logging.debug("GET URL: %s, Headers:%s", url, masked_headers)
+      del masked_headers
+    else:
+      logging.debug("GET URL: %s, Headers:%s", url, headers)
     logging.debug("Request: %s", json.dumps(query_params))
 
     start_time = time()
