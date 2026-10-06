@@ -85,7 +85,10 @@ class NetworkClient:
     return nr
 
   def get(
-    self, endpoint: str, query_params: dict = {}, headers: dict = {}
+    self,
+    endpoint: str,
+    query_params: dict | None = None,
+    headers: dict | None = None,
   ) -> NetResponse:
     """Get Request to the API
 
@@ -97,6 +100,8 @@ class NetworkClient:
     Returns:
         HTTPResponse: The response from the API.
     """
+    if query_params is None:
+      query_params = {}
     url = self._make_url(endpoint)
     headers = self._make_headers(headers)
 
@@ -123,11 +128,11 @@ class NetworkClient:
   def _make_url(self, endpoint: str) -> str:
     return f"{self.base_url}/{endpoint.lstrip('/')}"
 
-  def _make_headers(self, headers: dict) -> dict:
+  def _make_headers(self, headers: dict | None) -> dict:
     # User-Agent: Mozilla/5.0 (<system-information>) <platform> (<platform-details>) <extensions>
 
     # request specific headers
-    headers = headers or {}
+    headers_copy = dict(headers) if headers else {}
 
     additional_headers = {
       "User-Agent": f"{SDKInfo.NAME.value}/{SDKInfo.VERSION.value} ({sys.platform}) {sys.version} ({sys.version_info})",
@@ -136,8 +141,8 @@ class NetworkClient:
       "x-api-key": self.api_key,
       "Content-Type": "application/json",
     }
-    headers.update(additional_headers)
-    return headers
+    headers_copy.update(additional_headers)
+    return headers_copy
 
   def _make_error_message(self, url: str, response: httpx.Response) -> str:
     return f"[HTTP] {url} -> {response.status_code}:{response.text}"
