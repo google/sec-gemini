@@ -1,33 +1,23 @@
-# Sec-Gemini SDKs
+# Sec-Gemini Notebooks
 
-This repository hosts SDKs for Sec-Gemini, an experimental cybersecurity-focused AI from Google.
+This repository hosts interactive Jupyter / Google Colab notebooks for
+[Sec-Gemini](https://secgemini.google), an experimental cybersecurity-focused AI
+from Google.
 
-## SDKs
+## Notebooks
 
-SDKs are available for:
+| Notebook | Description | Colab |
+| --- | --- | --- |
+| [`basic_sdk_usage.ipynb`](notebook/basic_sdk_usage.ipynb) | Connect, create sessions, send prompts, stream responses, and upload files | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google/sec-gemini/blob/main/notebook/basic_sdk_usage.ipynb) |
+| [`sdk_byot_custom_mcp.ipynb`](notebook/sdk_byot_custom_mcp.ipynb) | Combine baseline local tools and a custom FastMCP server via Bring-Your-Own-Tools (BYOT) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google/sec-gemini/blob/main/notebook/sdk_byot_custom_mcp.ipynb) |
+| [`skills_usage.ipynb`](notebook/skills_usage.ipynb) | Create, upload, and apply custom skills in sessions | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google/sec-gemini/blob/main/notebook/skills_usage.ipynb) |
+| [`dfir_investigation.ipynb`](notebook/dfir_investigation.ipynb) | Run digital forensics and log analysis workflows with the SDK and BYOT | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google/sec-gemini/blob/main/notebook/dfir_investigation.ipynb) |
 
-* Python in `sec-gemini-python/`
-* TypeScript in `sec-gemini-ts/`
+## SDK & Documentation
 
-We also have a web component to ease integration on your website. Here's how to load it:
-
-```html
-<sec-gem-chat
-      incognito="true"
-      session-id=""
-      session-name="TestName"
-      session-description="TestDescription"
-      session-prompt=""
-      theme="dark"
-      api-key="..."
-    >
-    </sec-gem-chat>
-<script src='https://cdn.jsdelivr.net/npm/sec-gemini-web-component/dist/swc.iife.js'>
-```
-
-## Website
-
-For more information on Sec-Gemini, visit [https://secgemini.google](https://secgemini.google).
+* **Documentation:** [https://docs.secgemini.google](https://docs.secgemini.google)
+* **Python SDK & TUI:** [`sec-gemini` on PyPI](https://pypi.org/project/sec-gemini/) (`pip install sec-gemini`)
+* **Website:** [https://secgemini.google](https://secgemini.google)
 
 ## Disclaimer
 
