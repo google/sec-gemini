@@ -3,8 +3,4 @@ tmp/
 .env
 .venv
 *.swp
-
-// JS
-node_modules/
-dist/
-.svelte-kit/
+.ipynb_checkpoints/

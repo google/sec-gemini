@@ -1,5 +1,0 @@
-help:
-    just -l
-
-run-all-tests:
-    uv run ./scripts/check_source.sh && uv run -m pytest && uv run ./scripts/basic_openai_example.py && uv run ./scripts/basic_example.py

@@ -1,9 +1,0 @@
-archive
-node_modules
-dist
-coverage
-dev
-tmp
-.DS_Store
-*.js
-*.map
