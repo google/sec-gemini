@@ -1,8 +1,6 @@
-# Sec-Gemini Notebooks
+# Sec-Gemini
 
-This repository hosts interactive Jupyter / Google Colab notebooks for
-[Sec-Gemini](https://secgemini.google), an experimental cybersecurity-focused AI
-from Google.
+[Sec-Gemini](https://secgemini.google) is an experimental cybersecurity-focused agent by Google. It is currently in an invite-only trusted-tester phase.
 
 ## Notebooks
 
